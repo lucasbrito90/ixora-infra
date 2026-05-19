@@ -17,6 +17,7 @@ resource "digitalocean_database_cluster" "postgres" {
 }
 
 # Allow only the Laravel App Platform app to reach the database cluster (no public ingress rule).
+# Rule type `app` + the app's ID trusts the whole App (all components), not only the `api` service.
 resource "digitalocean_database_firewall" "postgres" {
   cluster_id = digitalocean_database_cluster.postgres.id
 
