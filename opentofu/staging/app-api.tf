@@ -71,7 +71,11 @@ resource "digitalocean_app" "api" {
       }
     }
 
-    worker {
+    # Background queue processor: implemented as a non-routed **service** (not a worker) so it
+    # joins the same App Platform VPC attachment as `api`. Worker components do not support a
+    # per-component `vpc` block in the Terraform provider and (in practice) may not reach
+    # DBaaS private_host like services do. No `ingress` rule → not exposed on the public load balancer.
+    service {
       name               = "queue"
       instance_count     = 1
       instance_size_slug = "basic-xxs"
