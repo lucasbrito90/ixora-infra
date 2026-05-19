@@ -1,0 +1,16 @@
+# OpenTofu / Terraform — never commit working state or secrets
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+*.auto.tfvars
+*.auto.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Keep `.terraform.lock.hcl` committed for reproducible provider versions (see README).
