@@ -131,20 +131,20 @@ resource "digitalocean_app" "api" {
       }
 
       dynamic "env" {
-        for_each = var.api_do_spaces_key != "" ? { DO_SPACES_KEY = var.api_do_spaces_key } : {}
+        for_each = trimspace(var.api_do_spaces_key) != "" ? toset(["DO_SPACES_KEY"]) : toset([])
         content {
           key   = env.key
-          value = env.value
+          value = var.api_do_spaces_key
           type  = "SECRET"
           scope = "RUN_TIME"
         }
       }
 
       dynamic "env" {
-        for_each = var.api_do_spaces_secret != "" ? { DO_SPACES_SECRET = var.api_do_spaces_secret } : {}
+        for_each = trimspace(var.api_do_spaces_secret) != "" ? toset(["DO_SPACES_SECRET"]) : toset([])
         content {
           key   = env.key
-          value = env.value
+          value = var.api_do_spaces_secret
           type  = "SECRET"
           scope = "RUN_TIME"
         }
@@ -152,60 +152,60 @@ resource "digitalocean_app" "api" {
 
       # ── Optional secrets supplied via variables / TF_VAR ──────────────────
       dynamic "env" {
-        for_each = var.api_app_key != "" ? { APP_KEY = var.api_app_key } : {}
+        for_each = trimspace(var.api_app_key) != "" ? toset(["APP_KEY"]) : toset([])
         content {
           key   = env.key
-          value = env.value
+          value = var.api_app_key
           type  = "SECRET"
           scope = "RUN_TIME"
         }
       }
 
       dynamic "env" {
-        for_each = var.api_firebase_service_account_json != "" ? { FIREBASE_SERVICE_ACCOUNT_JSON = var.api_firebase_service_account_json } : {}
+        for_each = trimspace(var.api_firebase_service_account_json) != "" ? toset(["FIREBASE_SERVICE_ACCOUNT_JSON"]) : toset([])
         content {
           key   = env.key
-          value = env.value
+          value = var.api_firebase_service_account_json
           type  = "SECRET"
           scope = "RUN_TIME"
         }
       }
 
       dynamic "env" {
-        for_each = var.api_mail_password != "" ? { MAIL_PASSWORD = var.api_mail_password } : {}
+        for_each = trimspace(var.api_mail_password) != "" ? toset(["MAIL_PASSWORD"]) : toset([])
         content {
           key   = env.key
-          value = env.value
+          value = var.api_mail_password
           type  = "SECRET"
           scope = "RUN_TIME"
         }
       }
 
       dynamic "env" {
-        for_each = var.admin_access_review_email != "" ? { ADMIN_ACCESS_REVIEW_EMAIL = var.admin_access_review_email } : {}
+        for_each = trimspace(var.admin_access_review_email) != "" ? toset(["ADMIN_ACCESS_REVIEW_EMAIL"]) : toset([])
         content {
           key   = env.key
-          value = env.value
+          value = var.admin_access_review_email
           type  = "GENERAL"
           scope = "RUN_TIME"
         }
       }
 
       dynamic "env" {
-        for_each = var.api_env_general
+        for_each = toset(keys(var.api_env_general))
         content {
           key   = env.key
-          value = env.value
+          value = var.api_env_general[env.key]
           type  = "GENERAL"
           scope = "RUN_TIME"
         }
       }
 
       dynamic "env" {
-        for_each = var.api_secrets_extra
+        for_each = toset(nonsensitive(keys(var.api_secrets_extra)))
         content {
           key   = env.key
-          value = env.value
+          value = var.api_secrets_extra[env.key]
           type  = "SECRET"
           scope = "RUN_TIME"
         }

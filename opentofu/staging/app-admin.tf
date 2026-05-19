@@ -22,13 +22,13 @@ resource "digitalocean_app" "admin" {
       dynamic "env" {
         for_each = {
           for k, v in {
-            NUXT_PUBLIC_API_BASE_URL                  = var.nuxt_public_api_base_url
-            NUXT_PUBLIC_FIREBASE_API_KEY              = var.nuxt_public_firebase_api_key
-            NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN          = var.nuxt_public_firebase_auth_domain
-            NUXT_PUBLIC_FIREBASE_PROJECT_ID           = var.nuxt_public_firebase_project_id
-            NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET       = var.nuxt_public_firebase_storage_bucket
-            NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID  = var.nuxt_public_firebase_messaging_sender_id
-            NUXT_PUBLIC_FIREBASE_APP_ID               = var.nuxt_public_firebase_app_id
+            NUXT_PUBLIC_API_BASE_URL                 = var.nuxt_public_api_base_url
+            NUXT_PUBLIC_FIREBASE_API_KEY             = var.nuxt_public_firebase_api_key
+            NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN         = var.nuxt_public_firebase_auth_domain
+            NUXT_PUBLIC_FIREBASE_PROJECT_ID          = var.nuxt_public_firebase_project_id
+            NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET      = var.nuxt_public_firebase_storage_bucket
+            NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = var.nuxt_public_firebase_messaging_sender_id
+            NUXT_PUBLIC_FIREBASE_APP_ID              = var.nuxt_public_firebase_app_id
           } : k => v if trimspace(v) != ""
         }
         content {
