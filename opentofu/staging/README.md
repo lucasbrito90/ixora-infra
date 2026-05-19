@@ -7,7 +7,7 @@ Declarative **staging** footprint on **DigitalOcean** (Toronto `tor1` / App Plat
 | VPC | `digitalocean_vpc` |
 | PostgreSQL | Managed cluster in VPC, **no Droplets** |
 | Spaces | Private ACL bucket (optional via `manage_spaces_bucket`) |
-| Laravel API | App Platform **service** (`Dockerfile` build) |
+| Laravel API | App Platform **service** `api` (web) + **worker** `queue` (`queue:work`, same image/env) |
 | Nuxt Admin | App Platform **static site** (`npm run generate`) |
 | Custom domains | Declared on apps; DNS steps documented |
 
@@ -75,7 +75,7 @@ tofu apply
 Staging is sized for **low cost**, not HA:
 
 - Single-node Postgres (`db_node_size`, default `db-s-1vcpu-1gb`).
-- API on **`basic-xxs`** App Platform instance.
+- API **web** + **`queue` worker** each use a **`basic-xxs`** component (worker has no HTTP port).
 - Static site pricing is modest vs always-on containers.
 
 Check current DigitalOcean pricing pages — amounts change.
