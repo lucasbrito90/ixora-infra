@@ -1,3 +1,35 @@
+locals {
+  # Shared RUN_TIME env for Laravel API (web) and queue worker — single source of truth.
+  api_worker_runtime_env = concat(
+    [
+      { key = "APP_NAME", value = "Ixora", type = "GENERAL" },
+      { key = "APP_ENV", value = "staging", type = "GENERAL" },
+      { key = "APP_DEBUG", value = "false", type = "GENERAL" },
+      { key = "APP_URL", value = "https://${var.api_domain}", type = "GENERAL" },
+      { key = "LOG_CHANNEL", value = "stderr", type = "GENERAL" },
+      { key = "QUEUE_CONNECTION", value = "database", type = "GENERAL" },
+      { key = "DB_CONNECTION", value = "pgsql", type = "GENERAL" },
+      { key = "DB_HOST", value = digitalocean_database_cluster.postgres.private_host, type = "GENERAL" },
+      { key = "DB_PORT", value = tostring(digitalocean_database_cluster.postgres.port), type = "GENERAL" },
+      { key = "DB_DATABASE", value = digitalocean_database_cluster.postgres.database, type = "GENERAL" },
+      { key = "DB_USERNAME", value = digitalocean_database_cluster.postgres.user, type = "GENERAL" },
+      { key = "DB_PASSWORD", value = digitalocean_database_cluster.postgres.password, type = "SECRET" },
+      { key = "DO_SPACES_BUCKET", value = var.spaces_bucket_name, type = "GENERAL" },
+      { key = "DO_SPACES_REGION", value = var.spaces_region, type = "GENERAL" },
+      { key = "DO_SPACES_ENDPOINT", value = "https://${var.spaces_region}.digitaloceanspaces.com", type = "GENERAL" },
+      { key = "DO_SPACES_CDN_URL", value = "https://${local.spaces_cdn_host}", type = "GENERAL" },
+    ],
+    trimspace(var.api_do_spaces_key) != "" ? [{ key = "DO_SPACES_KEY", value = var.api_do_spaces_key, type = "SECRET" }] : [],
+    trimspace(var.api_do_spaces_secret) != "" ? [{ key = "DO_SPACES_SECRET", value = var.api_do_spaces_secret, type = "SECRET" }] : [],
+    trimspace(var.api_app_key) != "" ? [{ key = "APP_KEY", value = var.api_app_key, type = "SECRET" }] : [],
+    trimspace(var.api_firebase_service_account_json) != "" ? [{ key = "FIREBASE_SERVICE_ACCOUNT_JSON", value = var.api_firebase_service_account_json, type = "SECRET" }] : [],
+    trimspace(var.api_mail_password) != "" ? [{ key = "MAIL_PASSWORD", value = var.api_mail_password, type = "SECRET" }] : [],
+    trimspace(var.admin_access_review_email) != "" ? [{ key = "ADMIN_ACCESS_REVIEW_EMAIL", value = var.admin_access_review_email, type = "GENERAL" }] : [],
+    [for k, v in var.api_env_general : { key = k, value = v, type = "GENERAL" }],
+    [for k in nonsensitive(keys(var.api_secrets_extra)) : { key = k, value = var.api_secrets_extra[k], type = "SECRET" }],
+  )
+}
+
 resource "digitalocean_app" "api" {
   spec {
     name   = local.api_app_name
@@ -28,185 +60,39 @@ resource "digitalocean_app" "api" {
       dockerfile_path = var.api_dockerfile_path
       source_dir      = var.api_source_dir
 
-      # ── Core Laravel (non-secret) ─────────────────────────────────────────
-      env {
-        key   = "APP_NAME"
-        value = "Ixora"
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "APP_ENV"
-        value = "staging"
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "APP_DEBUG"
-        value = "false"
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "APP_URL"
-        value = "https://${var.api_domain}"
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "LOG_CHANNEL"
-        value = "stderr"
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "QUEUE_CONNECTION"
-        value = "database"
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-
-      # ── PostgreSQL (managed cluster, VPC-private) ─────────────────────────
-      env {
-        key   = "DB_CONNECTION"
-        value = "pgsql"
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "DB_HOST"
-        value = digitalocean_database_cluster.postgres.private_host
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "DB_PORT"
-        value = tostring(digitalocean_database_cluster.postgres.port)
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "DB_DATABASE"
-        value = digitalocean_database_cluster.postgres.database
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "DB_USERNAME"
-        value = digitalocean_database_cluster.postgres.user
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "DB_PASSWORD"
-        value = digitalocean_database_cluster.postgres.password
-        type  = "SECRET"
-        scope = "RUN_TIME"
-      }
-
-      # ── DigitalOcean Spaces (runtime credentials + endpoints) ────────────
-      env {
-        key   = "DO_SPACES_BUCKET"
-        value = var.spaces_bucket_name
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "DO_SPACES_REGION"
-        value = var.spaces_region
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "DO_SPACES_ENDPOINT"
-        value = "https://${var.spaces_region}.digitaloceanspaces.com"
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-      env {
-        key   = "DO_SPACES_CDN_URL"
-        value = "https://${local.spaces_cdn_host}"
-        type  = "GENERAL"
-        scope = "RUN_TIME"
-      }
-
       dynamic "env" {
-        for_each = trimspace(var.api_do_spaces_key) != "" ? toset(["DO_SPACES_KEY"]) : toset([])
+        for_each = { for idx, e in local.api_worker_runtime_env : idx => e }
         content {
-          key   = env.key
-          value = var.api_do_spaces_key
-          type  = "SECRET"
+          key   = env.value.key
+          value = env.value.value
+          type  = env.value.type
           scope = "RUN_TIME"
         }
       }
+    }
 
-      dynamic "env" {
-        for_each = trimspace(var.api_do_spaces_secret) != "" ? toset(["DO_SPACES_SECRET"]) : toset([])
-        content {
-          key   = env.key
-          value = var.api_do_spaces_secret
-          type  = "SECRET"
-          scope = "RUN_TIME"
-        }
+    worker {
+      name               = "queue"
+      instance_count     = 1
+      instance_size_slug = "basic-xxs"
+
+      github {
+        repo           = var.github_repo_api
+        branch         = var.github_branch
+        deploy_on_push = true
       }
 
-      # ── Optional secrets supplied via variables / TF_VAR ──────────────────
-      dynamic "env" {
-        for_each = trimspace(var.api_app_key) != "" ? toset(["APP_KEY"]) : toset([])
-        content {
-          key   = env.key
-          value = var.api_app_key
-          type  = "SECRET"
-          scope = "RUN_TIME"
-        }
-      }
+      dockerfile_path = var.api_dockerfile_path
+      source_dir      = var.api_source_dir
+
+      run_command = "php artisan queue:work --tries=3 --sleep=3 --timeout=90"
 
       dynamic "env" {
-        for_each = trimspace(var.api_firebase_service_account_json) != "" ? toset(["FIREBASE_SERVICE_ACCOUNT_JSON"]) : toset([])
+        for_each = { for idx, e in local.api_worker_runtime_env : idx => e }
         content {
-          key   = env.key
-          value = var.api_firebase_service_account_json
-          type  = "SECRET"
-          scope = "RUN_TIME"
-        }
-      }
-
-      dynamic "env" {
-        for_each = trimspace(var.api_mail_password) != "" ? toset(["MAIL_PASSWORD"]) : toset([])
-        content {
-          key   = env.key
-          value = var.api_mail_password
-          type  = "SECRET"
-          scope = "RUN_TIME"
-        }
-      }
-
-      dynamic "env" {
-        for_each = trimspace(var.admin_access_review_email) != "" ? toset(["ADMIN_ACCESS_REVIEW_EMAIL"]) : toset([])
-        content {
-          key   = env.key
-          value = var.admin_access_review_email
-          type  = "GENERAL"
-          scope = "RUN_TIME"
-        }
-      }
-
-      dynamic "env" {
-        for_each = toset(keys(var.api_env_general))
-        content {
-          key   = env.key
-          value = var.api_env_general[env.key]
-          type  = "GENERAL"
-          scope = "RUN_TIME"
-        }
-      }
-
-      dynamic "env" {
-        for_each = toset(nonsensitive(keys(var.api_secrets_extra)))
-        content {
-          key   = env.key
-          value = var.api_secrets_extra[env.key]
-          type  = "SECRET"
+          key   = env.value.key
+          value = env.value.value
+          type  = env.value.type
           scope = "RUN_TIME"
         }
       }
