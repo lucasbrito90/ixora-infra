@@ -16,15 +16,31 @@ resource "digitalocean_database_cluster" "postgres" {
   }
 }
 
-# Allow only the Laravel App Platform app to reach the database cluster (no public ingress rule).
-# Rule type `app` + the app's ID trusts the whole App (all components), not only the `api` service.
+resource "digitalocean_database_db" "app" {
+  cluster_id = digitalocean_database_cluster.postgres.id
+  name       = "ixora_staging"
+}
+
+resource "digitalocean_database_user" "app" {
+  cluster_id = digitalocean_database_cluster.postgres.id
+  name       = "ixora_app"
+}
+
+# Trusted sources: allow the entire staging VPC CIDR on the private network.
+#
+# `type = "app"` + App Platform app ID does not reliably cover worker egress; workers can use
+# different outbound paths than the web service. Using the VPC ip_range matches DigitalOcean's
+# documented approach for DBaaS + VPC (one CIDR rule, private hostname only — still no public DB).
 resource "digitalocean_database_firewall" "postgres" {
   cluster_id = digitalocean_database_cluster.postgres.id
 
   rule {
-    type  = "app"
-    value = digitalocean_app.api.id
+    type  = "ip_addr"
+    value = digitalocean_vpc.staging.ip_range
   }
 
-  depends_on = [digitalocean_app.api]
+  depends_on = [
+    digitalocean_database_cluster.postgres,
+    digitalocean_vpc.staging,
+  ]
 }
