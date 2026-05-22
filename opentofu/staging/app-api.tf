@@ -8,11 +8,15 @@ locals {
       { key = "APP_URL", value = "https://${var.api_domain}", type = "GENERAL" },
       { key = "LOG_CHANNEL", value = "stderr", type = "GENERAL" },
       { key = "QUEUE_CONNECTION", value = "database", type = "GENERAL" },
+      # Laravel cache/session: avoid Postgres `cache` table (migration owner vs app DB user ACL on staging).
+      # App Platform worker + api each get ephemeral local disk; staging accepts that trade-off vs DB/redis cache sharing.
+      { key = "CACHE_STORE", value = "file", type = "GENERAL" },
+      { key = "SESSION_DRIVER", value = "file", type = "GENERAL" },
       { key = "DB_CONNECTION", value = "pgsql", type = "GENERAL" },
       { key = "DB_HOST", value = digitalocean_database_cluster.postgres.private_host, type = "GENERAL" },
       { key = "DB_PORT", value = tostring(digitalocean_database_cluster.postgres.port), type = "GENERAL" },
       { key = "DB_SSLMODE", value = "require", type = "GENERAL" },
-      { key = "DB_DATABASE", value = "defaultdb", type = "GENERAL" },
+      { key = "DB_DATABASE", value = digitalocean_database_db.app.name, type = "GENERAL" },
       { key = "DB_USERNAME", value = digitalocean_database_user.app.name, type = "SECRET" },
       { key = "DB_PASSWORD", value = digitalocean_database_user.app.password, type = "SECRET" },
       { key = "DO_SPACES_BUCKET", value = var.spaces_bucket_name, type = "GENERAL" },
