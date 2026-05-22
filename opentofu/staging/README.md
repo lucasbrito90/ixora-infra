@@ -7,7 +7,7 @@ Declarative **staging** footprint on **DigitalOcean** (Toronto `tor1` / App Plat
 | VPC | `digitalocean_vpc` |
 | PostgreSQL | Managed cluster in VPC, **no Droplets** |
 | Spaces | Private ACL bucket (optional via `manage_spaces_bucket`) |
-| Laravel API | App Platform **service** `api` (web ingress) + **service** `queue` (`queue:work`, same image/env, no ingress — VPC DB access) |
+| Laravel API | App Platform **service** `api` (web) + **worker** `queue` (`queue:work`, same image/env) |
 | Nuxt Admin | App Platform **static site** (`npm run generate`) |
 | Custom domains | Declared on apps; DNS steps documented |
 
@@ -64,7 +64,7 @@ tofu apply
 
 - **No Droplets** are defined.
 - Postgres sits in a **VPC**; runtime DB connections use **`private_host`** from the cluster.
-- **`digitalocean_database_firewall`** restricts access to the **Laravel App Platform app** only (`rule { type = "app" ... }`). Verify in the DO UI that no unintended public paths remain for your org defaults.
+- **`digitalocean_database_firewall`** allows only **`digitalocean_vpc.staging.ip_range`** (private CIDR — not `0.0.0.0/0`). Apps must still use **`private_host`**; there is no public DB exposure from this rule alone.
 - Spaces bucket uses **`acl = "private"`**. Laravel still needs **runtime** Spaces keys (`DO_SPACES_*`) passed as App secrets — those are **not** stored in this repo.
 - App env secrets use App Platform **SECRET** types where appropriate; OpenTofu may still show perpetual drift for encrypted values — see [provider discussion](https://github.com/digitalocean/terraform-provider-digitalocean/issues/869).
 
@@ -75,7 +75,7 @@ tofu apply
 Staging is sized for **low cost**, not HA:
 
 - Single-node Postgres (`db_node_size`, default `db-s-1vcpu-1gb`).
-- API **web** (`api`) + **`queue` background service** each use a **`basic-xxs`** component; `queue` is a **service** (not an App Platform worker) so it shares VPC connectivity to Postgres like `api`.
+- API **web** + **`queue` worker** each use a **`basic-xxs`** component (worker has no public HTTP port).
 - Static site pricing is modest vs always-on containers.
 
 Check current DigitalOcean pricing pages — amounts change.
@@ -89,7 +89,7 @@ Check current DigitalOcean pricing pages — amounts change.
 - **SSL** for custom domains: App Platform provisions certs after DNS validates.
 - **Bucket CDN / CORS** toggles — only the private bucket + example CDN hostname output are scaffolded.
 - **Migrations / APP_KEY rotation / Spaces key rotation** — operational tasks outside IaC.
-- **Firewall**: DB firewall rule references `digitalocean_app.api.id`; first `apply` creates VPC → DB → API → firewall in dependency order.
+- **Firewall**: DB trusted source is the **staging VPC CIDR** (`ip_addr` rule); cluster lives in that VPC. Adjust if you peer additional VPCs and need DB access from them.
 
 ---
 

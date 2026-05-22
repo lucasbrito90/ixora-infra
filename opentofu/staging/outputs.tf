@@ -24,18 +24,18 @@ output "database_port" {
 }
 
 output "database_user" {
-  description = "Default database user."
-  value       = digitalocean_database_cluster.postgres.user
+  description = "Application database user (ixora_app)."
+  value       = digitalocean_database_user.app.name
 }
 
 output "database_name" {
-  description = "Default database name on the cluster."
-  value       = digitalocean_database_cluster.postgres.database
+  description = "Laravel DB name wired to App Platform (defaultdb)."
+  value       = "defaultdb"
 }
 
 output "database_password" {
-  description = "Database password (rotate via DO UI/API if leaked)."
-  value       = digitalocean_database_cluster.postgres.password
+  description = "Application database user password (rotate via DO UI/API if leaked)."
+  value       = digitalocean_database_user.app.password
   sensitive   = true
 }
 
@@ -55,7 +55,7 @@ output "spaces_cdn_url_example" {
 }
 
 output "api_app_id" {
-  description = "App Platform ID for the Laravel API (used by DB firewall rule)."
+  description = "App Platform ID for the Laravel API."
   value       = digitalocean_app.api.id
 }
 
