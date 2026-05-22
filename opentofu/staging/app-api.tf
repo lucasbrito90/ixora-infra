@@ -11,9 +11,10 @@ locals {
       { key = "DB_CONNECTION", value = "pgsql", type = "GENERAL" },
       { key = "DB_HOST", value = digitalocean_database_cluster.postgres.private_host, type = "GENERAL" },
       { key = "DB_PORT", value = tostring(digitalocean_database_cluster.postgres.port), type = "GENERAL" },
-      { key = "DB_DATABASE", value = digitalocean_database_cluster.postgres.database, type = "GENERAL" },
-      { key = "DB_USERNAME", value = digitalocean_database_cluster.postgres.user, type = "GENERAL" },
-      { key = "DB_PASSWORD", value = digitalocean_database_cluster.postgres.password, type = "SECRET" },
+      { key = "DB_SSLMODE", value = "require", type = "GENERAL" },
+      { key = "DB_DATABASE", value = "defaultdb", type = "GENERAL" },
+      { key = "DB_USERNAME", value = digitalocean_database_user.app.name, type = "SECRET" },
+      { key = "DB_PASSWORD", value = digitalocean_database_user.app.password, type = "SECRET" },
       { key = "DO_SPACES_BUCKET", value = var.spaces_bucket_name, type = "GENERAL" },
       { key = "DO_SPACES_REGION", value = var.spaces_region, type = "GENERAL" },
       { key = "DO_SPACES_ENDPOINT", value = "https://${var.spaces_region}.digitaloceanspaces.com", type = "GENERAL" },
@@ -71,11 +72,9 @@ resource "digitalocean_app" "api" {
       }
     }
 
-    # Background queue processor: implemented as a non-routed **service** (not a worker) so it
-    # joins the same App Platform VPC attachment as `api`. Worker components do not support a
-    # per-component `vpc` block in the Terraform provider and (in practice) may not reach
-    # DBaaS private_host like services do. No `ingress` rule → not exposed on the public load balancer.
-    service {
+    # Background queue: App Platform **worker** (not a service) — no HTTP port, not ingress-routable.
+    # VPC is configured on `spec` above and applies to the whole app; env matches `api` via locals.
+    worker {
       name               = "queue"
       instance_count     = 1
       instance_size_slug = "basic-xxs"
@@ -118,6 +117,7 @@ resource "digitalocean_app" "api" {
 
   depends_on = [
     digitalocean_database_cluster.postgres,
+    digitalocean_database_user.app,
     digitalocean_vpc.staging,
   ]
 }
