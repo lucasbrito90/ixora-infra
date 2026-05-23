@@ -115,6 +115,6 @@ Check current DigitalOcean pricing pages — amounts change.
 
 1. Confirm **`basic-xxs`** and **`db-s-1vcpu-1gb`** exist in Toronto; bump sizes if builds fail OOM.
 2. Align **`api_http_port`** with your Dockerfile `EXPOSE`.
-3. Set **all required secrets** (`APP_KEY`, Firebase JSON, mail, Laravel Spaces keys) via `TF_VAR_*` or untracked tfvars before first deploy.
+3. Set **all required secrets** (`APP_KEY`, discrete `api_firebase_*` credentials, mail, Laravel Spaces keys) via `TF_VAR_*` or untracked tfvars before first deploy — see `terraform.tfvars.example`.
 4. Complete **custom domain DNS** using `tofu output api_live_url` / `admin_live_url` targets from DO.
 5. **Bucket name** must be globally unique — adjust `spaces_bucket_name` if taken.

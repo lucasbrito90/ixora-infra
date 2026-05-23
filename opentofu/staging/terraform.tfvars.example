@@ -23,11 +23,23 @@ db_cluster_name = "ixora-staging-postgres"
 db_node_size    = "db-s-1vcpu-1gb"
 
 # Laravel runtime secrets — set via environment or a local untracked tfvars file:
-# api_app_key                         = "base64:..."
-# api_firebase_service_account_json   = "{\"type\":\"service_account\",...}"
-# api_mail_password                   = "..."
-# api_do_spaces_key                   = "..."
-# api_do_spaces_secret                = "..."
+# api_app_key = "base64:..."
+#
+# Firebase Admin SDK — discrete env vars (recommended; maps to Laravel FIREBASE_*). PEM often uses escaped \n in HCL/tfvars strings.
+# api_firebase_type                         = "service_account"
+# api_firebase_project_id                   = "your-gcp-project"
+# api_firebase_private_key_id               = "..."
+# api_firebase_private_key                  = "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
+# api_firebase_client_email                 = "firebase-adminsdk@your-project.iam.gserviceaccount.com"
+# api_firebase_client_id                    = "..."
+# api_firebase_token_uri                    = "https://oauth2.googleapis.com/token"
+# api_firebase_auth_uri                     = "https://accounts.google.com/o/oauth2/auth"
+# api_firebase_auth_provider_x509_cert_url  = "https://www.googleapis.com/oauth2/v1/certs"
+# api_firebase_client_x509_cert_url         = "https://www.googleapis.com/robot/v1/metadata/x509/..."
+#
+# api_mail_password    = "..."
+# api_do_spaces_key    = "..."
+# api_do_spaces_secret = "..."
 
 admin_access_review_email = "ops-example@yourcompany.invalid"
 

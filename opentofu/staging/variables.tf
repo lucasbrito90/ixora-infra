@@ -115,8 +115,70 @@ variable "api_app_key" {
   default     = ""
 }
 
-variable "api_firebase_service_account_json" {
-  description = "Firebase service account JSON string for server SDK. SECRET."
+variable "api_firebase_type" {
+  description = "Laravel FIREBASE_TYPE (usually service_account). Empty → Laravel resolves default service_account in code."
+  type        = string
+  default     = ""
+}
+
+variable "api_firebase_project_id" {
+  description = "FIREBASE_PROJECT_ID (GCP project)."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_firebase_private_key_id" {
+  description = "FIREBASE_PRIVATE_KEY_ID."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_firebase_private_key" {
+  description = "FIREBASE_PRIVATE_KEY — PEM multi-line acceptable; often stored with \\n escapes in Terraform/DO."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_firebase_token_uri" {
+  description = "FIREBASE_TOKEN_URI (omit for Google defaults in Laravel resolver)."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_firebase_client_email" {
+  description = "FIREBASE_CLIENT_EMAIL."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_firebase_client_id" {
+  description = "FIREBASE_CLIENT_ID."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_firebase_auth_uri" {
+  description = "FIREBASE_AUTH_URI (omit for Google defaults in Laravel resolver)."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_firebase_auth_provider_x509_cert_url" {
+  description = "FIREBASE_AUTH_PROVIDER_X509_CERT_URL (omit for Google defaults in Laravel resolver)."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "api_firebase_client_x509_cert_url" {
+  description = "FIREBASE_CLIENT_X509_CERT_URL."
   type        = string
   sensitive   = true
   default     = ""

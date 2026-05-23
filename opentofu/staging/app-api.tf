@@ -1,4 +1,76 @@
 locals {
+  # Firebase discrete env vars (preferred over inline FIREBASE_SERVICE_ACCOUNT_JSON).
+  api_firebase_discrete_ready = (
+    trimspace(var.api_firebase_project_id) != "" &&
+    trimspace(var.api_firebase_private_key) != "" &&
+    trimspace(var.api_firebase_client_email) != ""
+  )
+
+  api_firebase_discrete_required_env = concat(
+    [
+      {
+        key   = "FIREBASE_TYPE"
+        type  = "GENERAL"
+        value = trimspace(var.api_firebase_type) != "" ? var.api_firebase_type : "service_account"
+      },
+    ],
+    [
+      {
+        key   = "FIREBASE_PROJECT_ID"
+        type  = "SECRET"
+        value = var.api_firebase_project_id
+      },
+      {
+        key   = "FIREBASE_PRIVATE_KEY"
+        type  = "SECRET"
+        value = var.api_firebase_private_key
+      },
+      {
+        key   = "FIREBASE_CLIENT_EMAIL"
+        type  = "SECRET"
+        value = var.api_firebase_client_email
+      },
+    ],
+  )
+
+  api_firebase_discrete_optional_env = concat(
+    trimspace(var.api_firebase_private_key_id) != "" ? [{
+      key   = "FIREBASE_PRIVATE_KEY_ID"
+      type  = "SECRET"
+      value = var.api_firebase_private_key_id
+    }] : [],
+    trimspace(var.api_firebase_token_uri) != "" ? [{
+      key   = "FIREBASE_TOKEN_URI"
+      type  = "SECRET"
+      value = var.api_firebase_token_uri
+    }] : [],
+    trimspace(var.api_firebase_client_id) != "" ? [{
+      key   = "FIREBASE_CLIENT_ID"
+      type  = "SECRET"
+      value = var.api_firebase_client_id
+    }] : [],
+    trimspace(var.api_firebase_auth_uri) != "" ? [{
+      key   = "FIREBASE_AUTH_URI"
+      type  = "SECRET"
+      value = var.api_firebase_auth_uri
+    }] : [],
+    trimspace(var.api_firebase_auth_provider_x509_cert_url) != "" ? [{
+      key   = "FIREBASE_AUTH_PROVIDER_X509_CERT_URL"
+      type  = "SECRET"
+      value = var.api_firebase_auth_provider_x509_cert_url
+    }] : [],
+    trimspace(var.api_firebase_client_x509_cert_url) != "" ? [{
+      key   = "FIREBASE_CLIENT_X509_CERT_URL"
+      type  = "SECRET"
+      value = var.api_firebase_client_x509_cert_url
+    }] : [],
+  )
+
+  api_firebase_discrete_runtime_env = local.api_firebase_discrete_ready ? concat(
+    local.api_firebase_discrete_required_env,
+    local.api_firebase_discrete_optional_env,
+  ) : []
+
   # Shared RUN_TIME env for Laravel API (web) and queue worker — single source of truth.
   api_worker_runtime_env = concat(
     [
@@ -27,7 +99,7 @@ locals {
     trimspace(var.api_do_spaces_key) != "" ? [{ key = "DO_SPACES_KEY", value = var.api_do_spaces_key, type = "SECRET" }] : [],
     trimspace(var.api_do_spaces_secret) != "" ? [{ key = "DO_SPACES_SECRET", value = var.api_do_spaces_secret, type = "SECRET" }] : [],
     trimspace(var.api_app_key) != "" ? [{ key = "APP_KEY", value = var.api_app_key, type = "SECRET" }] : [],
-    trimspace(var.api_firebase_service_account_json) != "" ? [{ key = "FIREBASE_SERVICE_ACCOUNT_JSON", value = var.api_firebase_service_account_json, type = "SECRET" }] : [],
+    local.api_firebase_discrete_runtime_env,
     trimspace(var.api_mail_password) != "" ? [{ key = "MAIL_PASSWORD", value = var.api_mail_password, type = "SECRET" }] : [],
     trimspace(var.admin_access_review_email) != "" ? [{ key = "ADMIN_ACCESS_REVIEW_EMAIL", value = var.admin_access_review_email, type = "GENERAL" }] : [],
     [for k, v in var.api_env_general : { key = k, value = v, type = "GENERAL" }],
