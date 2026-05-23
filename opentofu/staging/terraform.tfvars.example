@@ -15,6 +15,9 @@ github_branch      = "staging"
 api_domain    = "staging-api.ixora-app.app"
 admin_domain  = "staging-admin.ixora-app.app"
 
+# Laravel CORS (explicit origins only; empty uses https://{admin_domain},http://localhost:3000,http://localhost:5173).
+# api_cors_allowed_origins = "https://staging-admin.ixora-app.app,http://localhost:3000,http://localhost:5173"
+
 manage_spaces_bucket = true
 spaces_bucket_name   = "ixora-buckets-staging-example"
 # Bucket names are globally unique — pick a unique slug if ixora-buckets is taken.
