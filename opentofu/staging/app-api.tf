@@ -71,6 +71,13 @@ locals {
     local.api_firebase_discrete_optional_env,
   ) : []
 
+  # Browser CORS for Nuxt admin (Firebase Bearer; Laravel supports_credentials false). No * in origins.
+  api_cors_allowed_origins_effective = trimspace(var.api_cors_allowed_origins) != "" ? var.api_cors_allowed_origins : join(",", [
+    "https://${trimspace(var.admin_domain)}",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ])
+
   # Shared RUN_TIME env for Laravel API (web) and queue worker — single source of truth.
   api_worker_runtime_env = concat(
     [
@@ -78,6 +85,7 @@ locals {
       { key = "APP_ENV", value = "staging", type = "GENERAL" },
       { key = "APP_DEBUG", value = "false", type = "GENERAL" },
       { key = "APP_URL", value = "https://${var.api_domain}", type = "GENERAL" },
+      { key = "CORS_ALLOWED_ORIGINS", value = local.api_cors_allowed_origins_effective, type = "GENERAL" },
       { key = "LOG_CHANNEL", value = "stderr", type = "GENERAL" },
       { key = "QUEUE_CONNECTION", value = "database", type = "GENERAL" },
       # Laravel cache/session: avoid Postgres `cache` table (migration owner vs app DB user ACL on staging).

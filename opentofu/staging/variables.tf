@@ -58,6 +58,12 @@ variable "admin_domain" {
   default     = "staging-admin.ixora-app.app"
 }
 
+variable "api_cors_allowed_origins" {
+  description = "Comma-separated Laravel CORS_ALLOWED_ORIGINS (explicit URLs only, no *). Empty defaults to https://{admin_domain},http://localhost:3000,http://localhost:5173."
+  type        = string
+  default     = ""
+}
+
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 
 variable "db_cluster_name" {
