@@ -14,7 +14,7 @@
 | Understand the product model | [Architecture map](architecture/architecture-map.md) · [Terminology](#terminology-glossary) |
 | Onboard as a developer | [Engineer onboarding](onboarding/onboarding.md) · [Onboarding path](#onboarding-path-for-new-developers) |
 | Implement a feature | [Specs](#1-specs) → related [Architecture](#2-architecture) + [Standards](#3-standards) |
-| Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) |
+| Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality harness](quality-harness.md) |
 | Understand a past decision | [ADRs](#4-architecture-decision-records-adrs) |
 | Know what we deliberately did **not** build | [Intentionally not implemented](#intentionally-not-implemented) |
 
@@ -387,6 +387,16 @@ cd opentofu/staging && tofu plan && tofu apply
 | --- | --- |
 | API | `https://staging-api.ixora-app.app` |
 | Admin | `https://staging-admin.ixora-app.app` |
+
+---
+
+# 7. Quality harness
+
+Minimal local validation commands per app repo (tests, lint, typecheck, build).
+
+| Document | Description |
+| --- | --- |
+| [quality-harness.md](quality-harness.md) | **Baseline commands** — back_vibes, ixora-admin, front_vibes |
 
 ---
 
