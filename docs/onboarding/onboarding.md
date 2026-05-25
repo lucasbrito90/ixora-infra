@@ -404,7 +404,7 @@ Memorize these before your first merge.
 | **2** | Auth + your repo | [ADR-001](../decisions/ADR-001-firebase-auth-laravel-sync.md) · role-specific standard (below) |
 | **3** | Storage + uploads | [storage-strategy](../architecture/storage/storage-strategy.md) · [ADR-002](../decisions/ADR-002-laravel-only-storage-writes.md) · [upload-validation](../standards/upload-validation.md) |
 | **4** | Mobile playback (if mobile) | [execution-plan spec](../specs/vibes/execution-plan/spec.md) · [playback-runtime](../architecture/audio/playback-runtime.md) · [ADR-004](../decisions/ADR-004-offline-audio-strategy.md) |
-| **5** | Staging + first PR | [deploy-pipeline](../architecture/backend/deploy-pipeline.md) · [staging-digitalocean](../architecture/backend/staging-digitalocean.md) |
+| **5** | Staging + first PR | [deploy-pipeline](../architecture/backend/deploy-pipeline.md) · [staging-digitalocean](../architecture/backend/staging-digitalocean.md) · [quality-harness](../quality-harness.md) |
 
 **Role-specific standards:**
 
