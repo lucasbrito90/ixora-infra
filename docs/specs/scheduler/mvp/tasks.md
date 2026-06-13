@@ -27,7 +27,7 @@
 | 5 — Dispatcher command | 0 | 0 | 5 | 0 |
 | 6 — OpenTofu Laravel Scheduler Worker | 1 | 0 | 6 | 0 |
 | 7 — Mobile CRUD | 0 | 0 | 8 | 0 |
-| 8 — SQLite mirror | 6 | 0 | 0 | 0 |
+| 8 — SQLite mirror | 0 | 0 | 6 | 0 |
 | 9 — Local notifications | 7 | 0 | 0 | 0 |
 | 10 — Execution log sync | 5 | 0 | 0 | 0 |
 
@@ -209,14 +209,18 @@ Promote via **`develop` → `staging`** merge per [`git-flow.md`](../../../stand
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P8-1 | SQLite schema mirroring API schedule fields + **`synced_at`** | **Pending** | [`spec.md`](spec.md) § sync |
-| P8-2 | **`pullSchedules()`** upsert from **`GET /api/schedules`** | **Pending** | |
-| P8-3 | Invoke sync after CRUD success + app foreground / network restore | **Pending** | |
-| P8-4 | Offline read-only list/detail from SQLite | **Pending** | |
-| P8-5 | Purge local row on API delete | **Pending** | |
-| P8-6 | **No offline write path** — code review guard | **Pending** | Non-goal |
+| P8-1 | SQLite schema mirroring API schedule fields + **`synced_at`** | **Done** | `front_vibes/src/services/schedule-mirror/` — `schedules_mirror` + `mirror_meta` tables |
+| P8-2 | **`pullSchedules()`** upsert from **`GET /api/schedules`** | **Done** | `schedule-mirror.service.ts` — `pullSchedules()` + `replaceFromApi()` |
+| P8-3 | Invoke sync after CRUD success + app foreground / network restore | **Done** | `useSchedules.ts` upsert/delete after mutations; `SchedulesPage.vue` online event + refresh |
+| P8-4 | Offline read-only list/detail from SQLite | **Done** | `useSchedules.fetchSchedules()` / `getSchedule()` mirror path; offline banner in `SchedulesPage.vue` |
+| P8-5 | Purge local row on API delete | **Done** | `scheduleMirrorService.deleteFromMirror()` after successful delete |
+| P8-6 | **No offline write path** — code review guard | **Done** | Mutations still blocked by `ScheduleOfflineError`; mirror writes only from API success |
 
 **Branch:** `feature/scheduler-sqlite-mirror`
+
+**Dependency added:** `@capacitor-community/sqlite@^8.1.0` (Capacitor 8 compatible; native Android SQLite, in-memory adapter for Vitest/browser).
+
+**Tests added:** `schedule-mirror.service.test.ts`, `useSchedules.test.ts`
 
 ---
 
@@ -289,7 +293,7 @@ Promote via **`develop` → `staging`** merge per [`git-flow.md`](../../../stand
 ### Mobile (Android)
 
 - [ ] Online CRUD works against staging API
-- [ ] Offline schedule list read-only from SQLite
+- [x] Offline schedule list read-only from SQLite
 - [ ] Local notification fires (installable build)
 - [ ] Notification tap opens player — **manual Play** acceptable
 - [ ] **No iOS** scheduling requirement for MVP done
