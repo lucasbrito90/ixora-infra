@@ -23,7 +23,7 @@
 | 1 — Spec + ADRs | 2 | 0 | 6 | 0 |
 | 2 — TDD RecurrenceService | 0 | 0 | 7 | 0 |
 | 3 — Schema hardening | 0 | 0 | 9 | 0 |
-| 4 — Backend CRUD API | 10 | 0 | 0 | 0 |
+| 4 — Backend CRUD API | 1 | 0 | 9 | 0 |
 | 5 — Dispatcher command | 5 | 0 | 0 | 0 |
 | 6 — OpenTofu Scheduled Job | 5 | 0 | 0 | 0 |
 | 7 — Mobile CRUD | 8 | 0 | 0 | 0 |
@@ -111,23 +111,25 @@ cd back_vibes && ./vendor/bin/pint --test             # passed
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P4-1 | **`SchedulePolicy`** — owner scoping | **Pending** | [`front-vibes-auth-core.md`](../../../standards/front-vibes-auth-core.md) |
-| P4-2 | **`StoreScheduleRequest` / `UpdateScheduleRequest`** | **Pending** | Validation rules in [`spec.md`](spec.md) |
-| P4-3 | **`ScheduleResource`** | **Pending** | API contract |
-| P4-4 | **`ScheduleController`** — index, store, show, update, destroy | **Pending** | Form Request pattern |
-| P4-5 | Register routes under **`firebase.auth`** | **Pending** | `routes/api.php` |
-| P4-6 | Validate **`vibe_id`** belongs to **`auth()->id()`** | **Pending** | Ownership |
-| P4-7 | On create/update → **`RecurrenceService`** → **`next_run_at`** | **Pending** | |
-| P4-8 | Pest feature tests — CRUD, 403, 422 | **Pending** | |
-| P4-9 | Reject **`custom`**, **`monthly`**, RRULE, invalid IANA timezone | **Pending** | Non-goals — **`monthly`** reserved only |
-| P4-10 | Document OpenAPI or inline API examples in spec if needed | **Pending** | [`spec.md`](spec.md) |
+| P4-1 | **`SchedulePolicy`** — owner scoping | **Done** | `app/Policies/SchedulePolicy.php` |
+| P4-2 | **`StoreScheduleRequest` / `UpdateScheduleRequest`** | **Done** | `app/Http/Requests/StoreScheduleRequest.php`, `UpdateScheduleRequest.php` |
+| P4-3 | **`ScheduleResource`** | **Done** | `app/Http/Resources/ScheduleResource.php` |
+| P4-4 | **`ScheduleController`** — index, store, show, update, destroy | **Done** | `app/Http/Controllers/Api/ScheduleController.php` |
+| P4-5 | Register routes under **`firebase.auth`** | **Done** | `routes/api.php` — `Route::apiResource('schedules', ScheduleController::class)` |
+| P4-6 | Validate **`vibe_id`** belongs to **`auth()->id()`** | **Done** | After-validator in both FormRequests |
+| P4-7 | On create/update → **`RecurrenceService`** → **`next_run_at`** | **Done** | Controller builds `ScheduleInput` and calls `computeNextRunAt` |
+| P4-8 | Pest feature tests — CRUD, 403, 422 | **Done** | `tests/Feature/Scheduling/ScheduleApiTest.php` — 43 tests |
+| P4-9 | Reject **`custom`**, **`monthly`**, RRULE, invalid IANA timezone | **Done** | `Rule::in(RecurrenceType::mvpAllowed())` + `timezone:all` rule |
+| P4-10 | Document OpenAPI or inline API examples in spec if needed | **Pending** | Deferred — API contract already in `spec.md` |
 
 **Branch:** `feature/scheduler-crud-api`
 
 **Verify:**
 
 ```bash
-cd back_vibes && php artisan test --filter=Schedule
+cd back_vibes && php artisan test --filter=ScheduleApiTest   # 43 passed
+cd back_vibes && php artisan test                            # 246 passed
+cd back_vibes && ./vendor/bin/pint --test                    # passed
 ```
 
 ---
@@ -270,7 +272,7 @@ Promote via **`develop` → `staging`** merge per [`git-flow.md`](../../../stand
 
 - [x] **`RecurrenceService`** TDD complete (Phase 2) — tests green including DST
 - [x] Schema hardening migrated on staging (Phase 3) — migrations + models + factories + tests green
-- [ ] Schedule CRUD API + Policy + Pest green
+- [x] Schedule CRUD API + Policy + Pest green (Phase 4 — 43 API tests, 246 total)
 - [ ] Dispatcher command idempotent under double run
 - [ ] DO Scheduled Job firing on staging
 
