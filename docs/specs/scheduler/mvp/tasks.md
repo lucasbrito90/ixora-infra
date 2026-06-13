@@ -24,7 +24,7 @@
 | 2 — TDD RecurrenceService | 0 | 0 | 7 | 0 |
 | 3 — Schema hardening | 0 | 0 | 9 | 0 |
 | 4 — Backend CRUD API | 1 | 0 | 9 | 0 |
-| 5 — Dispatcher command | 5 | 0 | 0 | 0 |
+| 5 — Dispatcher command | 0 | 0 | 5 | 0 |
 | 6 — OpenTofu Scheduled Job | 5 | 0 | 0 | 0 |
 | 7 — Mobile CRUD | 8 | 0 | 0 | 0 |
 | 8 — SQLite mirror | 6 | 0 | 0 | 0 |
@@ -128,7 +128,7 @@ cd back_vibes && ./vendor/bin/pint --test             # passed
 
 ```bash
 cd back_vibes && php artisan test --filter=ScheduleApiTest   # 43 passed
-cd back_vibes && php artisan test                            # 246 passed
+cd back_vibes && php artisan test                            # 271 passed
 cd back_vibes && ./vendor/bin/pint --test                    # passed
 ```
 
@@ -138,11 +138,11 @@ cd back_vibes && ./vendor/bin/pint --test                    # passed
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P5-1 | Artisan command **`schedules:dispatch-due`** | **Pending** | [`plan.md`](plan.md) |
-| P5-2 | Due query + batch limit + dry-run flag | **Pending** | [`spec.md`](spec.md) § next_run_at |
-| P5-3 | Idempotent insert **`schedule_executions`** + advance **`next_run_at`** | **Pending** | Idempotency |
-| P5-4 | **`once`** exhaustion — **`next_run_at = null`** + **`is_enabled = false`** | **Pending** | [ADR-009](../../../decisions/ADR-009-scheduler-timezone-utc-storage.md) |
-| P5-5 | Pest integration tests — double dispatch | **Pending** | |
+| P5-1 | Artisan command **`schedules:dispatch-due`** | **Done** | `app/Console/Commands/DispatchDueSchedulesCommand.php` |
+| P5-2 | Due query + batch limit + dry-run flag | **Done** | `--batch=100`, `--dry-run` options; query: `is_enabled=true AND next_run_at IS NOT NULL AND next_run_at <= now ORDER BY next_run_at LIMIT batch` |
+| P5-3 | Idempotent insert **`schedule_executions`** + advance **`next_run_at`** | **Done** | Pre-check + unique index guard; `RecurrenceService::computeNextRunAt` advances schedule |
+| P5-4 | **`once`** exhaustion — **`next_run_at = null`** + **`is_enabled = false`** | **Done** | `computeNextRunAt` returns null for once; command sets `is_enabled = false` |
+| P5-5 | Pest integration tests — double dispatch | **Done** | `tests/Feature/Scheduling/DispatchDueSchedulesCommandTest.php` — 25 tests |
 
 **Branch:** `feature/scheduler-dispatcher`
 
@@ -273,7 +273,7 @@ Promote via **`develop` → `staging`** merge per [`git-flow.md`](../../../stand
 - [x] **`RecurrenceService`** TDD complete (Phase 2) — tests green including DST
 - [x] Schema hardening migrated on staging (Phase 3) — migrations + models + factories + tests green
 - [x] Schedule CRUD API + Policy + Pest green (Phase 4 — 43 API tests, 246 total)
-- [ ] Dispatcher command idempotent under double run
+- [x] Dispatcher command idempotent under double run
 - [ ] DO Scheduled Job firing on staging
 
 ### Mobile (Android)
