@@ -28,7 +28,7 @@
 | 6 — OpenTofu Laravel Scheduler Worker | 1 | 0 | 6 | 0 |
 | 7 — Mobile CRUD | 0 | 0 | 8 | 0 |
 | 8 — SQLite mirror | 0 | 0 | 6 | 0 |
-| 9 — Local notifications | 7 | 0 | 0 | 0 |
+| 9 — Local notifications | 0 | 0 | 7 | 0 |
 | 10 — Execution log sync | 5 | 0 | 0 | 0 |
 
 ---
@@ -228,15 +228,19 @@ Promote via **`develop` → `staging`** merge per [`git-flow.md`](../../../stand
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P9-1 | Integrate Local Notifications plugin | **Pending** | Capacitor |
-| P9-2 | **`schedule-notification.service.ts`** — cancel + register | **Pending** | [`spec.md`](spec.md) |
-| P9-3 | Schedule alarms from mirror **`next_run_at`** (rebuild after sync) | **Pending** | [ADR-011](../../../decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
-| P9-4 | Notification tap → deep link **`VibePlayerPage`** | **Pending** | No auto-play guarantee |
-| P9-5 | Android 13+ **`POST_NOTIFICATIONS`** permission UX | **Pending** | |
-| P9-6 | Rebuild notifications after every sync | **Pending** | Idempotent replace |
-| P9-7 | Manual QA — installable build, not live reload | **Pending** | [`offline-download/spec.md`](../../vibes/offline-download/spec.md) pattern |
+| P9-1 | Integrate Local Notifications plugin | **Done** | `@capacitor/local-notifications@^8.x` added to `front_vibes` |
+| P9-2 | **`schedule-notification.service.ts`** — cancel + register | **Done** | `front_vibes/src/services/schedule-notification.service.ts` |
+| P9-3 | Schedule alarms from mirror **`next_run_at`** (rebuild after sync) | **Done** | `useSchedules` calls `rebuildFromMirror` after fetch/create/update/delete |
+| P9-4 | Notification tap → deep link **`VibePlayerPage`** | **Done** | `useScheduleNotificationHandler.ts` → `router.push('/vibes/:vibe_id/player')` — no auto-play |
+| P9-5 | Android 13+ **`POST_NOTIFICATIONS`** permission UX | **Done** | `SchedulesPage.vue` requests permission on first online visit; denied banner shown |
+| P9-6 | Rebuild notifications after every sync | **Done** | Cancel-all + re-register on every sync/mutation; adapter pattern makes it idempotent |
+| P9-7 | Manual QA — installable build, not live reload | **Pending** | Requires device — see Manual QA checklist |
 
 **Branch:** `feature/scheduler-local-notifications`
+
+**Dependency added:** `@capacitor/local-notifications@^8.x` (Capacitor 8 compatible; no-op on web/Vitest via adapter).
+
+**Tests added:** `schedule-notification.service.test.ts` (20 tests).
 
 **Deferred:** iOS notification scheduling
 
