@@ -25,8 +25,8 @@
 | 3 — Schema hardening | 0 | 0 | 9 | 0 |
 | 4 — Backend CRUD API | 1 | 0 | 9 | 0 |
 | 5 — Dispatcher command | 0 | 0 | 5 | 0 |
-| 6 — OpenTofu Scheduled Job | 5 | 0 | 0 | 0 |
-| 7 — Mobile CRUD | 8 | 0 | 0 | 0 |
+| 6 — OpenTofu Laravel Scheduler Worker | 1 | 0 | 6 | 0 |
+| 7 — Mobile CRUD | 0 | 0 | 8 | 0 |
 | 8 — SQLite mirror | 6 | 0 | 0 | 0 |
 | 9 — Local notifications | 7 | 0 | 0 | 0 |
 | 10 — Execution log sync | 5 | 0 | 0 | 0 |
@@ -155,22 +155,27 @@ cd back_vibes && php artisan test --filter=DispatchDue
 
 ---
 
-## Phase 6 — OpenTofu DigitalOcean Scheduled Job
+## Phase 6 — OpenTofu Laravel Scheduler Worker
+
+> **Supersedes the previous "OpenTofu DigitalOcean Scheduled Job" strategy.** DO App Platform Scheduled Jobs were replaced by a dedicated `worker` component because: (1) the `digitalocean/digitalocean` provider v2.87.0 does not support `SCHEDULED` kind / `cron_expression` — [issue #1529](https://github.com/digitalocean/terraform-provider-digitalocean/issues/1529); (2) DO App Platform enforces a ≥15-minute minimum cadence, incompatible with MVP's ~60-second requirement.
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P6-1 | Add **`scheduled_job`** component to staging OpenTofu | **Pending** | [`opentofu/staging/`](../../../../opentofu/staging/) |
-| P6-2 | Cron `* * * * *` → **`schedules:dispatch-due`** | **Pending** | [`spec.md`](spec.md) |
-| P6-3 | Same Docker image + RUN_TIME env as API | **Pending** | [`staging-digitalocean.md`](../../../architecture/backend/staging-digitalocean.md) |
-| P6-4 | Update **`staging-digitalocean.md`** architecture table | **Pending** | Infra docs |
-| P6-5 | Staging verification — execution row from job | **Pending** | Manual QA |
+| P6-1 | Add **`worker`** component `scheduler` to staging OpenTofu | **Done** | `opentofu/staging/app-api.tf` — `worker` block `scheduler` (replaces previous `job` block) |
+| P6-2 | `run_command = "php artisan schedules:dispatch-loop"` (~60 s loop) | **Done** | Long-running worker; calls `schedules:dispatch-due` per iteration |
+| P6-3 | Same Docker image + RUN_TIME env as API / queue | **Done** | `local.api_worker_runtime_env` reused; same `github`, `dockerfile_path`, `source_dir` |
+| P6-4 | New Artisan command **`schedules:dispatch-loop`** + Pest tests | **Done** | `app/Console/Commands/DispatchSchedulesLoopCommand.php` — 14 tests pass |
+| P6-5 | Update **`staging-digitalocean.md`** — Scheduler Worker section | **Done** | Component table, diagram, runtime separation, sizing, scheduler worker runbook |
+| P6-6 | Update `spec.md`, `plan.md`, `tasks.md`, ADR-011 references | **Done** | Replaced all "DO Scheduled Job" strategy references |
+| P6-7 | Staging verification — execution row from worker loop | **Pending** | Manual QA — see `staging-digitalocean.md` § Scheduler worker runbook |
 
-**Branch:** `feature/scheduler-do-scheduled-job` ( **`ixora-infra`** + optional **`back_vibes`** if command name in deploy)
+**Branch:** `feature/scheduler-do-scheduled-job` (or follow-up `feature/scheduler-worker`) in **`ixora-infra`** + **`back_vibes`**
 
 **Verify:**
 
 ```bash
-cd ixora-infra/opentofu/staging && tofu plan
+cd back_vibes && php artisan test --filter=DispatchSchedulesLoopCommandTest   # 14 passed
+cd ixora-infra/opentofu/staging && tofu fmt -recursive && tofu validate
 ```
 
 Promote via **`develop` → `staging`** merge per [`git-flow.md`](../../../standards/git-flow.md).
@@ -181,18 +186,22 @@ Promote via **`develop` → `staging`** merge per [`git-flow.md`](../../../stand
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7-1 | **`schedule.service.ts`** — REST client with Firebase Bearer | **Pending** | Auth |
-| P7-2 | Schedule list page | **Pending** | Android first |
-| P7-3 | Create / edit form — vibe picker, timezone, recurrence | **Pending** | [`spec.md`](spec.md) |
-| P7-4 | Weekly day-of-week multi-select | **Pending** | **`recurrence_config`** |
-| P7-5 | Delete with confirm | **Pending** | |
-| P7-6 | **Block mutations when offline** | **Pending** | Hard boundary |
-| P7-7 | Router entries | **Pending** | [`front-vibes-ionic-routing.md`](../../../standards/front-vibes-ionic-routing.md) |
-| P7-8 | **`npm run build`** clean | **Pending** | CI |
+| P7-1 | **`schedule.service.ts`** — REST client with Firebase Bearer | **Done** | `front_vibes/src/services/schedule.service.ts` — `getRequiredIdToken` + `laravelFetch`; offline-guarded mutations |
+| P7-2 | Schedule list page | **Done** | `front_vibes/src/views/SchedulesPage.vue` — loading/empty/error/offline states, pull-to-refresh, vibe-name mapping, recurrence + next-run + timezone + status |
+| P7-3 | Create / edit form — vibe picker, timezone, recurrence | **Done** | `front_vibes/src/views/ScheduleFormPage.vue` — create/edit by route id; device IANA default timezone |
+| P7-4 | Weekly day-of-week multi-select | **Done** | ISO 1–7 day chips shown only for `weekly`; `recurrence_config.days_of_week` validation (`src/utils/schedule-format.ts`) |
+| P7-5 | Delete with confirm | **Done** | `IonAlert` destructive confirm in `SchedulesPage.vue` |
+| P7-6 | **Block mutations when offline** | **Done** | Service throws `ScheduleOfflineError`; UI disables actions + toast "Schedules can only be changed while online." |
+| P7-7 | Router entries | **Done** | `/schedules`, `/schedules/new`, `/schedules/:id/edit` as `TabsLayout` children under `requiresAuth`; Settings entry point |
+| P7-8 | **`npm run build`** clean | **Done** | `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:unit` (50 passed) all green |
 
 **Branch:** `feature/scheduler-mobile-crud`
 
 **Platform:** Android native installable — **not iOS MVP**
+
+**Online-only scope (this phase):** No SQLite mirror, no local notifications, no FCM, no `monthly` recurrence, no offline editing — deferred to Phases 8–9 per [`spec.md`](spec.md) and [ADR-011](../../../decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md).
+
+**Tests added:** `src/services/__tests__/schedule.service.test.ts` (Bearer + offline-block), `src/utils/__tests__/schedule-format.test.ts` (weekly validation, recurrence summary), `src/utils/__tests__/schedule-datetime.test.ts` (timezone↔UTC conversion).
 
 ---
 
@@ -274,7 +283,8 @@ Promote via **`develop` → `staging`** merge per [`git-flow.md`](../../../stand
 - [x] Schema hardening migrated on staging (Phase 3) — migrations + models + factories + tests green
 - [x] Schedule CRUD API + Policy + Pest green (Phase 4 — 43 API tests, 246 total)
 - [x] Dispatcher command idempotent under double run
-- [ ] DO Scheduled Job firing on staging
+- [x] Dispatcher loop command (`schedules:dispatch-loop`) + Pest tests green (Phase 6 — 14 loop tests + 285 total)
+- [ ] Scheduler worker firing on staging (P6-7 — manual QA after `tofu apply`)
 
 ### Mobile (Android)
 
