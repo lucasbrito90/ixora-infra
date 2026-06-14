@@ -108,6 +108,7 @@ docs/architecture/
 | **Playback** | [playback-runtime](architecture/audio/playback-runtime.md) | [execution-plan](specs/vibes/execution-plan/spec.md) · [ADR-007](decisions/ADR-007-execution-plan-runtime-contract.md) · [ADR-008](decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md) |
 | **Offline** | [audio-cache](architecture/audio/audio-cache.md) | [offline-download](specs/vibes/offline-download/spec.md) · [ADR-004](decisions/ADR-004-offline-audio-strategy.md) |
 | **Presets** | [preset-vibes](specs/preset-vibes/spec.md) | [ADR-003](decisions/ADR-003-preset-import-independent-vibes.md) · [ADR-005](decisions/ADR-005-no-realtime-preset-sync.md) |
+| **Scheduler (MVP)** | [scheduler/mvp/spec](specs/scheduler/mvp/spec.md) | [ADR-009](decisions/ADR-009-scheduler-timezone-utc-storage.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
 | **Staging ops** | [staging-digitalocean](architecture/backend/staging-digitalocean.md) | [deploy-pipeline](architecture/backend/deploy-pipeline.md) |
 
 ---
@@ -127,6 +128,7 @@ docs/architecture/
 | **Mobile playback + mini player** | Shipped — Android primary; `@capgo/native-audio` |
 | **Execution plan** | Shipped — client-only ([ADR-007](decisions/ADR-007-execution-plan-runtime-contract.md)) |
 | **Offline download** | Shipped — explicit native download + manifests ([ADR-004](decisions/ADR-004-offline-audio-strategy.md)) |
+| **Scheduler MVP** | Spec + ADRs accepted — **not implemented** ([scheduler/mvp/spec](specs/scheduler/mvp/spec.md)) |
 | **Staging environment** | Shipped — DO App Platform + OpenTofu ([staging-digitalocean](architecture/backend/staging-digitalocean.md)) |
 | **Safe delete (sounds, cover bundles)** | Shipped — reference-checked Spaces cleanup |
 | **Legacy Firebase asset URLs** | May coexist on rows until migration |
@@ -140,8 +142,8 @@ Do **not** build or document these as shipped without a new spec + ADR.
 
 | Capability | Why / pointer |
 | --- | --- |
-| **Backend playback / scheduler** | Manual mobile play only — [scheduling-model](architecture/backend/scheduling-model.md) (*planning*) |
-| **Time-based vibe automation, cron, push-to-play** | Schema stubs only — no runtime |
+| **Backend playback / scheduler runtime** | Manual mobile play only today — [scheduling-model](architecture/backend/scheduling-model.md) (*planning*); MVP spec in progress — [scheduler/mvp/spec](specs/scheduler/mvp/spec.md) |
+| **Time-based vibe automation (shipped)** | Not shipped — schema stubs only; see Scheduler MVP spec + ADRs 009–011 |
 | **Preset → vibe realtime sync** | [ADR-005](decisions/ADR-005-no-realtime-preset-sync.md) |
 | **Direct client → Spaces uploads** | [ADR-002](decisions/ADR-002-laravel-only-storage-writes.md) · [ADR-006](decisions/ADR-006-no-direct-mobile-uploads.md) |
 | **Presigned / signed CDN URLs** | [spaces-cdn-policy](architecture/storage/spaces-cdn-policy.md) |
@@ -264,6 +266,14 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 | [playback-runtime/spec.md](specs/vibes/playback-runtime/spec.md) | Mobile playback behaviour — spec-level |
 | [execution-plan/spec.md](specs/vibes/execution-plan/spec.md) | `VibeExecutionLayer[]` contract — client-only |
 
+## Scheduler (MVP — pre-implementation)
+
+| Document | Description |
+| --- | --- |
+| [scheduler/mvp/spec.md](specs/scheduler/mvp/spec.md) | Time-based vibe reminders — Phase 2 TDD RecurrenceService first; **`monthly` reserved** |
+| [scheduler/mvp/plan.md](specs/scheduler/mvp/plan.md) | 10-phase implementation plan |
+| [scheduler/mvp/tasks.md](specs/scheduler/mvp/tasks.md) | Task checklist |
+
 ---
 
 # 2. Architecture
@@ -336,6 +346,9 @@ Accepted decisions with context, tradeoffs, and links to implementation.
 | [ADR-006](decisions/ADR-006-no-direct-mobile-uploads.md) | No direct mobile Spaces access | Mobile read-only; corollary to ADR-002 |
 | [ADR-007](decisions/ADR-007-execution-plan-runtime-contract.md) | Execution plan runtime contract | Client plan is canonical playback input |
 | [ADR-008](decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md) | Stability over JS DSP | No fades/crossfade in unstable JS path |
+| [ADR-009](decisions/ADR-009-scheduler-timezone-utc-storage.md) | Scheduler timezone + UTC storage | IANA per schedule; UTC instants; DST skip/first-wins |
+| [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) | Scheduler idempotency | **`occurrence_key`**; unique index; audit ≠ playback |
+| [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) | Local notifications vs FCM | Android reminders first; no FCM/offline edit in MVP |
 
 ---
 

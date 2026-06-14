@@ -27,6 +27,7 @@ Document the **live staging topology**: how DigitalOcean App Platform hosts the 
 | **Spaces bucket** | S3-compatible object storage | `tor1` | Private ACL; optional create via `manage_spaces_bucket` |
 | **Laravel API (`api`)** | App Platform **service** | `tor` | FrankenPHP Docker, port **8080**, **`basic-xxs`**, **`instance_count = 1`** |
 | **Queue worker (`queue`)** | App Platform **worker** | `tor` | Same image/env as API; **no HTTP ingress** |
+| **Scheduler worker (`scheduler`)** | App Platform **worker** | `tor` | Same image/env as API/queue; `php artisan schedules:dispatch-loop` — dispatches due schedules every ~60 s |
 | **Nuxt admin** | App Platform **static site** | `tor` | `npm ci && npm run generate` → `.output/public` |
 | **Mobile app** | **Not** on App Platform | — | Build-time `VITE_API_BASE_URL` → staging API hostname |
 
@@ -49,7 +50,7 @@ There is **no Kubernetes**, **no multi-region replication**, and **no App Platfo
 ## Current Decision
 
 1. **Staging infrastructure is declarative** in OpenTofu under `ixora-infra/opentofu/staging/`.
-2. **Laravel runs as one App Platform app** with two components: HTTP **`api`** service and background **`queue`** worker — **same Docker image and RUN_TIME env**.
+2. **Laravel runs as one App Platform app** with three components: HTTP **`api`** service, background **`queue`** worker, and **`scheduler`** worker — **same Docker image and RUN_TIME env**.
 3. **PostgreSQL is VPC-private**; App Platform connects via **`private_host`**, not a public DB endpoint.
 4. **Spaces writes are Laravel-only** ([ADR-002](../../decisions/ADR-002-laravel-only-storage-writes.md)); clients read **public CDN HTTPS URLs** from API JSON.
 5. **Firebase** verifies JWTs on the API via discrete **`FIREBASE_*`** secrets; admin embeds **public** `NUXT_PUBLIC_FIREBASE_*` at **build time**.
@@ -71,10 +72,10 @@ There is **no Kubernetes**, **no multi-region replication**, and **no App Platfo
                          │   │  BUILD_TIME env:     │      │  service: api :8080      │ │
                          │   │   NUXT_PUBLIC_*      │      │    FrankenPHP / Laravel  │ │
                          │   └──────────┬───────────┘      │  worker: queue           │ │
-                         │              │                   │    queue:work (no HTTP)    │ │
-                         │              │  HTTPS + CORS     └───────┬─────────┬─────────┘ │
-                         │              └──────────────────────────►│         │           │ │
-                         │                                          │         │           │ │
+                         │              │                   │    queue:work (no HTTP)   │ │
+                         │              │  HTTPS + CORS     │  worker: scheduler        │ │
+                         │              └──────────────────►│    dispatch-loop ~60s     │ │
+                         │                                  └───────┬─────────┬─────────┘ │
                          │              ┌───────────────────────────┘         │           │ │
                          │              │  private_host + SSL                 │           │ │
                          │              ▼                                     │ S3 API    │ │
@@ -95,6 +96,13 @@ There is **no Kubernetes**, **no multi-region replication**, and **no App Platfo
          │                                Admin/mobile upload via API only
          ▼
   JWT ──► POST /api/auth/sync ──► Laravel VerifyFirebaseIdToken (ADR-001)
+
+  Scheduler worker (long-running, ~60-second loop):
+  worker: scheduler ──► php artisan schedules:dispatch-loop
+                    │     └── every 60s: php artisan schedules:dispatch-due
+                    │ (same VPC / DB_HOST / RUN_TIME env as api + queue)
+                    ▼
+              schedule_executions (idempotent — ADR-010)
 ```
 
 ---
@@ -108,7 +116,7 @@ Stack path: **`ixora-infra/opentofu/staging/`**
 | `vpc.tf` | Staging VPC |
 | `database.tf` | Postgres cluster, `ixora_staging` DB, `ixora_app` user, VPC firewall |
 | `spaces.tf` | Optional private bucket |
-| `app-api.tf` | Laravel App Platform app (service + worker) |
+| `app-api.tf` | Laravel App Platform app (service + workers: queue + scheduler) |
 | `app-admin.tf` | Nuxt static site app |
 | `domains.tf` | DNS notes (manual registrar steps) |
 | `outputs.tf` | Live URLs, private DB host, bucket/CDN patterns |
@@ -134,9 +142,10 @@ Stack path: **`ixora-infra/opentofu/staging/`**
 | --- | --- | --- | --- |
 | **`ixora-api-staging`** | `service` **`api`** | Public HTTP → FrankenPHP :8080 | Docker (`back_vibes/Dockerfile`) |
 | **`ixora-api-staging`** | `worker` **`queue`** | **None** (not routable) | Same Docker image |
+| **`ixora-api-staging`** | `worker` **`scheduler`** | **None** (not routable) | Same Docker image |
 | **`ixora-admin-staging`** | `static_site` **`admin`** | Public HTTPS static files | `npm ci && npm run generate` |
 
-The **API app attaches to the VPC** so **`api`** and **`queue`** reach Postgres on **`private_host`**. The **admin static site does not join the VPC** — it only needs outbound HTTPS to the API and Firebase client endpoints.
+The **API app attaches to the VPC** so **`api`**, **`queue`**, and **`scheduler`** reach Postgres on **`private_host`**. The **admin static site does not join the VPC** — it only needs outbound HTTPS to the API and Firebase client endpoints.
 
 ### API container lifecycle
 
@@ -185,11 +194,97 @@ Postgres **`cache` table** is intentionally avoided on staging (ACL / migration 
 | --- | --- |
 | **Queue driver** | `database` (`QUEUE_CONNECTION=database`) |
 | **Worker command** | `php artisan queue:work --tries=3 --sleep=3 --timeout=90` |
-| **Shared config** | `local.api_worker_runtime_env` in `app-api.tf` — **identical RUN_TIME env** on `api` and `queue` |
+| **Shared config** | `local.api_worker_runtime_env` in `app-api.tf` — **identical RUN_TIME env** on `api`, `queue`, and `scheduler` |
 | **Known queued mail** | `AdminAccessRequestedMail` implements `ShouldQueue` |
 | **Scaling** | **`instance_count = 1`** for both service and worker — no horizontal autoscaling |
 
 **Important:** HTTP handlers enqueue work; the **worker process** must be healthy for async mail (and any future `ShouldQueue` jobs) to drain. API and worker deploy together on the same branch push but run as **separate processes/containers**.
+
+---
+
+## Scheduler worker
+
+A dedicated **App Platform worker** (`scheduler`) runs `php artisan schedules:dispatch-loop` — a long-running process that calls `schedules:dispatch-due` approximately every 60 seconds.
+
+**Why a worker instead of a DO Scheduled Job:**
+
+| Reason | Detail |
+| --- | --- |
+| **Provider gap** | `digitalocean/digitalocean` v2.87.0 does not support `SCHEDULED` job kind / `cron_expression` ([issue #1529](https://github.com/digitalocean/terraform-provider-digitalocean/issues/1529)) |
+| **Platform minimum** | DO App Platform enforces a 15-minute minimum cadence for scheduled jobs; MVP requires ~60-second dispatch granularity |
+| **Native Terraform support** | `worker` is fully supported by the current provider — no manual `doctl` post-steps or `lifecycle.ignore_changes` workarounds needed |
+
+| Property | Value |
+| --- | --- |
+| **Component name** | `scheduler` |
+| **Component type** | App Platform `worker` (long-running process, no HTTP ingress) |
+| **Run command** | `php artisan schedules:dispatch-loop` |
+| **Dispatch cadence** | ~60 seconds (configurable via `--interval`; default 60 s) |
+| **Inner command** | `php artisan schedules:dispatch-due` (called per iteration) |
+| **Image / source** | Same Docker image as `api` / `queue` — `back_vibes/Dockerfile`, `staging` branch |
+| **Environment** | `local.api_worker_runtime_env` — identical RUN_TIME env as `api` and `queue` |
+| **Instance size** | `basic-xxs` |
+| **Instance count** | `1` |
+| **Purpose** | Evaluate `schedules WHERE is_enabled = true AND next_run_at <= now() UTC`, insert idempotent `schedule_executions` rows, advance `next_run_at` — [ADR-010](../../decisions/ADR-010-scheduler-idempotency-occurrence-key.md) |
+| **Idempotency** | Loop restart or brief overlap: safe — unique `(schedule_id, occurrence_key)` index deduplicates any double-dispatch |
+| **Shutdown** | SIGTERM → sets `$shouldStop = true` → loop exits after current tick completes (graceful) |
+
+**Spec reference:** [`specs/scheduler/mvp/spec.md`](../../specs/scheduler/mvp/spec.md) § Dispatcher worker strategy.  
+**IaC source:** `worker` block named `scheduler` in `app-api.tf` inside `digitalocean_app.api`.
+
+### Scheduler worker logs
+
+- **DigitalOcean App Platform console** → `ixora-api-staging` → component **`scheduler`** → Runtime Logs
+- `LOG_CHANNEL=stderr` — logs appear in the App Platform component log stream
+- Each tick emits: `[schedules:dispatch-loop] tick #N @ <ISO8601>` + dispatch-due summary
+
+### Scheduler worker runbook
+
+#### Check the worker is running
+
+1. Open the [DigitalOcean App Platform dashboard](https://cloud.digitalocean.com/apps) → `ixora-api-staging`
+2. Navigate to component **`scheduler`** → **Runtime Logs**
+3. Confirm `[schedules:dispatch-loop] starting` appears after the last deploy
+4. Confirm `[schedules:dispatch-loop] tick #N` lines appear approximately every 60 seconds
+
+#### Manually validate the dispatcher
+
+1. Create a schedule row with `next_run_at` in the past (via API or direct DB update):
+
+   ```sql
+   UPDATE schedules
+   SET next_run_at = now() - interval '5 minutes'
+   WHERE id = <your_schedule_id>;
+   ```
+
+2. Wait up to 60 seconds for the next loop tick
+
+3. Verify a `schedule_executions` row was inserted:
+
+   ```sql
+   SELECT * FROM schedule_executions
+   WHERE schedule_id = <your_schedule_id>
+   ORDER BY executed_at DESC LIMIT 5;
+   ```
+
+4. Verify `schedules.next_run_at` advanced to the next occurrence:
+
+   ```sql
+   SELECT id, next_run_at, last_run_at, is_enabled
+   FROM schedules WHERE id = <your_schedule_id>;
+   ```
+
+5. For `once` schedules: confirm `next_run_at = NULL` and `is_enabled = false` after dispatch
+
+#### Run a bounded dispatch test (one iteration)
+
+Connect to a running API or scheduler container console and run:
+
+```bash
+php artisan schedules:dispatch-loop --once        # single tick, then exit
+php artisan schedules:dispatch-due --dry-run      # inspect without writing
+php artisan schedules:dispatch-due                # live dispatch
+```
 
 ---
 
@@ -325,7 +420,7 @@ Override all defaults by setting **`api_cors_allowed_origins`** in untracked tfv
 
 ## Environment variables
 
-### Shared Laravel RUN_TIME (`api` + `queue`)
+### Shared Laravel RUN_TIME (`api` + `queue` + `scheduler`)
 
 Source: `local.api_worker_runtime_env` in [`app-api.tf`](../../../opentofu/staging/app-api.tf).
 
@@ -400,7 +495,7 @@ App Platform **`scope = RUN_TIME`** for API components; admin uses **`BUILD_TIME
 1. **`tofu plan` / `tofu apply`** when changing VPC, DB, domains, or env maps in OpenTofu
 2. **Push to `staging` branch** (or merge PR into `staging`) for application releases
 3. **Run migrations** against `ixora_staging` when schema changes ship (not automatic in IaC)
-4. **Verify** `api` health, `queue` logs processing jobs, admin loads with correct `NUXT_PUBLIC_API_BASE_URL`
+4. **Verify** `api` health, `queue` logs processing jobs, `scheduler` worker logs show `schedules:dispatch-loop` ticks approximately every 60 seconds, admin loads with correct `NUXT_PUBLIC_API_BASE_URL`
 5. **Confirm DNS** for custom domains if newly added
 
 ### Sizing (fixed — not autoscaling)
@@ -409,6 +504,7 @@ App Platform **`scope = RUN_TIME`** for API components; admin uses **`BUILD_TIME
 | --- | --- | --- |
 | API service | `basic-xxs` | **1** |
 | Queue worker | `basic-xxs` | **1** |
+| Scheduler worker | `basic-xxs` | **1** |
 | Postgres | `db-s-1vcpu-1gb` | **1** node |
 
 No HPA, no multi-instance API pool, no read replicas in this stack.
@@ -419,7 +515,7 @@ No HPA, no multi-instance API pool, no read replicas in this stack.
 
 1. **Treat OpenTofu + App Platform as staging source of truth** — not Droplet SSH workflows.
 2. **Never commit** `terraform.tfvars`, runtime Spaces keys, `APP_KEY`, or Firebase private keys.
-3. **API and queue share env** — changing DB, queue, or Firebase config affects **both** components on next deploy.
+3. **API, queue, and scheduler share env** — changing DB, queue, or Firebase config affects **all three** worker/service components on next deploy.
 4. **Use `private_host` for Postgres** from App Platform; do not open the DB firewall to `0.0.0.0/0`.
 5. **CORS changes** require updating `api_cors_allowed_origins` (or defaults via `admin_domain`) and redeploying the API app.
 6. **Admin API URL is build-time** — changing `nuxt_public_api_base_url` requires an **admin rebuild**, not just API env change.

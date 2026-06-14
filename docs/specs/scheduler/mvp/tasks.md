@@ -29,7 +29,7 @@
 | 7 — Mobile CRUD | 0 | 0 | 8 | 0 |
 | 8 — SQLite mirror | 0 | 0 | 6 | 0 |
 | 9 — Local notifications | 0 | 0 | 7 | 0 |
-| 10 — Execution log sync | 5 | 0 | 0 | 0 |
+| 10 — Execution log sync | 0 | 0 | 4 | 1 |
 
 ---
 
@@ -250,15 +250,30 @@ Promote via **`develop` → `staging`** merge per [`git-flow.md`](../../../stand
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P10-1 | **`GET /api/schedules/{id}/executions`** | **Pending** | Audit list |
-| P10-2 | Optional **`POST .../ack`** for mobile | **Pending** | Best-effort |
-| P10-3 | Mobile — optional executions detail UI | **Pending** | |
-| P10-4 | Mobile — POST ack on notification tap (online) | **Pending** | |
-| P10-5 | Pest tests for executions endpoints | **Pending** | |
+| P10-1 | **`GET /api/schedules/{id}/executions`** | **Done** | `app/Http/Controllers/Api/ScheduleExecutionController.php` — paginated, ordered by `scheduled_for desc` |
+| P10-2 | Optional **`POST .../ack`** for mobile | **Done** | `ScheduleExecutionController::acknowledge` — idempotent, status → `acknowledged` |
+| P10-3 | Mobile — optional executions detail UI | **Deferred** | Service-only for MVP; `schedule-execution.service.ts` exposes `listScheduleExecutions` when UI is needed |
+| P10-4 | Mobile — POST ack on notification tap (online) | **Done** | `useScheduleNotificationHandler.ts` — best-effort ack via `scheduleExecutionService`; skipped when offline or `occurrence_key` absent |
+| P10-5 | Pest tests for executions endpoints | **Done** | `tests/Feature/Scheduling/ScheduleExecutionApiTest.php` — 14 tests (401, 403, list, order, pagination, ack, idempotency, 404) |
 
 **Branch:** `feature/scheduler-execution-sync`
 
-**Note:** May ship as fast-follow after Phase 9 MVP launch — see [`plan.md`](plan.md) open questions.
+**Mobile files added / changed:**
+- `front_vibes/src/services/schedule-execution.service.ts` — new; `listScheduleExecutions` + `acknowledgeScheduleExecution`
+- `front_vibes/src/services/schedule-notification/schedule-notification.adapter.ts` — added optional `occurrence_key` to `ScheduleNotificationExtra`
+- `front_vibes/src/services/schedule-notification.service.ts` — embeds `occurrence_key` in notification extra payload
+- `front_vibes/src/composables/useScheduleNotificationHandler.ts` — best-effort ack on tap; `_resetInitializedForTest` hook added
+- `front_vibes/src/services/__tests__/schedule-execution.service.test.ts` — 8 tests
+- `front_vibes/src/composables/__tests__/useScheduleNotificationHandler.test.ts` — 6 tests
+
+**Verify:**
+
+```bash
+cd back_vibes && php artisan test --filter=ScheduleExecution   # 14 passed
+cd back_vibes && php artisan test                              # 298 passed
+cd back_vibes && ./vendor/bin/pint --test                      # passed
+cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run test:unit   # 95 passed
+```
 
 ---
 
