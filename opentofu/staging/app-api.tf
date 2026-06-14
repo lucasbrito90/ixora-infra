@@ -185,6 +185,48 @@ resource "digitalocean_app" "api" {
       }
     }
 
+    # Scheduler dispatcher worker: App Platform **worker** component.
+    #
+    # Runs `php artisan schedules:dispatch-loop` as a long-running process.
+    # The loop command calls `schedules:dispatch-due` every ~60 seconds internally,
+    # giving reliable minute-granularity dispatch without relying on DO App Platform
+    # Scheduled Jobs, which are:
+    #   - Not fully supported by the digitalocean/digitalocean provider v2.87.0
+    #     (SCHEDULED kind / cron_expression missing — issue #1529).
+    #   - Subject to a 15-minute minimum cadence on the DO platform.
+    #
+    # Idempotency is guaranteed by occurrence_key (ADR-010): if the worker restarts
+    # or two instances briefly overlap, duplicate dispatch attempts are silently
+    # skipped via the unique (schedule_id, occurrence_key) DB index.
+    #
+    # Same Docker image, source, and RUN_TIME env as `api` / `queue`.
+    worker {
+      name               = "scheduler"
+      instance_count     = 1
+      instance_size_slug = "basic-xxs"
+
+      github {
+        repo           = var.github_repo_api
+        branch         = var.github_branch
+        deploy_on_push = true
+      }
+
+      dockerfile_path = var.api_dockerfile_path
+      source_dir      = var.api_source_dir
+
+      run_command = "php artisan schedules:dispatch-loop"
+
+      dynamic "env" {
+        for_each = { for idx, e in local.api_worker_runtime_env : idx => e }
+        content {
+          key   = env.value.key
+          value = env.value.value
+          type  = env.value.type
+          scope = "RUN_TIME"
+        }
+      }
+    }
+
     ingress {
       rule {
         component {
