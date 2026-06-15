@@ -23,7 +23,7 @@
 | 1 — Spec + ADRs | 2 | 0 | 7 | 0 |
 | 2 — Schema review | 0 | 0 | 4 | 0 |
 | 3 — provider_connections model | 0 | 0 | 4 | 0 |
-| 4 — Device CRUD backend | 10 | 0 | 0 | 0 |
+| 4 — Device CRUD backend | 8 | 0 | 2 | 0 |
 | 5 — HA adapter contract | 6 | 0 | 0 | 0 |
 | 6 — Devices mobile tab | 8 | 0 | 0 | 0 |
 | 7 — Device action association UI | 6 | 0 | 0 | 0 |
@@ -88,8 +88,10 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P4-1 | Migration: update **`devices`** — rename `external_id` → `provider_device_id`, add `status`, `last_seen_at`, `updated_at`, unique constraint | **Pending** | [`ADR-014`](../../../decisions/ADR-014-device-abstraction-and-deduplication.md) |
-| P4-2 | Migration: update **`vibe_device_actions`** — add `sort_order`, `updated_at` | **Pending** | [`ADR-015`](../../../decisions/ADR-015-vibe-device-action-architecture.md) |
+| P4-1 | Migration: update **`devices`** — rename `external_id` → `provider_device_id`, add `status`, `last_seen_at`, `updated_at`, unique constraint | **Done** | [`ADR-014`](../../../decisions/ADR-014-device-abstraction-and-deduplication.md) |
+| P4-2 | Migration: update **`vibe_device_actions`** — add `sort_order`, `updated_at` | **Done** | [`ADR-015`](../../../decisions/ADR-015-vibe-device-action-architecture.md) |
+
+**Phase 4A Schema Hardening completed; CRUD API remains pending for Phase 4B.** Additions: `DeviceStatus`, `ActionType` enums, `DeviceFactory`, `VibeDeviceActionFactory`, `Vibe::deviceActions()` ordered by `sort_order`. Tests at `tests/Feature/SmartHome/SmartHomeSchemaHardeningTest.php` — 32 passing assertions.
 | P4-3 | **`DevicePolicy`** / **`ProviderConnectionPolicy`** — owner scoping | **Pending** | `back_vibes/app/Policies/` |
 | P4-4 | **`StoreProviderConnectionRequest` / `UpdateProviderConnectionRequest`** | **Pending** | Validate HTTPS base URL, token present |
 | P4-5 | **`StoreDeviceRequest` / `UpdateDeviceRequest`** | **Pending** | Scoped to `auth()->id()` |
