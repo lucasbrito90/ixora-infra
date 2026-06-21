@@ -262,14 +262,23 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P10-1 | Staging: add HA provider connection → test connection passes | **Pending** | [`plan.md`](plan.md) § Phase 10 |
-| P10-2 | Staging: sync → devices appear; re-sync → no duplicates | **Pending** | [`ADR-014`](../../../decisions/ADR-014-device-abstraction-and-deduplication.md) |
-| P10-3 | Staging: device status badge correct (online / offline / unknown) | **Pending** | |
-| P10-4 | Staging: attach action to vibe → API persists `vibe_device_action` | **Pending** | |
-| P10-5 | Staging: trigger play event → `SmartHomeActionJob` dispatched → HA receives call | **Pending** | |
-| P10-6 | Security: `GET /api/provider-connections/{id}` → no `access_token` in response | **Pending** | |
-| P10-7 | Security: cross-user device access → 403 | **Pending** | |
-| P10-8 | Offline: device mutation UI blocked → toast shown | **Pending** | |
+| P10-1 | Staging: add HA provider connection → test connection passes | **Done** (API) | [`plan.md`](plan.md) § Phase 10 |
+| P10-2 | Staging: sync → devices appear; re-sync → no duplicates | **Pending** (on-device) | [`ADR-014`](../../../decisions/ADR-014-device-abstraction-and-deduplication.md) |
+| P10-3 | Staging: device status badge correct (online / offline / unknown) | **Pending** (on-device) | |
+| P10-4 | Staging: attach action to vibe → API persists `vibe_device_action` | **Done** (API) | |
+| P10-5 | Staging: trigger play event → `SmartHomeActionJob` dispatched → HA receives call | **Done** (dispatch API) / **Pending** (HA entity) | |
+| P10-6 | Security: `GET /api/provider-connections/{id}` → no `access_token` in response | **Done** | |
+| P10-7 | Security: cross-user device access → 403 | **Done** (automated tests) | |
+| P10-8 | Offline: device mutation UI blocked → toast shown | **Pending** (on-device) | |
+
+**Phase 10 implementation notes:**
+
+- Full QA report: [`docs/qa/smart-home-e2e/summary.md`](../../../qa/smart-home-e2e/summary.md)
+- **Verdict:** ✅ CONDITIONAL PASS — all automated checks pass; on-device manual QA pending (no Android device connected in QA session).
+- Staging migrations applied manually (BUG-001 resolved); `POST /api/provider-connections` returns 201 (was 500 before migrations).
+- Automated: backend 512/512, SmartHome 214/214, pint clean; frontend lint/typecheck clean, 168 unit tests, staging build + APK (33 MB).
+- Staging API flow verified with Firebase auth: provider connection create → device CRUD → vibe device action CRUD → dispatch (`dispatched=1, action_ids=[1]`) → delete.
+- Pending manual: HA sync UI, device status badges, real HA entity state change, offline toast, invalid-token failure path on device.
 
 ---
 
@@ -277,12 +286,12 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 
 | ID | Task | Status | When |
 | --- | --- | --- | --- |
-| X-1 | Laravel full test suite on **`back_vibes`** touch | **Pending** | Each backend PR |
-| X-2 | **`front_vibes` production build** clean | **Pending** | Each mobile PR |
-| X-3 | Confirm **no Scheduler code modified** | **Pending** | Phase 1 sign-off |
-| X-4 | Confirm **`access_token` never in API response** | **Pending** | Phase 4 sign-off |
-| X-5 | Confirm **no duplicate devices** after repeated sync | **Pending** | Phase 10 QA |
-| X-6 | Confirm **audio plays** even when device action fails | **Pending** | Phase 9 |
+| X-1 | Laravel full test suite on **`back_vibes`** touch | **Done** | Phase 10 QA — 512/512 passing |
+| X-2 | **`front_vibes` production build** clean | **Done** | Phase 10 QA — build:staging + APK OK |
+| X-3 | Confirm **no Scheduler code modified** | **Done** | Phases 7–9 — no scheduler files touched |
+| X-4 | Confirm **`access_token` never in API response** | **Done** | Phase 4 + Phase 10 boundary checks |
+| X-5 | Confirm **no duplicate devices** after repeated sync | **Pending** (on-device sync) | Phase 10 QA |
+| X-6 | Confirm **audio plays** even when device action fails | **Done** (code) / **Pending** (on-device) | Phase 9 fire-and-forget + job never rethrows |
 | X-7 | Confirm **no direct HA calls from mobile** | **Done** | Phase 6 — mobile calls Laravel API only (`laravelFetch`) |
 
 ---
