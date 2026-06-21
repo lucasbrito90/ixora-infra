@@ -29,7 +29,7 @@
 | 7A — Vibe Device Action backend API | 0 | 0 | 7 | 0 |
 | 7 — Device action association UI (mobile) | 0 | 0 | 6 | 0 |
 | 8 — Async execution foundation | 0 | 0 | 4 | 0 |
-| 9 — HA real execution | 5 | 0 | 0 | 0 |
+| 9 — HA real execution | 0 | 0 | 5 | 0 |
 | 10 — E2E QA | 8 | 0 | 0 | 0 |
 
 ---
@@ -238,13 +238,23 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P9-1 | `SmartHomeActionJob` calls **`HomeAssistantAdapter::executeAction()`** | **Pending** | [`ADR-013`](../../../decisions/ADR-013-home-assistant-first-provider.md), [`ADR-016`](../../../decisions/ADR-016-smart-home-async-execution.md) |
-| P9-2 | Resolve `ProviderConnection` from device; decrypt credentials | **Pending** | |
-| P9-3 | Log execution result — success / failure / timeout | **Pending** | `action_execution_logs` table or column (design in Phase 9) |
-| P9-4 | Graceful failure — catch all exceptions; audio unaffected | **Pending** | [`ADR-015`](../../../decisions/ADR-015-vibe-device-action-architecture.md) |
-| P9-5 | Pest: mocked HA HTTP — success, unreachable provider, token failure | **Pending** | |
+| P9-1 | `SmartHomeActionJob` calls **`HomeAssistantAdapter::executeAction()`** via `ProviderAdapterResolver` | **Done** | `back_vibes/app/Jobs/SmartHome/SmartHomeActionJob.php` |
+| P9-2 | Resolve `ProviderConnection` from `device.providerConnection`; credentials decrypted only inside adapter (`decryptedCredentials()`), never in job | **Done** | `back_vibes/app/Jobs/SmartHome/SmartHomeActionJob.php`, `HomeAssistantAdapter` |
+| P9-3 | Structured log of success / failure / timeout (no DB table this phase — log only) | **Done** | `SmartHomeActionJob::logResult()` |
+| P9-4 | Graceful failure — failed `ActionResult` + all `Throwable` caught & logged; never rethrown; audio unaffected | **Done** | `SmartHomeActionJob::handle()` |
+| P9-5 | Pest: `Http::fake()` — success 2xx, failure 5xx, connection failure, unsupported action, missing action/device, no credential logging, single adapter-routed call | **Done** | `tests/Feature/SmartHome/SmartHomeActionJobTest.php` (14 tests) |
 
 **Branch:** `feature/smart-home-ha-execution`
+
+**Phase 9 implementation notes:**
+
+- `SmartHomeActionJob` now executes real provider actions: loads action with `device` + `device.providerConnection`, resolves the adapter via `ProviderAdapterResolver::forProvider()`, and calls `executeAction(connection, provider_device_id, action_type, parameters ?? [])`.
+- Failure policy (MVP): a failed `ActionResult` (provider 4xx/5xx/timeout) is a **completed failure** — logged, not retried. `UnsupportedSmartHomeActionException` and any unexpected `Throwable` are caught and logged; the job never rethrows, so audio flow and the queue are never disrupted. Queue/timeout/tries unchanged (`smart-home` / 30s / 3).
+- Structured log context: `vibe_device_action_id`, `vibe_id`, `device_id`, `provider_connection_id`, `provider`, `provider_device_id`, `action_type`, `success`, `status_code`, `error_message`. Credentials (`access_token` / `encrypted_credentials`) are never logged — verified by test.
+- No `action_execution_logs` table introduced (log-only for MVP, per task scope). No new migrations.
+- Dispatch endpoint unchanged and still asynchronous: `POST /api/vibes/{vibe}/smart-home/dispatch` only queues jobs (`Bus::fake()` tests assert no inline HA HTTP); HA execution happens exclusively inside the queued job.
+- Worker command: `php artisan queue:work --queue=smart-home,default`.
+- Validation: `--filter=SmartHomeActionJobTest` → 14 passing; `--filter=VibeSmartHomeDispatchApiTest` → 9 passing; `--filter=SmartHome` → 214 passing; `php artisan test` → 512 passing; `pint --test` clean. Frontend untouched (no mobile changes in Phase 9).
 
 ---
 
@@ -301,7 +311,7 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 - [ ] Device CRUD API + Policies + Pest tests green
 - [x] Sync endpoint — upsert, no duplicates verified
 - [x] `HomeAssistantAdapter` unit tests green
-- [ ] `SmartHomeActionJob` dispatched for play events
+- [x] `SmartHomeActionJob` dispatched for play events and executes via HA adapter (Phase 9)
 
 ### Mobile
 
