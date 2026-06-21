@@ -1,0 +1,65 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# EXAMPLE ONLY — copy to `terraform.tfvars` (gitignored) and fill real values.
+# Never commit terraform.tfvars or *.auto.tfvars with secrets.
+# Prefer CI OIDC / sealed secrets for production-like pipelines.
+# ══════════════════════════════════════════════════════════════════════════════
+
+do_token          = "dop_v1_REPLACE_ME"
+spaces_access_id  = "REPLACE_SPACES_KEY_ID"
+spaces_secret_key = "REPLACE_SPACES_SECRET"
+
+github_repo_api    = "your-org/your-laravel-api-repo"
+github_repo_admin  = "your-org/your-nuxt-admin-repo"
+github_branch      = "staging"
+
+api_domain    = "staging-api.ixora-app.app"
+admin_domain  = "staging-admin.ixora-app.app"
+
+# Laravel CORS (explicit origins only; empty uses https://{admin_domain},http://localhost:3000,http://localhost:5173).
+# api_cors_allowed_origins = "https://staging-admin.ixora-app.app,http://localhost:3000,http://localhost:5173"
+
+manage_spaces_bucket = true
+spaces_bucket_name   = "ixora-buckets-staging-example"
+# Bucket names are globally unique — pick a unique slug if ixora-buckets is taken.
+
+db_cluster_name = "ixora-staging-postgres"
+db_node_size    = "db-s-1vcpu-1gb"
+
+# Laravel runtime secrets — set via environment or a local untracked tfvars file:
+# api_app_key = "base64:..."
+#
+# Firebase Admin SDK — discrete env vars (recommended; maps to Laravel FIREBASE_*). PEM often uses escaped \n in HCL/tfvars strings.
+# api_firebase_type                         = "service_account"
+# api_firebase_project_id                   = "your-gcp-project"
+# api_firebase_private_key_id               = "..."
+# api_firebase_private_key                  = "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
+# api_firebase_client_email                 = "firebase-adminsdk@your-project.iam.gserviceaccount.com"
+# api_firebase_client_id                    = "..."
+# api_firebase_token_uri                    = "https://oauth2.googleapis.com/token"
+# api_firebase_auth_uri                     = "https://accounts.google.com/o/oauth2/auth"
+# api_firebase_auth_provider_x509_cert_url  = "https://www.googleapis.com/oauth2/v1/certs"
+# api_firebase_client_x509_cert_url         = "https://www.googleapis.com/robot/v1/metadata/x509/..."
+#
+# api_mail_password    = "..."
+# api_do_spaces_key    = "..."
+# api_do_spaces_secret = "..."
+
+admin_access_review_email = "ops-example@yourcompany.invalid"
+
+api_env_general = {
+  # MAIL_MAILER = "smtp"
+  # MAIL_HOST   = "smtp.example.com"
+  # MAIL_PORT   = "587"
+  # MAIL_USERNAME = "notifications@example.com"
+  # MAIL_FROM_ADDRESS = "notifications@example.com"
+  # MAIL_FROM_NAME    = "Ixora Staging"
+}
+
+nuxt_public_api_base_url = "https://staging-api.ixora-app.app/api"
+
+# nuxt_public_firebase_api_key             = "AIza..."
+# nuxt_public_firebase_auth_domain         = "your-app.firebaseapp.com"
+# nuxt_public_firebase_project_id          = "your-project"
+# nuxt_public_firebase_storage_bucket      = "your-project.appspot.com"
+# nuxt_public_firebase_messaging_sender_id = "123456789"
+# nuxt_public_firebase_app_id              = "1:123:web:abc"

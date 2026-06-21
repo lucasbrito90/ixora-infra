@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>IXORA Ecosystem — Product &amp; Architecture Review</title>
+  <style>
+    @page { margin: 18mm 16mm; size: A4; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      color: #1a1a1a;
+      max-width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    h1 { font-size: 20pt; color: #111; border-bottom: 3px solid #4f46e5; padding-bottom: 8px; margin-top: 0; }
+    h2 { font-size: 14pt; color: #312e81; margin-top: 22px; page-break-after: avoid; border-bottom: 1px solid #c7d2fe; padding-bottom: 4px; }
+    h3 { font-size: 11.5pt; color: #3730a3; margin-top: 16px; page-break-after: avoid; }
+    h4 { font-size: 10.5pt; color: #4338ca; margin-top: 12px; }
+    p { margin: 6px 0; }
+    .meta { color: #555; font-size: 9.5pt; margin-bottom: 18px; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 9.5pt; page-break-inside: avoid; }
+    th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #eef2ff; font-weight: 600; }
+    tr:nth-child(even) td { background: #fafafa; }
+    .status-complete { color: #047857; font-weight: 600; }
+    .status-partial { color: #b45309; font-weight: 600; }
+    .status-missing { color: #b91c1c; font-weight: 600; }
+    .verdict-go { background: #ecfdf5; border: 1px solid #6ee7b7; padding: 10px 12px; border-radius: 6px; margin: 12px 0; }
+    .verdict-nogo { background: #fef2f2; border: 1px solid #fca5a5; padding: 10px 12px; border-radius: 6px; margin: 12px 0; }
+    ul { margin: 6px 0; padding-left: 20px; }
+    li { margin: 3px 0; }
+    .page-break { page-break-before: always; }
+    footer { margin-top: 24px; font-size: 8.5pt; color: #888; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+    code { font-family: Consolas, monospace; font-size: 9pt; background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<h1>IXORA Ecosystem — Product &amp; Architecture Review</h1>
+<p class="meta">
+  <strong>Data:</strong> 7 de junho de 2026 &nbsp;|&nbsp;
+  <strong>Escopo:</strong> front_vibes, back_vibes, ixora-admin, ixora-infra &nbsp;|&nbsp;
+  <strong>Método:</strong> Análise read-only (sem alterações de código)
+</p>
+
+<h2>1. Executive Summary</h2>
+<p>IXORA é uma <strong>plataforma de áudio ambiente funcionalmente madura no Android</strong>, com um loop central pronto para produção: Firebase auth → sync Laravel → CRUD de vibes → plano de execução → playback nativo → download offline. O stack de catálogo/admin (sounds, covers, preset vibes) e a infraestrutura de staging estão substancialmente implementados.</p>
+<p>Desde o baseline de 2 de junho de 2026, as maiores melhorias foram:</p>
+<ul>
+  <li><strong>Backend confidence sprint</strong> — testes de Vibe e VibeSound API (~150 casos Pest, antes 104)</li>
+  <li><strong>CI quality gates</strong> — <code>quality.yml</code> nos 3 repositórios de app</li>
+  <li><strong>Catálogo de sounds escalável</strong> — search, filters, sort, pagination no backend + admin</li>
+</ul>
+<p>A plataforma <strong>não está pronta para produção</strong> nem para <strong>automação Scheduler end-to-end</strong>. O Scheduler existe apenas como <strong>stubs de banco + docs de planejamento</strong>.</p>
+<div class="verdict-go"><strong>Scheduler MVP:</strong> <strong>GO condicional</strong> — iniciar spec/ADR + Schedule CRUD no backend; <strong>NO-GO</strong> para playback automatizado completo sem FCM e UI mobile.</div>
+
+<h2>2. Strengths</h2>
+<table>
+  <tr><th>Área</th><th>Evidência</th></tr>
+  <tr><td>Mobile playback</td><td>NativeAudio + execution plan + FGS + media session + audio focus + headset disconnect</td></tr>
+  <tr><td>Offline audio</td><td>Dual manifest, rollback atômico, file:// playback, health assessment, QA nativo</td></tr>
+  <tr><td>Backend domain</td><td>Vibes, vibe sounds, sounds, covers, presets, storage — Form Requests, Resources, Policies</td></tr>
+  <tr><td>Auth</td><td>Firebase JWT verify, sync fail-closed, admin approval — ADR-001</td></tr>
+  <tr><td>Storage</td><td>Laravel-only writes DO Spaces, safe deletion — ADR-002</td></tr>
+  <tr><td>Documentação</td><td>8 ADRs, 12 feature specs, architecture map, scheduling-model.md</td></tr>
+  <tr><td>Testes</td><td>~150 testes backend; gaps de vibe/vibe-sound fechados</td></tr>
+  <tr><td>Staging IaC</td><td>OpenTofu: VPC, Postgres, Spaces, App Platform (API + worker + admin)</td></tr>
+</table>
+
+<h2>3. Weaknesses</h2>
+<table>
+  <tr><th>Área</th><th>Gap</th></tr>
+  <tr><td>Scheduler</td><td>Schema + models + policy — zero API, jobs, UI mobile, testes</td></tr>
+  <tr><td>Produção</td><td>Sem OpenTofu prod; state local; sem observabilidade</td></tr>
+  <tr><td>Push</td><td>Só media notification — sem FCM para wake agendado</td></tr>
+  <tr><td>iOS</td><td>Sem projeto Capacitor iOS</td></tr>
+  <tr><td>Ownership UX</td><td>Enforcement só no servidor; mobile sem handling 403</td></tr>
+  <tr><td>Fades</td><td>Armazenados no DB mas não aplicados (ADR-008)</td></tr>
+  <tr><td>Admin tests</td><td>1 arquivo, 5 casos; sem E2E</td></tr>
+  <tr><td>QA em CI</td><td>Playwright + WDIO locais; não no CI</td></tr>
+  <tr><td>Rate limiting</td><td>Sem throttle na API</td></tr>
+  <tr><td>Deploy legado</td><td>SSH workflow coexiste com App Platform</td></tr>
+</table>
+
+<h2>4. Risks Before Scheduler</h2>
+<table>
+  <tr><th>Risco</th><th>Severidade</th><th>Detalhe</th></tr>
+  <tr><td>Sem push wake</td><td>Alta</td><td>FCM/APNs necessário; sem isso só foreground</td></tr>
+  <tr><td>Schema imaturo</td><td>Média</td><td>Sem timezone, next_run_at, dedupe de ocorrências</td></tr>
+  <tr><td>Offline + automação</td><td>Média</td><td>Snapshot stale causa falhas silenciosas</td></tr>
+  <tr><td>Limites Android BG</td><td>Média</td><td>Task removal mata processo; prepare handshake falha</td></tr>
+  <tr><td>Dual deploy</td><td>Média</td><td>SSH + App Platform pode causar drift</td></tr>
+  <tr><td>Sem observabilidade</td><td>Média</td><td>Execuções falhas invisíveis</td></tr>
+  <tr><td>Recurrence/TZ</td><td>Alta</td><td>DST, idempotência, política de timezone indefinida</td></tr>
+</table>
+
+<h2>5. Recommended Next Milestone</h2>
+<p><strong>Milestone: Scheduler Foundation Sprint</strong></p>
+<ol>
+  <li>Scheduler feature spec + ADRs (timezone, recurrence, push, idempotency)</li>
+  <li>Backend Schedule CRUD API (controller, requests, resources, factories, Pest)</li>
+  <li>Schema hardening (timezone, next_run_at)</li>
+  <li>FCM spike (token storage, payload mínimo → playVibe)</li>
+  <li>Mobile schedule list/create UI (CRUD only, sem runtime)</li>
+  <li>Retirar deploy SSH legado</li>
+</ol>
+
+<h2>6. Updated Completion Percentages</h2>
+<table>
+  <tr><th>Categoria</th><th>2 Jun</th><th>7 Jun</th><th>Notas</th></tr>
+  <tr><td>SSD / Specs / ADRs / Architecture</td><td>~75%</td><td><strong>78%</strong></td><td>8 ADRs, 12 specs; sem scheduler spec</td></tr>
+  <tr><td>Quality Harness / Sensors</td><td>~50%</td><td><strong>62%</strong></td><td>CI em 3 repos; E2E fora do CI</td></tr>
+  <tr><td>Foundation / Core Platform</td><td>~80%</td><td><strong>83%</strong></td><td>Auth, sync, health sólidos</td></tr>
+  <tr><td>Backend Laravel</td><td>~70%</td><td><strong>80%</strong></td><td>Testes vibe; API scheduler ausente</td></tr>
+  <tr><td>Mobile Ionic/Vue/Capacitor</td><td>~78%</td><td><strong>81%</strong></td><td>Android maduro; sem iOS</td></tr>
+  <tr><td>Infra Staging</td><td>~65%</td><td><strong>68%</strong></td><td>OpenTofu staging; deploy legado</td></tr>
+  <tr><td>Audio Engine / Player</td><td>~85%</td><td><strong>88%</strong></td><td>FGS, focus; fades ausentes</td></tr>
+  <tr><td>Offline Audio</td><td>~80%</td><td><strong>83%</strong></td><td>Nativo only; recovery forte</td></tr>
+  <tr><td>Core Vibes CRUD</td><td>~75%</td><td><strong>88%</strong></td><td>Mobile + API + testes</td></tr>
+  <tr><td>Sounds/Admin Platform</td><td>~72%</td><td><strong>84%</strong></td><td>Search/filters/pagination OK</td></tr>
+  <tr><td>Production Readiness</td><td>~35%</td><td><strong>38%</strong></td><td>Staging only; sem monitoring/DR</td></tr>
+  <tr><td>Automation System</td><td>~5%</td><td><strong>8%</strong></td><td>Schema + planning doc</td></tr>
+  <tr><td>Smart Home</td><td>~5%</td><td><strong>5%</strong></td><td>Schema comments only</td></tr>
+  <tr><td>Native Platform Architecture</td><td>~72%</td><td><strong>76%</strong></td><td>Android customizado; patch-package</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>7. Go / No-Go — Scheduler MVP</h2>
+<table>
+  <tr><th>Fase</th><th>Veredito</th><th>Rationale</th></tr>
+  <tr><td>Spec + ADR + Backend CRUD</td><td class="status-complete">GO agora</td><td>Schema/models/policy existem; player + execution plan estáveis</td></tr>
+  <tr><td>Scheduler MVP completo (playback auto)</td><td class="status-missing">NO-GO</td><td>Sem FCM, worker, UI mobile, testes</td></tr>
+</table>
+
+<h3>Scheduler Prerequisites</h3>
+<table>
+  <tr><th>Pré-requisito</th><th>%</th><th>Status</th></tr>
+  <tr><td>schedules + schedule_executions schema</td><td>~85%</td><td>Migrations OK; falta timezone, next_run_at</td></tr>
+  <tr><td>Models + SchedulePolicy</td><td>~70%</td><td>Existem; sem testes/factories</td></tr>
+  <tr><td>Vibes + execution plan (client)</td><td>~95%</td><td>Shipped</td></tr>
+  <tr><td>Backend Schedule API</td><td>0%</td><td class="status-missing">Ausente</td></tr>
+  <tr><td>Worker / cron / queue jobs</td><td>0%</td><td class="status-missing">Ausente</td></tr>
+  <tr><td>Push (FCM)</td><td>~5%</td><td class="status-missing">Não implementado</td></tr>
+  <tr><td>Mobile schedule UI</td><td>0%</td><td class="status-missing">Ausente</td></tr>
+  <tr><td>Scheduler tests</td><td>0%</td><td class="status-missing">Ausente</td></tr>
+  <tr><td>Scheduler spec/ADR</td><td>~15%</td><td class="status-partial">Só planning doc</td></tr>
+</table>
+<p><strong>Conclusão geral dos pré-requisitos Scheduler: ~18%</strong></p>
+
+<h2>8. Mobile App — front_vibes</h2>
+
+<h3>Authentication</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>Firebase email login/signup</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Google login (web + native)</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Password reset</td><td class="status-partial">Partial — só envio de email</td></tr>
+  <tr><td>Route guards</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Auth sync</td><td class="status-complete">Complete — fail-closed</td></tr>
+  <tr><td>Apple Sign-In</td><td class="status-missing">Missing</td></tr>
+</table>
+
+<h3>Vibes</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>List / Details / CRUD / Sounds</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Ownership (frontend)</td><td class="status-missing">Missing — só backend</td></tr>
+</table>
+
+<h3>Player</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>Playback / pause / resume / stop</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Media notification + lock screen</td><td class="status-complete">Complete (native)</td></tr>
+  <tr><td>Audio focus + phone interruption</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Headset disconnect</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Play modes (loop/once/interval)</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Fade in/out</td><td class="status-missing">Missing (intencional)</td></tr>
+</table>
+
+<h3>Offline</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>Download / storage / manifests</td><td class="status-complete">Complete (native)</td></tr>
+  <tr><td>file:// playback</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Remove download / recovery</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Router offline guard</td><td class="status-partial">Partial</td></tr>
+</table>
+
+<h3>QA</h3>
+<table>
+  <tr><th>Tool</th><th>Status</th></tr>
+  <tr><td>Vitest</td><td class="status-partial">5 arquivos; sem player/auth CRUD</td></tr>
+  <tr><td>Playwright</td><td class="status-partial">1 spec; fora do CI</td></tr>
+  <tr><td>WDIO + Appium</td><td class="status-partial">QA nativo rico; manual/local</td></tr>
+  <tr><td>CI</td><td class="status-partial">lint + build + vitest</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>9. Backend — back_vibes</h2>
+
+<h3>Authentication — Complete</h3>
+<p>FirebaseAuthenticate middleware, SyncFirebaseUser, POST /api/auth/sync. 4 sync tests + 9 unit tests. Gap: middleware não auto-sync; token válido + user ausente → 401.</p>
+
+<h3>Vibes — Complete</h3>
+<p>CRUD com VibePolicy, Form Requests, VibeResource. 14 feature tests. Imagens via admin/uploads.</p>
+
+<h3>Vibe Sounds — Complete</h3>
+<p>Attach/detach/update, sort_order, fades, timing, play modes. 15 feature tests. Gap: sem bulk reorder.</p>
+
+<h3>Sounds Catalog — Mostly Complete</h3>
+<p>CRUD, SoundCatalogQuery (search, category, tag, status, sort, pagination). 36 testes. Gap: lista default inclui inactive; SoundPolicy não wired em writes.</p>
+
+<h3>Storage — Complete</h3>
+<p>DO Spaces, upload validator, safe deletion, POST /api/admin/uploads. ~30 testes storage.</p>
+
+<h3>Scheduler Readiness — Schema Only (~15%)</h3>
+<table>
+  <tr><th>Artifact</th><th>Existe</th><th>Wired</th></tr>
+  <tr><td>schedules migration</td><td>Sim</td><td>Sem API</td></tr>
+  <tr><td>schedule_executions migration</td><td>Sim</td><td>Sem API</td></tr>
+  <tr><td>Schedule / ScheduleExecution models</td><td>Sim</td><td>Sem controller</td></tr>
+  <tr><td>SchedulePolicy</td><td>Sim</td><td>Sem routes</td></tr>
+  <tr><td>Controller / jobs / tests</td><td class="status-missing">Não</td><td>—</td></tr>
+</table>
+
+<h3>Test Count</h3>
+<table>
+  <tr><th>Métrica</th><th>Valor</th></tr>
+  <tr><td>Arquivos de teste</td><td>21</td></tr>
+  <tr><td>Casos Pest</td><td>~150</td></tr>
+  <tr><td>Bem coberto</td><td>vibes, vibe sounds, sounds, storage, presets, covers, auth</td></tr>
+  <tr><td>Ausente</td><td>schedules, devices, user settings, /auth/firebase</td></tr>
+</table>
+
+<h2>10. Admin Panel — ixora-admin</h2>
+<table>
+  <tr><th>Área</th><th>Status</th></tr>
+  <tr><td>Authentication</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Sound management</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Catalog (covers/presets)</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Upload flow</td><td class="status-complete">Complete — Laravel XHR</td></tr>
+  <tr><td>Search/filters/pagination</td><td class="status-partial">Sounds OK; covers/presets básico</td></tr>
+  <tr><td>Validation</td><td class="status-partial">Server authoritative; sem file-size client</td></tr>
+  <tr><td>Error handling</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Tests</td><td class="status-partial">1 arquivo, 5 casos</td></tr>
+</table>
+
+<h2>11. Infrastructure — ixora-infra</h2>
+<table>
+  <tr><th>Área</th><th>Status</th></tr>
+  <tr><td>DigitalOcean staging</td><td class="status-complete">Complete</td></tr>
+  <tr><td>App Platform (API + worker + admin)</td><td class="status-complete">Complete</td></tr>
+  <tr><td>Managed Postgres PG16</td><td class="status-complete">Complete (single node)</td></tr>
+  <tr><td>Spaces</td><td class="status-partial">Bucket IaC; CDN/CORS manual</td></tr>
+  <tr><td>OpenTofu</td><td class="status-partial">Staging only; state local</td></tr>
+  <tr><td>GitHub Actions (infra)</td><td class="status-missing">Missing</td></tr>
+  <tr><td>Production IaC</td><td class="status-missing">Missing</td></tr>
+</table>
+
+<h2>12. Production Readiness</h2>
+<table>
+  <tr><th>Concern</th><th>Classificação</th></tr>
+  <tr><td>Security</td><td class="status-partial">PARTIAL — VPC, CORS, secrets; sem rate limit/WAF</td></tr>
+  <tr><td>Backups</td><td class="status-missing">NOT READY</td></tr>
+  <tr><td>Observability</td><td class="status-missing">NOT READY</td></tr>
+  <tr><td>Logging</td><td class="status-partial">PARTIAL — stderr only</td></tr>
+  <tr><td>Error reporting</td><td class="status-missing">NOT READY</td></tr>
+  <tr><td>Rate limiting</td><td class="status-missing">NOT READY</td></tr>
+  <tr><td>Monitoring</td><td class="status-missing">NOT READY</td></tr>
+  <tr><td>Disaster recovery</td><td class="status-missing">NOT READY</td></tr>
+</table>
+<p><strong>Overall: PARTIAL (~38%) — adequado para staging, não para produção.</strong></p>
+
+<h2>13. Mudanças desde 2 de Junho</h2>
+<table>
+  <tr><th>Item</th><th>Antes</th><th>Agora</th></tr>
+  <tr><td>Vibe API tests</td><td>0</td><td>14</td></tr>
+  <tr><td>VibeSound API tests</td><td>0</td><td>15</td></tr>
+  <tr><td>Sounds search/filters/pagination</td><td>Missing</td><td>Complete</td></tr>
+  <tr><td>CI quality gates</td><td>Partial</td><td>Green em 3 repos</td></tr>
+  <tr><td>Backend tests</td><td>104</td><td>~150</td></tr>
+  <tr><td>Admin tests</td><td>0</td><td>5</td></tr>
+</table>
+
+<h2>14. Bottom Line</h2>
+<p>IXORA tem uma <strong>base sólida de playback ambiente</strong> adequada para iniciar <strong>CRUD de Scheduler no backend e trabalho de especificação</strong>. O Scheduler MVP completo com wake-and-play automatizado requer <strong>FCM, worker runtime, UI mobile e ADRs</strong> — hoje ~18% dos pré-requisitos estão completos.</p>
+
+<footer>
+  Gerado em 7 de junho de 2026 — Análise read-only do ecossistema IXORA. Referência: ixora-infra/docs/ecosystem-current-state-report.md (2026-06-02).
+</footer>
+
+</body>
+</html>

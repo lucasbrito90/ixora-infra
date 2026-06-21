@@ -1,0 +1,13 @@
+{
+  "description": "Unauthenticated route probes — Smart Home boundary check",
+  "timestamp": "2026-06-21T17:47:00+00:00",
+  "probes": [
+    { "method": "GET",  "path": "/api/provider-connections",        "http_status": 401, "expected": 401, "result": "PASS",      "note": "Auth guard active on collection route" },
+    { "method": "GET",  "path": "/api/provider-connections/1",      "http_status": 500, "expected": 401, "result": "FAIL",      "note": "BUG-001: 500 instead of 401 — likely missing provider_connections migration on staging" },
+    { "method": "POST", "path": "/api/provider-connections/1/sync", "http_status": 500, "expected": 401, "result": "FAIL",      "note": "BUG-001: same root cause as above" },
+    { "method": "GET",  "path": "/api/devices",                     "http_status": 401, "expected": 401, "result": "PASS",      "note": "Auth guard active" },
+    { "method": "GET",  "path": "/api/vibes",                       "http_status": 401, "expected": 401, "result": "PASS",      "note": "Auth guard active" },
+    { "method": "GET",  "path": "/api/vibes/1/device-actions",      "http_status": 401, "expected": 401, "result": "PASS",      "note": "Phase 7A route deployed" },
+    { "method": "POST", "path": "/api/vibes/1/smart-home/dispatch", "http_status": 401, "expected": 401, "result": "PASS",      "note": "Phase 8/9 dispatch route deployed" }
+  ]
+}

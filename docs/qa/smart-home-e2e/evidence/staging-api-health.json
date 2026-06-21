@@ -1,0 +1,12 @@
+{
+  "url": "https://staging-api.ixora-app.app/api/health",
+  "method": "GET",
+  "timestamp": "2026-06-21T17:43:04+00:00",
+  "http_status": 200,
+  "response": {
+    "status": "ok",
+    "environment": "staging",
+    "app": "Ixora",
+    "database": "ok"
+  }
+}

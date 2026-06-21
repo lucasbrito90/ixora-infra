@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-06-21T22:23:00Z",
+  "run": "rerun after migrations applied",
+  "unauthenticated_probes": [
+    {"method": "GET",  "path": "/api/provider-connections",   "http": 401, "expected": 401, "pass": true},
+    {"method": "GET",  "path": "/api/provider-connections/1", "http": 404, "expected": "401/404", "pass": true, "note": "table exists, record does not exist"},
+    {"method": "GET",  "path": "/api/devices",                "http": 401, "expected": 401, "pass": true},
+    {"method": "GET",  "path": "/api/vibes",                  "http": 401, "expected": 401, "pass": true},
+    {"method": "GET",  "path": "/api/vibes/1/device-actions", "http": 401, "expected": 401, "pass": true},
+    {"method": "POST", "path": "/api/vibes/1/smart-home/dispatch", "http": 401, "expected": 401, "pass": true}
+  ],
+  "authenticated_operations": [
+    {"op": "C8",  "method": "POST",   "path": "/api/provider-connections",        "http": 201, "detail": "id=1 name=QA Test HA"},
+    {"op": "C8b", "method": "GET",    "path": "/api/provider-connections",        "http": 200, "detail": "count=1"},
+    {"op": "C9",  "method": "POST",   "path": "/api/devices",                     "http": 201, "detail": "id=1 name=Living Room Light"},
+    {"op": "C9b", "method": "GET",    "path": "/api/devices",                     "http": 200, "detail": "count=2"},
+    {"op": "C10", "method": "POST",   "path": "/api/vibes/2/device-actions",      "http": 201, "detail": "id=1 action_type=turn_on"},
+    {"op": "C11", "method": "GET",    "path": "/api/vibes/2/device-actions",      "http": 200, "detail": "count=1 sort_order=1"},
+    {"op": "C12", "method": "POST",   "path": "/api/vibes/2/smart-home/dispatch", "http": 200, "detail": "dispatched=1 skipped=0 action_ids=[1]"},
+    {"op": "C13", "method": "PATCH",  "path": "/api/devices/1",                   "http": 200, "detail": "name updated"},
+    {"op": "C14", "method": "PATCH",  "path": "/api/vibes/2/device-actions/1",   "http": 200, "detail": "sort_order=5"},
+    {"op": "C15", "method": "POST",   "path": "/api/vibes/2/smart-home/dispatch", "http": 200, "detail": "dispatched=1 action_ids=[1]"},
+    {"op": "C16", "method": "POST",   "path": "/api/vibes/2/smart-home/dispatch", "http": 401, "detail": "unauthenticated boundary check"},
+    {"op": "C17", "method": "GET",    "path": "/api/provider-connections",        "http": 401, "detail": "unauthenticated boundary check"},
+    {"op": "C18", "method": "DELETE", "path": "/api/vibes/2/device-actions/1",   "http": 204, "detail": "delete"},
+    {"op": "C19", "method": "GET",    "path": "/api/vibes/2/device-actions",      "http": 200, "detail": "count=0 after delete"}
+  ]
+}

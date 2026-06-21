@@ -1,0 +1,25 @@
+# Frontend validation — Phase 10 re-run
+# Date: 2026-06-21
+
+## npm run lint (ESLint)
+LINT_OK (exit 0)
+
+## npm run typecheck (vue-tsc)
+TYPECHECK_OK (exit 0)
+
+## npm run test:unit (Vitest)
+Test Files  22 passed (22)
+     Tests  168 passed (168)
+  Duration  5.81s
+
+## npm run build:staging (Vite)
+✓ built in 20.75s
+dist/assets/index-6tnPa5C3.js  1,462.53 kB │ gzip: 331.46 kB
+
+## npx cap sync android
+✔ Sync finished in 0.284s
+
+## npm run android:apk:debug (Gradle)
+BUILD SUCCESSFUL in 5s
+428 actionable tasks: 24 executed, 404 up-to-date
+APK: android/app/build/outputs/apk/debug/app-debug.apk (33 MB)
