@@ -109,6 +109,7 @@ docs/architecture/
 | **Offline** | [audio-cache](architecture/audio/audio-cache.md) | [offline-download](specs/vibes/offline-download/spec.md) · [ADR-004](decisions/ADR-004-offline-audio-strategy.md) |
 | **Presets** | [preset-vibes](specs/preset-vibes/spec.md) | [ADR-003](decisions/ADR-003-preset-import-independent-vibes.md) · [ADR-005](decisions/ADR-005-no-realtime-preset-sync.md) |
 | **Scheduler (MVP)** | [scheduler/mvp/spec](specs/scheduler/mvp/spec.md) | [ADR-009](decisions/ADR-009-scheduler-timezone-utc-storage.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
+| **Smart Home (Foundation)** | [smart-home/mvp/spec](specs/smart-home/mvp/spec.md) | [ADR-012](decisions/ADR-012-smart-home-provider-strategy.md) · [ADR-013](decisions/ADR-013-home-assistant-first-provider.md) · [ADR-014](decisions/ADR-014-device-abstraction-and-deduplication.md) · [ADR-015](decisions/ADR-015-vibe-device-action-architecture.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Staging ops** | [staging-digitalocean](architecture/backend/staging-digitalocean.md) | [deploy-pipeline](architecture/backend/deploy-pipeline.md) |
 
 ---
@@ -129,6 +130,7 @@ docs/architecture/
 | **Execution plan** | Shipped — client-only ([ADR-007](decisions/ADR-007-execution-plan-runtime-contract.md)) |
 | **Offline download** | Shipped — explicit native download + manifests ([ADR-004](decisions/ADR-004-offline-audio-strategy.md)) |
 | **Scheduler MVP** | Spec + ADRs accepted — **not implemented** ([scheduler/mvp/spec](specs/scheduler/mvp/spec.md)) |
+| **Smart Home Foundation** | Spec + ADRs 012–016 accepted — **not implemented** ([smart-home/mvp/spec](specs/smart-home/mvp/spec.md)) |
 | **Staging environment** | Shipped — DO App Platform + OpenTofu ([staging-digitalocean](architecture/backend/staging-digitalocean.md)) |
 | **Safe delete (sounds, cover bundles)** | Shipped — reference-checked Spaces cleanup |
 | **Legacy Firebase asset URLs** | May coexist on rows until migration |
@@ -152,7 +154,8 @@ Do **not** build or document these as shipped without a new spec + ADR.
 | **CDN purge / invalidation API** | [spaces-cdn-policy](architecture/storage/spaces-cdn-policy.md) |
 | **Mobile catalog uploads** | Not shipped — read-only asset consumption |
 | **JS audio fades / crossfade** | Ignored at runtime — [ADR-008](decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md) |
-| **Smart-home integrations** | Out of scope in scheduling planning doc |
+| **Smart Home device execution** | Spec + ADRs 012–016 accepted — provider adapter model defined; no runtime code — [smart-home/mvp/spec](specs/smart-home/mvp/spec.md) |
+| **Smart Home non-MVP providers** (Alexa, Google Home, Matter, Tuya, Zigbee direct) | Out of scope — future provider ADRs required per integration |
 | **Automatic background vibe sync** | [ADR-004](decisions/ADR-004-offline-audio-strategy.md) |
 
 ---
@@ -274,6 +277,14 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 | [scheduler/mvp/plan.md](specs/scheduler/mvp/plan.md) | 10-phase implementation plan |
 | [scheduler/mvp/tasks.md](specs/scheduler/mvp/tasks.md) | Task checklist |
 
+## Smart Home (Foundation — pre-implementation)
+
+| Document | Description |
+| --- | --- |
+| [smart-home/mvp/spec.md](specs/smart-home/mvp/spec.md) | Device management + vibe action model — Home Assistant first; provider adapter architecture |
+| [smart-home/mvp/plan.md](specs/smart-home/mvp/plan.md) | 10-phase implementation plan |
+| [smart-home/mvp/tasks.md](specs/smart-home/mvp/tasks.md) | Task checklist |
+
 ---
 
 # 2. Architecture
@@ -349,6 +360,11 @@ Accepted decisions with context, tradeoffs, and links to implementation.
 | [ADR-009](decisions/ADR-009-scheduler-timezone-utc-storage.md) | Scheduler timezone + UTC storage | IANA per schedule; UTC instants; DST skip/first-wins |
 | [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) | Scheduler idempotency | **`occurrence_key`**; unique index; audit ≠ playback |
 | [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) | Local notifications vs FCM | Android reminders first; no FCM/offline edit in MVP |
+| [ADR-012](decisions/ADR-012-smart-home-provider-strategy.md) | Smart Home provider strategy | Provider adapter architecture; backend authoritative; no direct brand integrations |
+| [ADR-013](decisions/ADR-013-home-assistant-first-provider.md) | Home Assistant first provider | HA first; manual base URL + LLAT; no auto-discovery |
+| [ADR-014](decisions/ADR-014-device-abstraction-and-deduplication.md) | Device abstraction + deduplication | Unique per `(user_id, provider, provider_device_id)`; `online/offline/unknown` status |
+| [ADR-015](decisions/ADR-015-vibe-device-action-architecture.md) | Vibe device action architecture | Vibe owns action list; `turn_on/turn_off/toggle` MVP; failure does not block audio |
+| [ADR-016](decisions/ADR-016-smart-home-async-execution.md) | Smart Home async execution | No provider calls in CRUD path; queue worker; audio unaffected by failure |
 
 ---
 
@@ -438,4 +454,4 @@ App repos maintain **copies** of some docs for local discovery — sync from her
 
 ---
 
-*Last indexed: documentation tree under `ixora-infra/docs/` (46 markdown files).*
+*Last indexed: documentation tree under `ixora-infra/docs/` (55 markdown files). Last updated: 2026-06-14.*
