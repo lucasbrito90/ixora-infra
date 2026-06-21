@@ -23,7 +23,7 @@
 | 1 — Spec + ADRs | 2 | 0 | 7 | 0 |
 | 2 — Schema review | 0 | 0 | 4 | 0 |
 | 3 — provider_connections model | 0 | 0 | 4 | 0 |
-| 4 — Device CRUD backend | 1 | 0 | 9 | 0 |
+| 4 — Device CRUD backend | 0 | 0 | 10 | 0 |
 | 5 — HA adapter contract | 0 | 0 | 6 | 0 |
 | 6 — Devices mobile tab | 8 | 0 | 0 | 0 |
 | 7 — Device action association UI | 6 | 0 | 0 | 0 |
@@ -98,7 +98,7 @@
 | P4-6 | **`ProviderConnectionResource`** — omit `access_token` | **Done** | [`ADR-013`](../../../decisions/ADR-013-home-assistant-first-provider.md) security |
 | P4-7 | **`DeviceResource`** — include `status`, `provider_device_id`, `last_seen_at` | **Done** | [`ADR-014`](../../../decisions/ADR-014-device-abstraction-and-deduplication.md) |
 | P4-8 | **`ProviderConnectionController`** + **`DeviceController`** — CRUD routes | **Done** | [`spec.md`](spec.md) § 9 API outline |
-| P4-9 | `POST .../sync` — upsert devices from provider; absent → `offline`; unreachable → `unknown` | **Pending** | [`ADR-014`](../../../decisions/ADR-014-device-abstraction-and-deduplication.md) |
+| P4-9 | `POST .../sync` — upsert devices from provider; absent → `offline`; unreachable → `unknown` | **Done** | `back_vibes/app/SmartHome/Services/ProviderDeviceSyncService.php`, `tests/Feature/SmartHome/ProviderConnectionSyncApiTest.php` |
 | P4-10 | Pest feature tests — CRUD, 403, 422, sync dedup, no token in response | **Done** | `tests/Feature/SmartHome/` |
 
 **Branch:** `feature/smart-home-device-crud`
@@ -255,7 +255,7 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 - [ ] `devices` stub updated — `provider_device_id`, `status`, `last_seen_at`, `updated_at`
 - [ ] `vibe_device_actions` stub updated — `sort_order`, `updated_at`
 - [ ] Device CRUD API + Policies + Pest tests green
-- [ ] Sync endpoint — upsert, no duplicates verified
+- [x] Sync endpoint — upsert, no duplicates verified
 - [x] `HomeAssistantAdapter` unit tests green
 - [ ] `SmartHomeActionJob` dispatched for play events
 
