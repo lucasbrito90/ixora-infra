@@ -24,7 +24,7 @@
 | 2 — Schema review | 0 | 0 | 4 | 0 |
 | 3 — provider_connections model | 0 | 0 | 4 | 0 |
 | 4 — Device CRUD backend | 1 | 0 | 9 | 0 |
-| 5 — HA adapter contract | 6 | 0 | 0 | 0 |
+| 5 — HA adapter contract | 0 | 0 | 6 | 0 |
 | 6 — Devices mobile tab | 8 | 0 | 0 | 0 |
 | 7 — Device action association UI | 6 | 0 | 0 | 0 |
 | 8 — Async execution foundation | 4 | 0 | 0 | 0 |
@@ -117,19 +117,22 @@ cd back_vibes && ./vendor/bin/pint --test
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P5-1 | Define **`ProviderAdapter`** PHP interface | **Pending** | `back_vibes/app/SmartHome/Contracts/ProviderAdapter.php` |
-| P5-2 | Define DTOs: **`DeviceStatus`**, **`ActionResult`**, **`ConnectionHealth`** | **Pending** | `back_vibes/app/SmartHome/DTOs/` |
-| P5-3 | Implement **`HomeAssistantAdapter`** — `listDevices`, `readStatus`, `executeAction`, `testConnection` | **Pending** | `back_vibes/app/SmartHome/Adapters/HomeAssistantAdapter.php` |
-| P5-4 | Map IXORA action types to HA service calls (`turn_on` → `light.turn_on`, etc.) | **Pending** | [`ADR-013`](../../../decisions/ADR-013-home-assistant-first-provider.md) § HA REST API |
-| P5-5 | Unit tests with mocked HTTP — happy paths + HA unreachable | **Pending** | `tests/Unit/SmartHome/HomeAssistantAdapterTest.php` |
-| P5-6 | Register adapter in service container (`ProviderType::HOME_ASSISTANT → HomeAssistantAdapter`) | **Pending** | `AppServiceProvider` or dedicated `SmartHomeServiceProvider` |
+| P5-1 | Define **`ProviderAdapter`** PHP interface | **Done** | `back_vibes/app/SmartHome/Contracts/ProviderAdapter.php` |
+| P5-2 | Define DTOs: **`DeviceStatusResult`**, **`ProviderDevice`**, **`ActionResult`**, **`ConnectionHealth`** | **Done** | `back_vibes/app/SmartHome/DTOs/` |
+| P5-3 | Implement **`HomeAssistantAdapter`** — `listDevices`, `readStatus`, `executeAction`, `testConnection` | **Done** | `back_vibes/app/SmartHome/Adapters/HomeAssistantAdapter.php` |
+| P5-4 | Map IXORA action types to HA service calls (`turn_on` → `light.turn_on`, etc.) | **Done** | [`ADR-013`](../../../decisions/ADR-013-home-assistant-first-provider.md) § HA REST API |
+| P5-5 | Unit tests with mocked HTTP — happy paths + HA unreachable | **Done** | `tests/Unit/SmartHome/HomeAssistantAdapterTest.php`, `ProviderAdapterResolverTest.php` |
+| P5-6 | Register adapter in service container (`ProviderType::HOME_ASSISTANT → HomeAssistantAdapter`) | **Done** | `App\Providers\SmartHomeServiceProvider` + `App\SmartHome\ProviderAdapterResolver` |
 
 **Branch:** `feature/smart-home-ha-adapter`
+
+**Phase 5 notes:** Contract `ProviderAdapter` + four immutable DTOs (`DeviceStatusResult`, `ProviderDevice`, `ActionResult`, `ConnectionHealth`). `HomeAssistantAdapter` uses the Laravel HTTP facade with Bearer auth (token decrypted at call time, never logged), `config('smart_home.providers.home_assistant.timeout', 10)` timeout, and filters actionable HA domains (`light`, `switch`, `media_player`, `fan`). Action mapping: `turn_on`/`turn_off`/`toggle` → `{domain}.turn_on|turn_off|toggle`; unsupported actions throw `UnsupportedSmartHomeActionException`. Error policy: `testConnection`/`readStatus`/`executeAction` return failure DTOs (never throw on transport/HTTP errors); `listDevices` throws `ProviderConnectionException` on unreachable/non-2xx so sync can mark devices unknown. `ProviderAdapterResolver::forProvider()` resolves `home_assistant` and rejects unsupported providers. New `config/smart_home.php`. Tests: `tests/Unit/SmartHome/HomeAssistantAdapterTest.php` (27) + `ProviderAdapterResolverTest.php` (6) — 33 passing with `Http::fake()`, no real HA calls. **Sync endpoint P4-9 remains Pending.**
 
 **Verify:**
 
 ```bash
 cd back_vibes && php artisan test --filter=HomeAssistantAdapter
+cd back_vibes && php artisan test --filter=ProviderAdapterResolver
 ```
 
 ---
@@ -253,7 +256,7 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 - [ ] `vibe_device_actions` stub updated — `sort_order`, `updated_at`
 - [ ] Device CRUD API + Policies + Pest tests green
 - [ ] Sync endpoint — upsert, no duplicates verified
-- [ ] `HomeAssistantAdapter` unit tests green
+- [x] `HomeAssistantAdapter` unit tests green
 - [ ] `SmartHomeActionJob` dispatched for play events
 
 ### Mobile
