@@ -1,0 +1,8 @@
+=== php artisan test --filter=SmartHome ===
+{"tool":"pest","result":"passed","tests":214,"passed":214,"assertions":552,"duration_ms":7238}
+
+=== php artisan test (full suite) ===
+{"tool":"pest","result":"passed","tests":512,"passed":512,"assertions":1541,"duration_ms":20204}
+
+=== ./vendor/bin/pint --test ===
+{"tool":"pint","result":"passed"}
