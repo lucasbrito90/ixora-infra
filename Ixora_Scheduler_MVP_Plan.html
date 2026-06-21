@@ -1,0 +1,32 @@
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>IXORA Scheduler MVP Plan</title></head>
+<body>
+<h1>IXORA Scheduler MVP - Implementation Plan</h1>
+<h2>Implementation Order</h2>
+<ol>
+<li>Spec Scheduler MVP</li>
+<li>ADRs Scheduler</li>
+<li>Schema Hardening</li>
+<li>TDD RecurrenceService</li>
+<li>Backend Schedule CRUD + Pest</li>
+<li>Dispatcher Command</li>
+<li>OpenTofu DigitalOcean Scheduled Job</li>
+<li>Mobile Schedule CRUD</li>
+<li>SQLite Mirror</li>
+<li>Local Notifications</li>
+<li>Execution Log Sync</li>
+</ol>
+<h2>Core Decisions</h2>
+<ul>
+<li>Backend = source of truth</li>
+<li>SQLite = offline read-only mirror</li>
+<li>No offline create/edit/delete</li>
+<li>Timezone belongs to each schedule</li>
+<li>Local Notifications for offline reminders</li>
+<li>DigitalOcean Scheduled Job for dispatching</li>
+<li>Queue Worker + FCM in future phase</li>
+</ul>
+</body>
+</html>
