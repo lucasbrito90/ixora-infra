@@ -1,0 +1,26 @@
+=== npm run lint ===
+RESULT: CLEAN (exit 0)
+
+=== npm run typecheck ===
+RESULT: CLEAN (exit 0)
+
+=== npm run test:unit ===
+Test Files  22 passed (22)
+     Tests  168 passed (168)
+   Duration  9.34s
+
+=== npm run build:staging ===
+RESULT: BUILD SUCCESSFUL (exit 0)
+Output: dist/assets/VibePlayerPage-*.js (includes smart-home-dispatch.service)
+        dist/assets/VibeDeviceActionsPage-*.js
+
+=== npm run cap:sync:android ===
+RESULT: sync finished in 0.579s (exit 0)
+11 Capacitor plugins synced
+
+=== npm run android:apk:debug ===
+RESULT: BUILD SUCCESSFUL in 3m 33s (exit 0)
+APK: android/app/build/outputs/apk/debug/app-debug.apk (33 MB)
+
+=== adb devices ===
+RESULT: No device connected — on-device QA checklist requires manual execution
