@@ -28,7 +28,7 @@
 | 6 — Devices mobile tab | 0 | 0 | 8 | 0 |
 | 7A — Vibe Device Action backend API | 0 | 0 | 7 | 0 |
 | 7 — Device action association UI (mobile) | 0 | 0 | 6 | 0 |
-| 8 — Async execution foundation | 4 | 0 | 0 | 0 |
+| 8 — Async execution foundation | 0 | 0 | 4 | 0 |
 | 9 — HA real execution | 5 | 0 | 0 | 0 |
 | 10 — E2E QA | 8 | 0 | 0 | 0 |
 
@@ -216,12 +216,21 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P8-1 | **`SmartHomeActionJob`** queue job (stub — logs intent, no HA call) | **Pending** | `back_vibes/app/Jobs/SmartHome/SmartHomeActionJob.php` |
-| P8-2 | Job dispatch triggered by vibe play event (trigger endpoint TBD) | **Pending** | [`ADR-016`](../../../decisions/ADR-016-smart-home-async-execution.md) |
-| P8-3 | Pest: assert job is dispatched; assert graceful failure on bad action ID | **Pending** | `tests/Feature/SmartHome/SmartHomeActionJobTest.php` |
-| P8-4 | Document queue name and timeout config | **Pending** | [`plan.md`](plan.md) § Phase 8 |
+| P8-1 | **`SmartHomeActionJob`** queue job (stub — logs intent, no HA call) | **Done** | `back_vibes/app/Jobs/SmartHome/SmartHomeActionJob.php` |
+| P8-2 | `POST /api/vibes/{vibe}/smart-home/dispatch` trigger endpoint + `VibeSmartHomeDispatchService` + mobile fire-and-forget hook | **Done** | `back_vibes/app/Http/Controllers/Api/VibeSmartHomeDispatchController.php`, `back_vibes/app/SmartHome/Services/VibeSmartHomeDispatchService.php`, `front_vibes/src/services/smart-home-dispatch.service.ts` |
+| P8-3 | Pest: assert job dispatched per action, sort_order respected, 401/403, no HA HTTP; job: graceful missing action, no adapter call, logs intent | **Done** | `tests/Feature/SmartHome/VibeSmartHomeDispatchApiTest.php`, `tests/Feature/SmartHome/SmartHomeActionJobTest.php`, `front_vibes/src/services/__tests__/smart-home-dispatch.service.test.ts` |
+| P8-4 | Queue `smart-home`, timeout 30s, tries 3 documented in `config/smart_home.php` `queue` key | **Done** | `back_vibes/config/smart_home.php` |
 
 **Branch:** `feature/smart-home-async-foundation`
+
+**Phase 8 implementation notes:**
+
+- `SmartHomeActionJob` — queue `smart-home`, timeout 30 s, tries 3. Phase 8 stub: loads action + logs intent only. Gracefully skips missing/deleted actions. No HA call, no HTTP.
+- `VibeSmartHomeDispatchService` — loads `vibe_device_actions` ordered by `sort_order`, dispatches one job per action, returns `SmartHomeDispatchResult` DTO (vibe_id, dispatched, skipped, action_ids). Skips actions whose device has been deleted.
+- `POST /api/vibes/{vibe}/smart-home/dispatch` — single-action invokable controller, authorises via `VibePolicy::view`, delegates to dispatch service, returns JSON summary `{ data: { vibe_id, dispatched, skipped, action_ids } }`.
+- Queue config documented in `config/smart_home.php` under key `queue` (name, job_timeout, job_tries) with env overrides `SMART_HOME_QUEUE_NAME`, `SMART_HOME_JOB_TIMEOUT`, `SMART_HOME_JOB_TRIES`. Worker must use `--queue=smart-home,default`.
+- Mobile integration: `front_vibes/src/services/smart-home-dispatch.service.ts` — fire-and-forget, skips silently when offline, never throws. Called in `VibePlayerPage.vue#togglePlayback()` immediately after `store.playVibe()` returns `started = true`. Audio path unchanged.
+- Validation: `php artisan test --filter=VibeSmartHomeDispatchApiTest` → 11 passing; `--filter=SmartHomeActionJobTest` → 9 passing; `php artisan test` → all passing; `pint --test` clean; `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:unit` clean.
 
 ---
 
