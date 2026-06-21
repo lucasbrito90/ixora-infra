@@ -26,7 +26,8 @@
 | 4 — Device CRUD backend | 0 | 0 | 10 | 0 |
 | 5 — HA adapter contract | 0 | 0 | 6 | 0 |
 | 6 — Devices mobile tab | 0 | 0 | 8 | 0 |
-| 7 — Device action association UI | 6 | 0 | 0 | 0 |
+| 7A — Vibe Device Action backend API | 0 | 0 | 7 | 0 |
+| 7 — Device action association UI (mobile) | 6 | 0 | 0 | 0 |
 | 8 — Async execution foundation | 4 | 0 | 0 | 0 |
 | 9 — HA real execution | 5 | 0 | 0 | 0 |
 | 10 — E2E QA | 8 | 0 | 0 | 0 |
@@ -176,6 +177,37 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 | P7-6 | **Reorder actions** — drag or up/down buttons; persist `sort_order` | **Pending** | [`ADR-015`](../../../decisions/ADR-015-vibe-device-action-architecture.md) |
 
 **Branch:** `feature/smart-home-vibe-action-ui`
+
+> **ℹ️ Mobile UI still pending — backend prerequisite (Phase 7A) is now complete (2026-06-20).**
+> P7-1 through P7-6 are the `front_vibes` mobile UI and remain **Pending**. They were
+> previously blocked because the backend `vibe_device_actions` REST API did not exist.
+> That backend API has now been implemented — see **Phase 7A** below. Mobile UI can proceed.
+
+---
+
+## Phase 7A — Vibe Device Action backend API (mobile prerequisite)
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7A-1 | Routes inside `vibes/{vibe}` group — index/store/reorder/update/destroy (`reorder` registered before `{action}` wildcard) | **Done** | `back_vibes/routes/api.php` |
+| P7A-2 | **`VibeDeviceActionController`** — owner-scoped CRUD + reorder | **Done** | `back_vibes/app/Http/Controllers/Api/VibeDeviceActionController.php` |
+| P7A-3 | **`StoreVibeDeviceActionRequest`** — device owned by user, `action_type` in `ActionType::mvpAllowed()`, `delay_seconds` 0–3600 | **Done** | `back_vibes/app/Http/Requests/StoreVibeDeviceActionRequest.php` |
+| P7A-4 | **`UpdateVibeDeviceActionRequest`** — partial update (`sometimes`), same constraints | **Done** | `back_vibes/app/Http/Requests/UpdateVibeDeviceActionRequest.php` |
+| P7A-5 | **`ReorderVibeDeviceActionsRequest`** — `ordered_ids` required/distinct, all ids belong to vibe | **Done** | `back_vibes/app/Http/Requests/ReorderVibeDeviceActionsRequest.php` |
+| P7A-6 | **`VibeDeviceActionResource`** — includes nested device (id/name/type/provider/status/provider_device_id) | **Done** | `back_vibes/app/Http/Resources/VibeDeviceActionResource.php` |
+| P7A-7 | Pest feature tests — auth, CRUD, ownership, reorder, no execution/job/HA call | **Done** | `back_vibes/tests/Feature/SmartHome/VibeDeviceActionApiTest.php` (28 tests) |
+
+**Branch:** `feature/smart-home-vibe-action-api` from **`develop`**
+
+**Endpoints (inside `firebase.auth` middleware):**
+
+- `GET    /api/vibes/{vibe}/device-actions` — owner lists actions ordered by `sort_order`, device eager-loaded
+- `POST   /api/vibes/{vibe}/device-actions` — create; `sort_order` appended to end when omitted, `delay_seconds` defaults to 0
+- `POST   /api/vibes/{vibe}/device-actions/reorder` — `ordered_ids` → `sort_order` 0,1,2…; returns ordered resources
+- `PATCH  /api/vibes/{vibe}/device-actions/{action}` — partial update; action must belong to vibe (else 404)
+- `DELETE /api/vibes/{vibe}/device-actions/{action}` — 204; action must belong to vibe (else 404)
+
+**Phase 7A notes:** Authorization reuses `VibePolicy` (`view` for index, `update` for mutations) — cross-user vibe access returns **403**; an action that exists but belongs to a different vibe returns **404** via an explicit ownership guard. Device ownership is enforced in the FormRequest `after()` hook (foreign `device_id` → 422), matching the `StoreDeviceRequest` pattern. Only MVP action types (`turn_on`, `turn_off`, `toggle`) are accepted. **No execution engine, queue jobs, Scheduler changes, or Home Assistant calls were added** — a dedicated test asserts `Bus::assertNothingDispatched()` and `Http::assertNothingSent()` on store. Validation: `php artisan test` → 489 passing, `--filter=SmartHome` → 191 passing, `--filter=VibeDeviceActionApiTest` → 28 passing, `pint --test` clean.
 
 ---
 
