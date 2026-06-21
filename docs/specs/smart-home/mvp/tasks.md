@@ -27,7 +27,7 @@
 | 5 — HA adapter contract | 0 | 0 | 6 | 0 |
 | 6 — Devices mobile tab | 0 | 0 | 8 | 0 |
 | 7A — Vibe Device Action backend API | 0 | 0 | 7 | 0 |
-| 7 — Device action association UI (mobile) | 6 | 0 | 0 | 0 |
+| 7 — Device action association UI (mobile) | 0 | 0 | 6 | 0 |
 | 8 — Async execution foundation | 4 | 0 | 0 | 0 |
 | 9 — HA real execution | 5 | 0 | 0 | 0 |
 | 10 — E2E QA | 8 | 0 | 0 | 0 |
@@ -169,19 +169,20 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7-1 | **`vibe-device-action.service.ts`** — REST client (list, create, update, delete, reorder) | **Pending** | `front_vibes/src/services/` |
-| P7-2 | **Device Actions section** in vibe detail screen | **Pending** | [`ADR-015`](../../../decisions/ADR-015-vibe-device-action-architecture.md) |
-| P7-3 | **Action type picker** — `turn_on`, `turn_off`, `toggle` (MVP) | **Pending** | |
-| P7-4 | **Device picker** — select from user's registered devices | **Pending** | |
-| P7-5 | **Delay input** — optional `delay_seconds` per action | **Pending** | |
-| P7-6 | **Reorder actions** — drag or up/down buttons; persist `sort_order` | **Pending** | [`ADR-015`](../../../decisions/ADR-015-vibe-device-action-architecture.md) |
+| P7-1 | **`vibe-device-action.service.ts`** — REST client (list, create, update, delete, reorder) | **Done** | `front_vibes/src/services/vibe-device-action.service.ts` |
+| P7-2 | **Device Actions section / page** for a vibe | **Done** | `front_vibes/src/views/VibeDeviceActionsPage.vue` |
+| P7-3 | **Action type picker** — `turn_on`, `turn_off`, `toggle` (MVP) | **Done** | `front_vibes/src/utils/device-action.ts`, `VibeDeviceActionEditModal.vue` |
+| P7-4 | **Device picker** — select from user's registered devices | **Done** | `VibeDeviceActionEditModal.vue` (via `useDevices`) |
+| P7-5 | **Delay input** — optional `delay_seconds` per action | **Done** | `VibeDeviceActionEditModal.vue` |
+| P7-6 | **Reorder actions** — up/down buttons; persist `sort_order` | **Done** | `VibeDeviceActionsPage.vue` → `reorder` endpoint |
 
-**Branch:** `feature/smart-home-vibe-action-ui`
+**Branch:** `feature/smart-home-vibe-action-ui` from **`develop`**
 
-> **ℹ️ Mobile UI still pending — backend prerequisite (Phase 7A) is now complete (2026-06-20).**
-> P7-1 through P7-6 are the `front_vibes` mobile UI and remain **Pending**. They were
-> previously blocked because the backend `vibe_device_actions` REST API did not exist.
-> That backend API has now been implemented — see **Phase 7A** below. Mobile UI can proceed.
+> **✅ Phase 7 mobile UI complete (2026-06-20).** Backend prerequisite Phase 7A
+> (see below) shipped first; this phase consumes that REST API. Mobile calls the
+> Laravel API only — no direct Home Assistant calls and no on-device execution.
+
+**Phase 7 notes:** New `vibe-device-action.service.ts` reuses the Firebase Bearer + `laravelFetch` transport and the shared `DeviceOfflineError` (`"Devices can only be changed while online."`) — list/create/update/delete/reorder; create/update/delete/reorder are blocked offline at the service layer. Singleton composable `useVibeDeviceActions.ts` follows the `useDevices` ref pattern (no Pinia, **no SQLite mirror** — offline keeps the last in-memory list). Focused page **`/vibes/:id/device-actions`** (mirrors the existing `/vibes/:id/sounds` sub-page) lists actions ordered by `sort_order`, each card showing device name, device **status badge** (reuses `utils/device-status.ts`: online→green, offline→red, unknown→grey), action-type label, and `delay_seconds`; up/down buttons call the `reorder` endpoint; edit/delete with confirm alert; offline shows a banner + toast and disables mutations. Add/edit via `VibeDeviceActionEditModal.vue`: device picker (from `useDevices`), action-type picker (MVP `turn_on`/`turn_off`/`toggle` only via `utils/device-action.ts`), and `delay_seconds` input (0–3600). Navigation entry added to the vibe card on `VibesPage.vue`. Tests: `vibe-device-action.service` (10), `useVibeDeviceActions` (9), `device-action` utils (12) — 31 new; full suite **161 passing**. Validation: `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:unit` all green. **No execution engine, queue jobs, Scheduler changes, HA calls, or brightness/color/temperature/scenes added.**
 
 ---
 
@@ -299,7 +300,7 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 - [x] Device list with status badges
 - [x] Add / delete provider connection (HA, write-only token)
 - [x] Device sync — no duplicate entries
-- [ ] Device action association on vibe detail
+- [x] Device action association on vibe detail
 - [x] Offline mutations blocked
 
 ### Hard boundaries verified
