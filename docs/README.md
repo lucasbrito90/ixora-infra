@@ -110,6 +110,7 @@ docs/architecture/
 | **Presets** | [preset-vibes](specs/preset-vibes/spec.md) | [ADR-003](decisions/ADR-003-preset-import-independent-vibes.md) · [ADR-005](decisions/ADR-005-no-realtime-preset-sync.md) |
 | **Scheduler (MVP)** | [scheduler/mvp/spec](specs/scheduler/mvp/spec.md) | [ADR-009](decisions/ADR-009-scheduler-timezone-utc-storage.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
 | **Smart Home (Foundation)** | [smart-home/mvp/spec](specs/smart-home/mvp/spec.md) | [ADR-012](decisions/ADR-012-smart-home-provider-strategy.md) · [ADR-013](decisions/ADR-013-home-assistant-first-provider.md) · [ADR-014](decisions/ADR-014-device-abstraction-and-deduplication.md) · [ADR-015](decisions/ADR-015-vibe-device-action-architecture.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
+| **Push Notifications (Foundation)** | [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md) | [ADR-017](decisions/ADR-017-push-notification-provider-strategy.md) · [ADR-018](decisions/ADR-018-device-token-registration.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [ADR-020](decisions/ADR-020-push-delivery-and-fallback-strategy.md) · [ADR-021](decisions/ADR-021-notification-security-and-privacy.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
 | **Staging ops** | [staging-digitalocean](architecture/backend/staging-digitalocean.md) | [deploy-pipeline](architecture/backend/deploy-pipeline.md) |
 
 ---
@@ -129,8 +130,9 @@ docs/architecture/
 | **Mobile playback + mini player** | Shipped — Android primary; `@capgo/native-audio` |
 | **Execution plan** | Shipped — client-only ([ADR-007](decisions/ADR-007-execution-plan-runtime-contract.md)) |
 | **Offline download** | Shipped — explicit native download + manifests ([ADR-004](decisions/ADR-004-offline-audio-strategy.md)) |
-| **Scheduler MVP** | Spec + ADRs accepted — **not implemented** ([scheduler/mvp/spec](specs/scheduler/mvp/spec.md)) |
-| **Smart Home Foundation** | Spec + ADRs 012–016 accepted — **not implemented** ([smart-home/mvp/spec](specs/smart-home/mvp/spec.md)) |
+| **Scheduler MVP** | Shipped — recurrence, local notifications, dispatcher ([scheduler/mvp/spec](specs/scheduler/mvp/spec.md)) |
+| **Smart Home MVP** | Shipped — provider connections, devices, vibe actions, async HA execution ([smart-home/mvp/spec](specs/smart-home/mvp/spec.md)) |
+| **Push Notifications Foundation** | Spec + ADRs 017–021 accepted — **not implemented** ([push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md)) |
 | **Staging environment** | Shipped — DO App Platform + OpenTofu ([staging-digitalocean](architecture/backend/staging-digitalocean.md)) |
 | **Safe delete (sounds, cover bundles)** | Shipped — reference-checked Spaces cleanup |
 | **Legacy Firebase asset URLs** | May coexist on rows until migration |
@@ -154,8 +156,10 @@ Do **not** build or document these as shipped without a new spec + ADR.
 | **CDN purge / invalidation API** | [spaces-cdn-policy](architecture/storage/spaces-cdn-policy.md) |
 | **Mobile catalog uploads** | Not shipped — read-only asset consumption |
 | **JS audio fades / crossfade** | Ignored at runtime — [ADR-008](decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md) |
-| **Smart Home device execution** | Spec + ADRs 012–016 accepted — provider adapter model defined; no runtime code — [smart-home/mvp/spec](specs/smart-home/mvp/spec.md) |
 | **Smart Home non-MVP providers** (Alexa, Google Home, Matter, Tuya, Zigbee direct) | Out of scope — future provider ADRs required per integration |
+| **FCM / push notifications (shipped)** | Not shipped — spec + ADRs 017–021 accepted; local notifications remain for Scheduler — [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md) |
+| **Marketing / campaign push** | Out of scope — [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) |
+| **iOS / APNs push** | Deferred — Android FCM first — [ADR-017](decisions/ADR-017-push-notification-provider-strategy.md) |
 | **Automatic background vibe sync** | [ADR-004](decisions/ADR-004-offline-audio-strategy.md) |
 
 ---
@@ -277,13 +281,21 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 | [scheduler/mvp/plan.md](specs/scheduler/mvp/plan.md) | 10-phase implementation plan |
 | [scheduler/mvp/tasks.md](specs/scheduler/mvp/tasks.md) | Task checklist |
 
-## Smart Home (Foundation — pre-implementation)
+## Smart Home (MVP)
 
 | Document | Description |
 | --- | --- |
 | [smart-home/mvp/spec.md](specs/smart-home/mvp/spec.md) | Device management + vibe action model — Home Assistant first; provider adapter architecture |
 | [smart-home/mvp/plan.md](specs/smart-home/mvp/plan.md) | 10-phase implementation plan |
 | [smart-home/mvp/tasks.md](specs/smart-home/mvp/tasks.md) | Task checklist |
+
+## Push Notifications (Foundation — pre-implementation)
+
+| Document | Description |
+| --- | --- |
+| [push-notifications/mvp/spec.md](specs/push-notifications/mvp/spec.md) | FCM device token registry + backend push abstraction — Android first; no campaigns |
+| [push-notifications/mvp/plan.md](specs/push-notifications/mvp/plan.md) | 10-phase implementation plan |
+| [push-notifications/mvp/tasks.md](specs/push-notifications/mvp/tasks.md) | Task checklist |
 
 ---
 
@@ -365,6 +377,11 @@ Accepted decisions with context, tradeoffs, and links to implementation.
 | [ADR-014](decisions/ADR-014-device-abstraction-and-deduplication.md) | Device abstraction + deduplication | Unique per `(user_id, provider, provider_device_id)`; `online/offline/unknown` status |
 | [ADR-015](decisions/ADR-015-vibe-device-action-architecture.md) | Vibe device action architecture | Vibe owns action list; `turn_on/turn_off/toggle` MVP; failure does not block audio |
 | [ADR-016](decisions/ADR-016-smart-home-async-execution.md) | Smart Home async execution | No provider calls in CRUD path; queue worker; audio unaffected by failure |
+| [ADR-017](decisions/ADR-017-push-notification-provider-strategy.md) | Push notification provider strategy | FCM first; Android first; backend abstraction; no campaigns |
+| [ADR-018](decisions/ADR-018-device-token-registration.md) | Device token registration | `push_tokens` registry; upsert dedupe; multi-device; logout deactivate |
+| [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) | Notification event taxonomy | Operational events only; explicit payload schema; no marketing |
+| [ADR-020](decisions/ADR-020-push-delivery-and-fallback-strategy.md) | Push delivery and fallback | Async queue; best-effort; local notifications preserved |
+| [ADR-021](decisions/ADR-021-notification-security-and-privacy.md) | Notification security and privacy | Minimal payload; no secrets; no cross-user tokens |
 
 ---
 
