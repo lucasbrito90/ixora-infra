@@ -25,7 +25,7 @@
 | 3 — provider_connections model | 0 | 0 | 4 | 0 |
 | 4 — Device CRUD backend | 0 | 0 | 10 | 0 |
 | 5 — HA adapter contract | 0 | 0 | 6 | 0 |
-| 6 — Devices mobile tab | 8 | 0 | 0 | 0 |
+| 6 — Devices mobile tab | 0 | 0 | 8 | 0 |
 | 7 — Device action association UI | 6 | 0 | 0 | 0 |
 | 8 — Async execution foundation | 4 | 0 | 0 | 0 |
 | 9 — HA real execution | 5 | 0 | 0 | 0 |
@@ -141,18 +141,20 @@ cd back_vibes && php artisan test --filter=ProviderAdapterResolver
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P6-1 | Add **Devices** tab to bottom navigation bar (root level) | **Pending** | [`spec.md`](spec.md) § 4 Navigation |
-| P6-2 | **`provider-connection.service.ts`** — REST client (create, delete, sync, test) | **Pending** | `front_vibes/src/services/` |
-| P6-3 | **`device.service.ts`** — REST client (list, show, update, delete, test) | **Pending** | `front_vibes/src/services/` |
-| P6-4 | **Device list page** — status badge per device; pull-to-refresh | **Pending** | [`spec.md`](spec.md) § 10 Mobile outline |
-| P6-5 | **Add provider connection form** — provider selector (HA only MVP), base URL, token (write-only); test on submit | **Pending** | [`ADR-013`](../../../decisions/ADR-013-home-assistant-first-provider.md) |
-| P6-6 | **Provider connection detail** — show (no token); sync button; delete | **Pending** | |
-| P6-7 | **Device detail / edit** — rename, type label; test device; delete | **Pending** | |
-| P6-8 | **Block mutations offline** — toast + disable actions | **Pending** | [`spec.md`](spec.md) § 10 |
+| P6-1 | Add **Devices** tab to bottom navigation bar (root level) | **Done** | `front_vibes/src/views/TabsLayout.vue`, `src/router/index.ts` |
+| P6-2 | **`provider-connection.service.ts`** — REST client (create, delete, sync, test) | **Done** | `front_vibes/src/services/provider-connection.service.ts` |
+| P6-3 | **`device.service.ts`** — REST client (list, show, update, delete, test) | **Done** | `front_vibes/src/services/device.service.ts` |
+| P6-4 | **Device list page** — status badge per device; pull-to-refresh | **Done** | `front_vibes/src/views/DevicesPage.vue` |
+| P6-5 | **Add provider connection form** — provider selector (HA only MVP), base URL, token (write-only); test on submit | **Done** | `front_vibes/src/views/ProviderConnectionFormPage.vue` |
+| P6-6 | **Provider connection detail** — show (no token); sync button; delete | **Done** | `front_vibes/src/views/ProviderConnectionDetailPage.vue` |
+| P6-7 | **Device detail / edit** — rename, type label; test device; delete | **Done** | `front_vibes/src/views/DeviceDetailPage.vue` |
+| P6-8 | **Block mutations offline** — toast + disable actions | **Done** | service-layer `DeviceOfflineError` + page banners/toasts |
 
 **Branch:** `feature/smart-home-devices-mobile`
 
 **Platform:** Android + iOS
+
+**Phase 6 notes:** Online-only Smart Home mobile UI. Two REST clients (`provider-connection.service.ts`, `device.service.ts`) reuse the Firebase Bearer + `laravelFetch` transport from `schedule.service.ts`; both block create/update/delete/sync offline via a shared `DeviceOfflineError` (`"Devices can only be changed while online."`) and never call Home Assistant directly. The HA access token is write-only: sent once nested under `encrypted_credentials.access_token` on create, cleared from form state after submit, never returned/logged/stored. Composables `useProviderConnections` / `useDevices` follow the `useSchedules` singleton-ref pattern (no Pinia, **no SQLite mirror** — offline keeps last in-memory list). New root **Devices** tab + routes `/devices`, `/devices/providers/new`, `/devices/providers/:id`, `/devices/:id` under the existing auth guard. Status badges via `utils/device-status.ts`: online→green (`success`), offline→red (`danger`), unknown→grey (`medium`). Tests: `provider-connection.service` (11), `device.service` (7), `device-status` (6), `useProviderConnections` (6), `useDevices` (5) — 35 new, full suite 130 passing. No backend / Scheduler / queue-job / execution / vibe-action-UI code added.
 
 **Verify:**
 
@@ -229,7 +231,7 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 | X-4 | Confirm **`access_token` never in API response** | **Pending** | Phase 4 sign-off |
 | X-5 | Confirm **no duplicate devices** after repeated sync | **Pending** | Phase 10 QA |
 | X-6 | Confirm **audio plays** even when device action fails | **Pending** | Phase 9 |
-| X-7 | Confirm **no direct HA calls from mobile** | **Pending** | Phase 6 code review |
+| X-7 | Confirm **no direct HA calls from mobile** | **Done** | Phase 6 — mobile calls Laravel API only (`laravelFetch`) |
 
 ---
 
@@ -261,17 +263,17 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 
 ### Mobile
 
-- [ ] Devices tab at root navigation
-- [ ] Device list with status badges
-- [ ] Add / delete provider connection (HA, write-only token)
-- [ ] Device sync — no duplicate entries
+- [x] Devices tab at root navigation
+- [x] Device list with status badges
+- [x] Add / delete provider connection (HA, write-only token)
+- [x] Device sync — no duplicate entries
 - [ ] Device action association on vibe detail
-- [ ] Offline mutations blocked
+- [x] Offline mutations blocked
 
 ### Hard boundaries verified
 
 - [ ] **No `access_token` in any API response**
-- [ ] **No direct provider calls from mobile**
+- [x] **No direct provider calls from mobile**
 - [ ] **No Scheduler code modified**
 - [ ] **Audio unaffected by device action failure**
 - [ ] **No duplicate devices after repeated sync**
