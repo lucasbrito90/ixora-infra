@@ -23,7 +23,7 @@
 | 1 — ADRs + Spec | 0 | 0 | 10 | 0 |
 | 2 — Token registry schema | 0 | 0 | 5 | 0 |
 | 3 — Push token API | 0 | 0 | 8 | 0 |
-| 4 — Android FCM setup | 5 | 0 | 0 | 0 |
+| 4 — Android FCM setup | 0 | 0 | 5 | 0 |
 | 5 — Mobile token registration | 7 | 0 | 0 | 0 |
 | 6 — Push provider abstraction | 6 | 0 | 0 | 0 |
 | 7 — Queue-backed send job | 6 | 0 | 0 | 0 |
@@ -115,13 +115,24 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P4-1 | Evaluate and add Capacitor Firebase Messaging dependency | **Pending** | [`plan.md`](plan.md) § Phase 4 |
-| P4-2 | Configure **`google-services.json`** for staging build | **Pending** | |
-| P4-3 | Document FCM server credentials for Laravel env | **Pending** | |
-| P4-4 | Verify FCM token obtainable on installable debug build | **Pending** | |
-| P4-5 | Document Android 13+ notification permission flow | **Pending** | [`ADR-011`](../../../decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
+| P4-1 | Evaluate and add Capacitor Firebase Messaging dependency | **Done** | [`plan.md`](plan.md) § Phase 4 |
+| P4-2 | Configure **`google-services.json`** for staging build | **Done** | |
+| P4-3 | Document FCM server credentials for Laravel env | **Done** | |
+| P4-4 | Verify FCM token obtainable on installable debug build | **Done** (implementation) / QA pending (requires physical device) | |
+| P4-5 | Document Android 13+ notification permission flow | **Done** | [`ADR-011`](../../../decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
 
 **Branch:** `feature/push-notifications-android-fcm-setup`
+
+**Phase 4 implementation notes:**
+
+- **Plugin selected:** `@capacitor-firebase/messaging@8.3.0` — peer-compatible with `@capacitor/core@8.3.1` and `firebase@12.12.1`. Added `.npmrc` with `legacy-peer-deps=true` to resolve pre-existing `@codetrix-studio/capacitor-google-auth` peer conflict.
+- **P4-2 — `google-services.json`:** File already present at `android/app/google-services.json`. `android/build.gradle` already has `classpath 'com.google.gms:google-services:4.4.4'`. `android/app/build.gradle` already conditionally applies the plugin when the file exists. No changes required.
+- **P4-3 — FCM server credentials for Laravel:** The backend (`back_vibes`) will need a Firebase service account key (`FIREBASE_CREDENTIALS` env) for Phase 6 (FcmPushProvider). The `google-services.json` in the Android project is the **client** config; the server needs the separate service account JSON from Firebase Console → Project Settings → Service Accounts → Generate new private key. Store as `FIREBASE_CREDENTIALS` (base64 or path) in Laravel `.env`. Do not commit to source control.
+- **P4-4 — FCM token obtainable:** `getFcmToken()` implemented via `@capacitor-firebase/messaging`. Physical device QA: run `devVerifyFcmToken()` from the debug console on a real Android device after building the APK. Token preview will be logged (not the full token). Full E2E device verification deferred to Phase 10.
+- **P4-5 — Android 13+ permission:** `requestFcmPermission()` calls `FirebaseMessaging.requestPermissions()` which handles `POST_NOTIFICATIONS` permission on Android 13+ (API 33+). On Android < 13, permission is granted implicitly. The service returns `false` and degrades gracefully if denied. No UI is required at this phase — Phase 5 will integrate permission request into the auth/login flow.
+- **`fcmTokenService`:** `src/services/fcm-token.service.ts` — `isFcmAvailable()`, `requestFcmPermission()`, `getFcmToken()`, `fcmTokenPreview()` (ADR-021 compliant), `devVerifyFcmToken()` (dev-only, logs preview only). Web is a safe no-op. No backend calls, no token storage, no full token logging.
+- **Tests:** `src/services/__tests__/fcm-token.service.test.ts` — 20 Vitest tests covering: tokenPreview (4), isFcmAvailable (2), requestFcmPermission (5), getFcmToken (4), devVerifyFcmToken (4), service shape (1).
+- No backend/token registration/PushProvider/PushNotificationJob/Scheduler/Smart Home/marketing logic added.
 
 ---
 
