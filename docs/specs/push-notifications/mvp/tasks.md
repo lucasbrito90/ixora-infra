@@ -22,7 +22,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | 1 — ADRs + Spec | 0 | 0 | 10 | 0 |
 | 2 — Token registry schema | 0 | 0 | 5 | 0 |
-| 3 — Push token API | 8 | 0 | 0 | 0 |
+| 3 — Push token API | 0 | 0 | 8 | 0 |
 | 4 — Android FCM setup | 5 | 0 | 0 | 0 |
 | 5 — Mobile token registration | 7 | 0 | 0 | 0 |
 | 6 — Push provider abstraction | 6 | 0 | 0 | 0 |
@@ -87,16 +87,27 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P3-1 | **`PushTokenService`** — register, refresh, deactivate | **Pending** | [`spec.md`](spec.md) §6 |
-| P3-2 | **`StorePushTokenRequest` / `RefreshPushTokenRequest`** | **Pending** | |
-| P3-3 | **`PushTokenPolicy`** — owner scoping | **Pending** | |
-| P3-4 | **`PushTokenController`** — store, refresh, destroy | **Pending** | [`spec.md`](spec.md) §5 |
-| P3-5 | Routes: `POST /api/push-tokens`, `POST /api/push-tokens/refresh`, `DELETE /api/push-tokens/{id}` | **Pending** | |
-| P3-6 | **`PushTokenResource`** — response shape | **Pending** | |
-| P3-7 | Pest: auth required, upsert dedupe, refresh deactivates old, cross-user 403 | **Pending** | |
-| P3-8 | Pest: full token never logged | **Pending** | [`ADR-021`](../../../decisions/ADR-021-notification-security-and-privacy.md) |
+| P3-1 | **`PushTokenService`** — register, refresh, deactivate | **Done** | [`spec.md`](spec.md) §6 |
+| P3-2 | **`StorePushTokenRequest` / `RefreshPushTokenRequest`** | **Done** | |
+| P3-3 | **`PushTokenPolicy`** — owner scoping | **Done** | |
+| P3-4 | **`PushTokenController`** — store, refresh, destroy | **Done** | [`spec.md`](spec.md) §5 |
+| P3-5 | Routes: `POST /api/push-tokens`, `POST /api/push-tokens/refresh`, `DELETE /api/push-tokens/{id}` | **Done** | |
+| P3-6 | **`PushTokenResource`** — response shape | **Done** | |
+| P3-7 | Pest: auth required, upsert dedupe, refresh deactivates old, cross-user 403 | **Done** | |
+| P3-8 | Pest: full token never logged | **Done** | [`ADR-021`](../../../decisions/ADR-021-notification-security-and-privacy.md) |
 
 **Branch:** `feature/push-notifications-token-api`
+
+**Phase 3 implementation notes:**
+
+- `PushTokenService` — `register()` upserts by token with `firstOrNew`; ownership always set to authenticated user (MVP reassignment behavior, ADR-018). `refresh()` deactivates old_token only if owned by current user. `deactivate()` soft-deactivates. `safeTokenContext()` returns id, token_preview, platform, provider for structured logging.
+- `PushTokenPolicy` — owner scoping on view/update/delete; viewAny/create open to any authenticated user.
+- `StorePushTokenRequest` / `RefreshPushTokenRequest` — platform limited to `PushPlatform::mvpAllowed()` (android only); provider limited to `PushProvider::mvpAllowed()` (fcm only); user_id/is_active/revoked_at/last_seen_at prohibited.
+- `PushTokenResource` — exposes id, platform, provider, device_id, app_version, device_model, is_active, last_seen_at, revoked_at, created_at, updated_at, token_preview. Raw token is never exposed (ADR-021).
+- `PushTokenController` — store returns 201 on create / 200 on upsert via `wasRecentlyCreated`. refresh route registered before `{pushToken}` wildcard to avoid route conflict.
+- Routes — `POST /api/push-tokens/refresh` before `POST /api/push-tokens` and `DELETE /api/push-tokens/{pushToken}` inside `firebase.auth` middleware group.
+- Tests — 28 Pest tests in `tests/Feature/PushNotifications/PushTokenApiTest.php` covering: auth guard (3), store happy path (2), user_id injection (1), platform/provider validation (4), prohibited field injection (3), upsert/dedupe (3), provider default (1), refresh happy path (4), destroy happy path (2), token privacy (5), unique constraint upsert (1).
+- No FCM sending, PushProvider interface, PushNotificationJob, mobile, Scheduler, Smart Home, marketing, or analytics logic added.
 
 ---
 
