@@ -21,7 +21,7 @@
 | Phase | Pending | In progress | Done | Deferred |
 | --- | ---: | ---: | ---: | ---: |
 | 1 — ADRs + Spec | 0 | 0 | 10 | 0 |
-| 2 — Token registry schema | 5 | 0 | 0 | 0 |
+| 2 — Token registry schema | 0 | 0 | 5 | 0 |
 | 3 — Push token API | 8 | 0 | 0 | 0 |
 | 4 — Android FCM setup | 5 | 0 | 0 | 0 |
 | 5 — Mobile token registration | 7 | 0 | 0 | 0 |
@@ -64,13 +64,22 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P2-1 | Migration: create **`push_tokens`** table | **Pending** | [`spec.md`](spec.md) §4 |
-| P2-2 | **`PushToken`** Eloquent model — fillable, casts, `active()` scope | **Pending** | [`ADR-018`](../../../decisions/ADR-018-device-token-registration.md) |
-| P2-3 | **`User::pushTokens()`** relationship | **Pending** | |
-| P2-4 | **`PushTokenFactory`** for Pest | **Pending** | |
-| P2-5 | Feature tests: schema, unique token, user FK, active scope | **Pending** | |
+| P2-1 | Migration: create **`push_tokens`** table | **Done** | [`spec.md`](spec.md) §4 |
+| P2-2 | **`PushToken`** Eloquent model — fillable, casts, `active()` scope | **Done** | [`ADR-018`](../../../decisions/ADR-018-device-token-registration.md) |
+| P2-3 | **`User::pushTokens()`** relationship | **Done** | |
+| P2-4 | **`PushTokenFactory`** for Pest | **Done** | |
+| P2-5 | Feature tests: schema, unique token, user FK, active scope | **Done** | |
 
 **Branch:** `feature/push-notifications-token-model`
+
+**Phase 2 implementation notes:**
+
+- Migration `2026_06_22_000001_create_push_tokens_table.php` — columns per spec; indexes `uq_push_tokens_token` and `idx_push_tokens_user_active`; optional `unique(user_id, device_id, provider)` documented as comment only (deferred until stable device_id).
+- `PushToken` model — `$hidden = ['token']`, `tokenPreview()`, `tokenHash()`, `scopeActive()`; `user_id` not fillable (assigned via factory unguard or future service).
+- Enums: `PushProvider` (fcm), `PushPlatform` (android/ios/web; MVP android only).
+- `PushTokenFactory` with `inactive()`, `android()`, `fcm()` states.
+- Tests: `tests/Feature/PushNotifications/PushTokenModelTest.php` — 22 tests covering schema, privacy helpers, casts, scope, unique constraint, relationships, factory states, enums.
+- No API routes, controllers, FCM provider, queue jobs, mobile, Scheduler, or Smart Home changes.
 
 ---
 
