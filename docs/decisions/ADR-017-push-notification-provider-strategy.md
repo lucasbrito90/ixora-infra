@@ -51,10 +51,56 @@ Constraints:
 | --- | --- |
 | **Backend-only send** | Only Laravel queue jobs / services call FCM. Mobile never sends push. |
 | **Provider abstraction** | `PushProvider` contract allows future APNs without rewriting domain logic. |
-| **FCM first** | MVP implements `FcmPushProvider` only. |
+| **FCM first** | MVP ships `FcmPushProvider` for production and `NoopPushProvider` for tests / local dev. |
 | **iOS deferred** | APNs provider is a future ADR + phase. |
 | **No campaigns** | No broadcast, segmentation, A/B testing, or promotional push in MVP. |
 | **No analytics push** | No behavioural nudges or analytics-triggered notifications. |
+
+### Provider contract
+
+All push sending goes through the `PushProvider` interface. The interface operates on **one token at a time** — fan-out to multiple user devices is the responsibility of the `PushNotificationService` / job layer, not the provider.
+
+```
+PushProvider::send(
+    PushToken $token,
+    NotificationPayload $payload
+): PushResult
+```
+
+| Boundary rule | Detail |
+| --- | --- |
+| **One token per call** | Provider receives a single `PushToken` — no batch array |
+| **Fan-out belongs upstream** | `PushNotificationJob` iterates tokens; provider handles one |
+| **No domain knowledge** | Provider must not know Scheduler or Smart Home logic |
+| **No full token in logs** | Provider uses `PushToken::tokenPreview()` for any log output ([ADR-021](ADR-021-notification-security-and-privacy.md)) |
+| **Explicit failure** | Provider throws or returns a failed `PushResult` — never silently drops |
+
+### Provider implementations (MVP)
+
+| Implementation | Role |
+| --- | --- |
+| **`FcmPushProvider`** | Production provider — calls FCM HTTP v1 API with server credentials |
+| **`NoopPushProvider`** | Tests + local dev — returns a successful dry-run `PushResult` without contacting FCM |
+
+**`NoopPushProvider` rules:**
+
+- Returns a successful `PushResult` (or configurable result) without any HTTP call.
+- Logs a safe, preview-only dry-run notice for diagnostic visibility.
+- **Must never reach production accidentally** — provider selection is config-driven (see `config/push_notifications.php`).
+- Is the **default for unsupported or missing credential** environments only when the config explicitly opts in.
+- Unsupported provider values in config must **fail explicitly** at boot (not silently fall back).
+
+### Provider selection
+
+Provider is resolved at service-container binding time from config:
+
+```
+config('push_notifications.provider')  →  'fcm' | 'noop'
+```
+
+- `'fcm'` → binds `FcmPushProvider` (requires FCM credentials env vars).
+- `'noop'` → binds `NoopPushProvider` (safe for local dev / CI without Firebase credentials).
+- Any other value → **exception at boot** — no silent fallback.
 
 ### Relationship to ADR-011
 
@@ -71,6 +117,7 @@ Constraints:
 | **Reuses Firebase project** | Auth infrastructure already in place; lower setup friction |
 | **Backend authority preserved** | Notification intent stays in Laravel — consistent with Scheduler and Smart Home ADRs |
 | **Provider abstraction** | Future APNs without rewriting event taxonomy or mobile registration |
+| **`NoopPushProvider`** | Tests and local dev work without Firebase credentials; CI never calls FCM |
 | **Clear MVP boundary** | No campaign/marketing scope creep |
 
 ### Negative / tradeoffs
@@ -81,6 +128,7 @@ Constraints:
 | **FCM dependency** | Push delivery depends on Google infrastructure and server credentials |
 | **Dual notification paths** | Local notifications (Scheduler) + FCM (remote events) coexist — mobile must handle both |
 | **Server credential management** | FCM service account / server key must be stored securely on backend |
+| **Noop misconfiguration risk** | `NoopPushProvider` must be blocked from production by config guard — not purely a code concern |
 
 ---
 
@@ -94,6 +142,7 @@ Constraints:
 | **FCM-only, no abstraction** | Rejected — iOS will need APNs; abstraction cost is low |
 | **Replace local notifications with FCM immediately** | Rejected — local notifications remain useful offline ([ADR-020](ADR-020-push-delivery-and-fallback-strategy.md)) |
 | **Web push first** | Rejected — mobile Android is primary client |
+| **No `NoopPushProvider`, mock only in tests** | Rejected — Noop behind the same contract allows local dev without Firebase credentials and tests the real binding path |
 
 ---
 

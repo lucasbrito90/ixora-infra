@@ -177,37 +177,75 @@ Future phase — user opt-out per event type. Not required for Phase 1 or early 
 | Service | Responsibility |
 | --- | --- |
 | **`PushTokenService`** | Register, refresh, deactivate tokens; upsert logic |
-| **`PushNotificationService`** | Resolve recipients, build payload, dispatch job |
-| **`FcmPushProvider`** | Implements `PushProvider` — calls FCM HTTP v1 API |
-| **`PushNotificationJob`** | Queue job — load tokens, call provider, log result, deactivate invalid tokens |
+| **`PushNotificationService`** | Resolve recipients, build `NotificationPayload`, dispatch job |
+| **`FcmPushProvider`** | Implements `PushProvider` — calls FCM HTTP v1 API; production only |
+| **`NoopPushProvider`** | Implements `PushProvider` — dry-run for tests and local dev without FCM credentials |
+| **`PushNotificationJob`** | Queue job — iterate active tokens, call provider once per token, log `PushResult`, deactivate on `UNREGISTERED` |
 
 ### Interfaces / DTOs
+
+#### `PushProvider` interface
 
 ```php
 interface PushProvider
 {
-    public function send(array $tokens, NotificationPayload $payload): PushSendResult;
+    public function send(PushToken $token, NotificationPayload $payload): PushResult;
 }
+```
 
+Provider receives **one token and one payload**. Fan-out to multiple user devices is the responsibility of `PushNotificationJob`, not the provider ([ADR-017](../../../decisions/ADR-017-push-notification-provider-strategy.md)).
+
+#### `NotificationPayload` DTO
+
+```php
 final readonly class NotificationPayload
 {
     public function __construct(
-        public string $type,
-        public ?string $title,
-        public ?string $body,
-        public array $data, // type + IDs only
-    ) {}
-}
-
-final readonly class PushSendResult
-{
-    public function __construct(
-        public int $successCount,
-        public int $failureCount,
-        public array $invalidTokens,
+        public string $title,
+        public string $body,
+        /** @var array<string, string> FCM data payload — string key-value pairs only */
+        public array $data,
+        public string $type,              // notification event type (ADR-019)
+        public ?array $android = null,    // optional FCM Android-specific config
     ) {}
 }
 ```
+
+**Payload rules (ADR-021):**
+
+| Rule | Detail |
+| --- | --- |
+| `data` values are strings | FCM data payloads require string values — no nested objects |
+| No secrets in `title`, `body`, or `data` | IDs and type only; no tokens, passwords, or PII |
+| `type` drives mobile routing | Same values as ADR-019 event taxonomy |
+| `android` is optional | For future platform-specific priority / channel overrides |
+
+#### `PushResult` DTO
+
+```php
+final readonly class PushResult
+{
+    public function __construct(
+        public bool $success,
+        public string $provider,          // 'fcm' | 'noop'
+        public ?int $statusCode = null,
+        public ?string $messageId = null,
+        public ?string $errorCode = null,
+        public ?string $errorMessage = null,
+        public ?string $tokenPreview = null, // never the raw token
+    ) {}
+}
+```
+
+**`PushResult` rules:**
+
+| Rule | Detail |
+| --- | --- |
+| Safe to log | Contains no raw FCM token — uses `tokenPreview` from `PushToken::tokenPreview()` |
+| `provider` always set | Identifies which provider produced this result for log correlation |
+| `messageId` on FCM success | FCM response message ID for audit/tracing |
+| `errorCode` on failure | FCM error code (e.g. `UNREGISTERED`) for token deactivation logic in Phase 7 |
+| `NoopPushProvider` returns | `success: true`, `provider: 'noop'`, all other fields `null` |
 
 ### Send flow (future)
 

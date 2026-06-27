@@ -25,7 +25,7 @@
 | 3 — Push token API | 0 | 0 | 8 | 0 |
 | 4 — Android FCM setup | 0 | 0 | 5 | 0 |
 | 5 — Mobile token registration | 0 | 0 | 7 | 0 |
-| 6 — Push provider abstraction | 6 | 0 | 0 | 0 |
+| 6 — Push provider abstraction | 8 | 0 | 0 | 0 |
 | 7 — Queue-backed send job | 6 | 0 | 0 | 0 |
 | 8 — Event integration | 6 | 0 | 0 | 0 |
 | 9 — Tap handling | 5 | 0 | 0 | 0 |
@@ -167,12 +167,16 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P6-1 | **`PushProvider`** interface | **Pending** | [`spec.md`](spec.md) §6 |
-| P6-2 | **`NotificationPayload`** DTO | **Pending** | |
-| P6-3 | **`FcmPushProvider`** — FCM HTTP v1 send | **Pending** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
-| P6-4 | **`config/push_notifications.php`** | **Pending** | |
-| P6-5 | Register provider in service provider | **Pending** | |
-| P6-6 | Pest tests with HTTP fake | **Pending** | |
+| P6-1 | **`PushProvider`** interface — `send(PushToken, NotificationPayload): PushResult` | **Pending** | [`spec.md`](spec.md) §6, [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
+| P6-2 | **`NotificationPayload`** DTO — `title`, `body`, `data`, `type`, `android?` | **Pending** | [`spec.md`](spec.md) §6 |
+| P6-3 | **`PushResult`** DTO — `success`, `provider`, `statusCode`, `messageId`, `errorCode`, `errorMessage`, `tokenPreview` | **Pending** | [`spec.md`](spec.md) §6 |
+| P6-4 | **`FcmPushProvider`** — FCM HTTP v1 send; uses `tokenPreview` in logs; never logs full token | **Pending** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md), [`ADR-021`](../../../decisions/ADR-021-notification-security-and-privacy.md) |
+| P6-5 | **`NoopPushProvider`** — dry-run for tests / local dev; returns successful `PushResult` without FCM call | **Pending** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
+| P6-6 | **`config/push_notifications.php`** — `provider` key (`'fcm'` \| `'noop'`); FCM credentials path; project ID | **Pending** | |
+| P6-7 | **`PushProviderResolver`** + service provider binding — resolves from config; unsupported values throw at boot | **Pending** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
+| P6-8 | **Pest tests** — `FcmPushProvider` with HTTP fake; `NoopPushProvider` shape; resolver throws on unknown provider | **Pending** | |
+
+**Phase 6 scope note:** Proves provider abstraction and FCM HTTP v1 integration only. Does **not** enqueue jobs, does **not** integrate Scheduler or Smart Home. No fan-out logic — `PushProvider::send()` receives one token.
 
 **Branch:** `feature/push-notifications-fcm-provider`
 
