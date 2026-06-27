@@ -24,7 +24,7 @@
 | 2 — Token registry schema | 0 | 0 | 5 | 0 |
 | 3 — Push token API | 0 | 0 | 8 | 0 |
 | 4 — Android FCM setup | 0 | 0 | 5 | 0 |
-| 5 — Mobile token registration | 7 | 0 | 0 | 0 |
+| 5 — Mobile token registration | 0 | 0 | 7 | 0 |
 | 6 — Push provider abstraction | 6 | 0 | 0 | 0 |
 | 7 — Queue-backed send job | 6 | 0 | 0 | 0 |
 | 8 — Event integration | 6 | 0 | 0 | 0 |
@@ -140,15 +140,26 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P5-1 | **`push-token.service.ts`** — register, refresh, unregister | **Pending** | [`spec.md`](spec.md) §7 |
-| P5-2 | Hook register after auth sync / login success | **Pending** | |
-| P5-3 | Hook FCM `onTokenRefresh` → refresh API | **Pending** | |
-| P5-4 | Hook logout → deactivate token | **Pending** | |
-| P5-5 | Request notification permission before first register | **Pending** | |
-| P5-6 | Fire-and-forget on register failure — do not block login | **Pending** | |
-| P5-7 | Unit tests for service | **Pending** | |
+| P5-1 | **`push-token.service.ts`** — register, refresh, unregister | **Done** | [`spec.md`](spec.md) §7 |
+| P5-2 | Hook register after auth sync / login success | **Done** | `useAuth.ts` — fire-and-forget after `persistToken` in all three login paths |
+| P5-3 | Hook FCM `onTokenRefresh` → refresh API | **Done** | `initPushTokenRefreshListener()` via `addListener('tokenReceived')` — registered in `App.vue` |
+| P5-4 | Hook logout → deactivate token | **Done** | `useAuth.logout()` — non-fatal `deactivateCurrentDevicePushToken()` |
+| P5-5 | Request notification permission before first register | **Done** | `registerCurrentDevicePushToken()` calls `requestFcmPermission()` first |
+| P5-6 | Fire-and-forget on register failure — do not block login | **Done** | `void pushTokenService.registerCurrentDevicePushToken()` — errors caught internally |
+| P5-7 | Unit tests for service | **Done** | `src/services/__tests__/push-token.service.test.ts` — 27 tests |
 
 **Branch:** `feature/push-notifications-mobile-token-registration`
+
+**Phase 5 implementation notes:**
+
+- **`push-token.service.ts`** — `registerPushToken()`, `refreshPushToken()`, `deactivatePushToken()` (raw API calls with Firebase Bearer); `registerCurrentDevicePushToken()` and `deactivateCurrentDevicePushToken()` (high-level device helpers); `initPushTokenRefreshListener()` (singleton FCM token-rotation listener). All functions follow existing `laravelFetch` + `getRequiredIdToken` pattern.
+- **Preferences storage:** only `id` (number as string) and `token_preview` are persisted — full FCM token is never stored (ADR-021). Keys: `ixora_push_token_id_v1`, `ixora_push_token_value_preview_v1`.
+- **`old_token` on refresh:** intentionally omitted from `RefreshPushTokenPayload`. The backend upserts by `new_token` value — no full token storage required.
+- **`useAuth.ts`:** `void pushTokenService.registerCurrentDevicePushToken()` added after `persistToken()` in `loginWithGoogle`, `loginWithEmail`, and `signUpWithEmail`. `deactivateCurrentDevicePushToken()` added as non-fatal step in `logout()` (same pattern as `scheduleMirrorService.clearMirror()`).
+- **`App.vue`:** `pushTokenService.initPushTokenRefreshListener()` called once at root component setup — ensures the FCM rotation listener is always active regardless of navigation.
+- **`_resetListenerForTest()`:** exported test helper following `useScheduleNotificationHandler.ts` pattern.
+- **Tests — 27 Vitest tests** covering: `registerPushToken` (4), `refreshPushToken` (4), `deactivatePushToken` (2), `registerCurrentDevicePushToken` (8: web no-op, permission denied, null token, success path, stores id, stores preview not full token, failure no-throw, network error no-throw, warn output clean), `deactivateCurrentDevicePushToken` (6: calls DELETE, skips when no id, clears prefs, clears prefs on error, no-throw on error, no-throw on prefs failure), `initPushTokenRefreshListener` (7: web no-op, registers listener, singleton guard, reset + re-register, callback calls refresh, callback updates prefs, no full token in warn), service shape (1).
+- No FCM sending, PushProvider, PushNotificationJob, backend, Scheduler, Smart Home, tap routing, marketing, or analytics logic added.
 
 ---
 
