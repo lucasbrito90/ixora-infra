@@ -14,7 +14,7 @@ The FCM / Push Notifications Foundation delivers **Android FCM transport**, a **
 
 | Principle | Implementation |
 | --- | --- |
-| FCM first, Android first | `FcmPushProvider` only in MVP |
+| FCM first, Android first | `FcmPushProvider` (production) + `NoopPushProvider` (tests/local) in MVP |
 | Backend authoritative | Laravel decides what to send and to whom |
 | FCM is transport only | No business logic in FCM layer |
 | Token registry with dedupe | `push_tokens` table, unique on `token` |
@@ -168,12 +168,30 @@ Phases **2–3** (backend registry) can start immediately after Phase 1. Phase *
 
 ### Goals
 
-- `PushProvider` interface
-- `NotificationPayload` DTO
-- `FcmPushProvider` — FCM HTTP v1 send
-- `config/push_notifications.php` — FCM credentials, project ID
-- Pest tests with HTTP fake — no real FCM calls in CI
-- Log invalid token responses for deactivation hook (Phase 7)
+Prove the provider abstraction layer and FCM HTTP v1 integration. **Phase 6 does not enqueue jobs, does not integrate Scheduler, and does not integrate Smart Home.** It only establishes that `PushProvider` can be swapped, that `FcmPushProvider` can call FCM, and that `NoopPushProvider` gives safe local/test behavior behind the same interface.
+
+### Deliverables
+
+| Item | Notes |
+| --- | --- |
+| **`PushProvider` interface** | `send(PushToken, NotificationPayload): PushResult` — one token per call |
+| **`NotificationPayload` DTO** | `title`, `body`, `data`, `type`, `android?` — per spec §6 |
+| **`PushResult` DTO** | `success`, `provider`, `statusCode`, `messageId`, `errorCode`, `errorMessage`, `tokenPreview` |
+| **`FcmPushProvider`** | Calls FCM HTTP v1 API; returns `PushResult`; uses `tokenPreview` in logs — no full token |
+| **`NoopPushProvider`** | Returns successful dry-run `PushResult`; safe for local dev without Firebase credentials |
+| **`config/push_notifications.php`** | `provider` key (`'fcm'` \| `'noop'`); FCM project ID and credentials path |
+| **`PushProviderResolver` / service provider binding** | Binds `PushProvider` from config; unsupported values throw at boot — no silent fallback |
+| **Pest tests** | `FcmPushProvider` with HTTP fake (no real FCM in CI); `NoopPushProvider` returns correct shape; resolver throws on unknown provider |
+
+### Hard boundaries for Phase 6
+
+| Out of scope | Reason |
+| --- | --- |
+| `PushNotificationJob` | Phase 7 |
+| `PushNotificationService::sendToUser()` | Phase 7 |
+| Scheduler event hooks | Phase 8 |
+| Smart Home event hooks | Phase 8 |
+| Invalid-token deactivation loop | Phase 7 job responsibility |
 
 ### Branch
 
