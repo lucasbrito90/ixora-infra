@@ -25,7 +25,7 @@
 | 3 — Push token API | 0 | 0 | 8 | 0 |
 | 4 — Android FCM setup | 0 | 0 | 5 | 0 |
 | 5 — Mobile token registration | 0 | 0 | 7 | 0 |
-| 6 — Push provider abstraction | 8 | 0 | 0 | 0 |
+| 6 — Push provider abstraction | 0 | 0 | 8 | 0 |
 | 7 — Queue-backed send job | 6 | 0 | 0 | 0 |
 | 8 — Event integration | 6 | 0 | 0 | 0 |
 | 9 — Tap handling | 5 | 0 | 0 | 0 |
@@ -167,20 +167,32 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P6-1 | **`PushProvider`** interface — `send(PushToken, NotificationPayload): PushResult` | **Pending** | [`spec.md`](spec.md) §6, [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
-| P6-2 | **`NotificationPayload`** DTO — `title`, `body`, `data`, `type`, `android?` | **Pending** | [`spec.md`](spec.md) §6 |
-| P6-3 | **`PushResult`** DTO — `success`, `provider`, `statusCode`, `messageId`, `errorCode`, `errorMessage`, `tokenPreview` | **Pending** | [`spec.md`](spec.md) §6 |
-| P6-4 | **`FcmPushProvider`** — FCM HTTP v1 send; uses `tokenPreview` in logs; never logs full token | **Pending** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md), [`ADR-021`](../../../decisions/ADR-021-notification-security-and-privacy.md) |
-| P6-5 | **`NoopPushProvider`** — dry-run for tests / local dev; returns successful `PushResult` without FCM call | **Pending** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
-| P6-6 | **`config/push_notifications.php`** — `provider` key (`'fcm'` \| `'noop'`); FCM credentials path; project ID | **Pending** | |
-| P6-7 | **`PushProviderResolver`** + service provider binding — resolves from config; unsupported values throw at boot | **Pending** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
-| P6-8 | **Pest tests** — `FcmPushProvider` with HTTP fake; `NoopPushProvider` shape; resolver throws on unknown provider | **Pending** | |
+| P6-1 | **`PushProvider`** interface — `send(PushToken, NotificationPayload): PushResult` | **Done** | [`spec.md`](spec.md) §6, [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
+| P6-2 | **`NotificationPayload`** DTO — `title`, `body`, `data`, `android?` | **Done** | [`spec.md`](spec.md) §6 |
+| P6-3 | **`PushResult`** DTO — `success`, `provider`, `statusCode`, `messageId`, `errorCode`, `errorMessage`, `tokenPreview` | **Done** | [`spec.md`](spec.md) §6 |
+| P6-4 | **`FcmPushProvider`** — FCM HTTP v1 send; populates `provider`/`tokenPreview`; never logs full token | **Done** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md), [`ADR-021`](../../../decisions/ADR-021-notification-security-and-privacy.md) |
+| P6-5 | **`NoopPushProvider`** — dry-run for tests / local dev; returns successful `PushResult` without FCM call | **Done** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
+| P6-6 | **`config/push_notifications.php`** — `provider` key (`'fcm'` \| `'noop'`); FCM credentials path; project ID | **Done** | |
+| P6-7 | **`PushProviderResolver`** + service provider binding — resolves from config; unsupported values throw | **Done** | [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md) |
+| P6-8 | **Pest tests** — `FcmPushProvider` with HTTP fake; `NoopPushProvider` shape; resolver resolves noop, throws on unknown provider | **Done** | |
 
 **Phase 6 scope note:** Proves provider abstraction and FCM HTTP v1 integration only. Does **not** enqueue jobs, does **not** integrate Scheduler or Smart Home. No fan-out logic — `PushProvider::send()` receives one token.
 
-**Phase 6 DTO note:** The current Phase 6 `NotificationPayload` implementation should include only `title`, `body`, `data`, `type`, and optional `android`. Do **not** add `collapseKey`/`tag` or `priority` unless a later task explicitly scopes them — these are documented future extensions only ([`spec.md`](spec.md) §6, [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md)).
+**Phase 6 DTO note:** The current Phase 6 `NotificationPayload` implementation includes `title`, `body`, `data`, and optional `androidConfig`. Do **not** add `collapseKey`/`tag` or `priority` unless a later task explicitly scopes them — these are documented future extensions only ([`spec.md`](spec.md) §6, [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md)).
 
 **Branch:** `feature/push-notifications-fcm-provider`
+
+**Phase 6 implementation notes:**
+
+- **`PushProvider` contract** (`app/PushNotifications/Contracts/PushProvider.php`) — `send(PushToken, NotificationPayload): PushResult`; one token per call, fan-out deferred to Phase 7. No domain knowledge; never logs full token.
+- **`NotificationPayload` DTO** — `final readonly` with `title`, `body`, `data` (`array<string,string>`), `androidConfig?`. Provider-agnostic; FCM JSON is built inside `FcmPushProvider`.
+- **`PushResult` DTO** — `final readonly`, spec field order: `success`, `provider`, `statusCode`, `messageId`, `errorCode`, `errorMessage`, `tokenPreview`. Factories `success()` / `failure()`. Safe to log/serialize — no raw token.
+- **`FcmPushProvider`** — FCM HTTP v1; OAuth JWT bearer assertion (RS256) → cached access token with auto-refresh; populates `provider='fcm'` and `tokenPreview`; maps 2xx→success (`messageId` from `name`), 4xx→failure with `errorCode` from `details[].errorCode`, transport error→`network_error`. Never logs private key, OAuth assertion, or full device token.
+- **`NoopPushProvider`** — dry-run for tests / local dev; makes no HTTP calls; always returns `success: true`, `provider: 'noop'`, `messageId: null`; logs preview-only notice.
+- **`config/push_notifications.php`** — `provider` (`'fcm'` \| `'noop'`) + `fcm` block (credentials via `FirebaseCredentialsResolver`, project_id, scope, http_timeout, token cache key/skew).
+- **`PushProviderResolver`** — resolves by slug (`'fcm'` → `FcmPushProvider`, `'noop'` → `NoopPushProvider`); unsupported/unknown slugs throw `InvalidArgumentException` (no silent fallback). Registered as singleton by `PushNotificationServiceProvider` alongside both providers.
+- **Tests** — `tests/Unit/PushNotifications/`: `FcmPushProviderTest` (17 — OAuth gen/cache/refresh, Bearer header, HTTP v1 body, success/invalid/unregistered/timeout, auth + config failures, safe logging, provider/tokenPreview), `NoopPushProviderTest` (5 — contract, success shape, no HTTP, tokenPreview, no full-token log), `PushProviderResolverTest` (8 — resolve fcm/noop by slug + enum, unsupported/unknown throw, singletons). Full suite: 593 passed; Pint clean.
+- No `PushNotificationJob`, queue fan-out, Scheduler, Smart Home, mobile, tap handling, marketing, or analytics added.
 
 ---
 
