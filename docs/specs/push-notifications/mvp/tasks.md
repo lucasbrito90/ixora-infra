@@ -26,7 +26,7 @@
 | 4 — Android FCM setup | 0 | 0 | 5 | 0 |
 | 5 — Mobile token registration | 0 | 0 | 7 | 0 |
 | 6 — Push provider abstraction | 0 | 0 | 8 | 0 |
-| 7 — Queue-backed send job | 6 | 0 | 0 | 0 |
+| 7 — Queue-backed send job | 0 | 0 | 6 | 0 |
 | 8 — Event integration | 6 | 0 | 0 | 0 |
 | 9 — Tap handling | 5 | 0 | 0 | 0 |
 | 10 — E2E QA | 8 | 0 | 0 | 0 |
@@ -200,14 +200,24 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7-1 | **`PushNotificationService::sendToUser()`** | **Pending** | [`ADR-020`](../../../decisions/ADR-020-push-delivery-and-fallback-strategy.md) |
-| P7-2 | **`PushNotificationJob`** — load tokens, call provider | **Pending** | |
-| P7-3 | Deactivate invalid tokens on FCM unregistered response | **Pending** | |
-| P7-4 | Queue config (name, timeout, tries) | **Pending** | |
-| P7-5 | Structured logging — no full tokens | **Pending** | [`ADR-021`](../../../decisions/ADR-021-notification-security-and-privacy.md) |
-| P7-6 | Pest: job queued, failure logged not thrown | **Pending** | |
+| P7-1 | **`PushNotificationService::sendToUser()`** | **Done** | [`ADR-020`](../../../decisions/ADR-020-push-delivery-and-fallback-strategy.md) |
+| P7-2 | **`PushNotificationJob`** — load tokens, call provider | **Done** | |
+| P7-3 | Deactivate invalid tokens on FCM unregistered response | **Done** | |
+| P7-4 | Queue config (name, timeout, tries) | **Done** | |
+| P7-5 | Structured logging — no full tokens | **Done** | [`ADR-021`](../../../decisions/ADR-021-notification-security-and-privacy.md) |
+| P7-6 | Pest: job queued, failure logged not thrown | **Done** | |
 
 **Branch:** `feature/push-notifications-send-job`
+
+**Phase 7 implementation notes:**
+
+- **`PushNotificationService`** (`app/PushNotifications/Services/PushNotificationService.php`) — always dispatches `PushNotificationJob` without checking active-token count inline (avoids extra DB query at call time; job handles no-token no-op). Logs `user_id` and `title` safely — never token or payload secrets.
+- **`PushNotificationJob`** (`app/Jobs/PushNotifications/PushNotificationJob.php`) — loads user with `pushTokens()->active()` eager; warns on missing user; info-logs on no tokens; per-token try/catch so one failure never aborts the batch; delegates to `PushProviderResolver::resolve($token->provider)` → `PushProvider::send()`; calls `PushTokenService::deactivateInvalidToken()` on `UNREGISTERED`/`NOT_FOUND`; `INVALID_ARGUMENT` is warning-logged only (payload issue, not token). Queue: `push`, timeout: 30s, tries: 3 (all from `config/push_notifications.queue`).
+- **`PushProviderResolverContract`** (`app/PushNotifications/Contracts/PushProviderResolver.php`) — interface extracted so the job type-hints the contract, enabling mocking in tests without subclassing the final concrete resolver (ADR-017: callers depend on contract). Container alias registered in `PushNotificationServiceProvider`.
+- **`PushTokenService::deactivateInvalidToken()`** — sets `is_active=false`, `revoked_at=now()`, logs safe preview context; no full token.
+- **`config/push_notifications.queue`** — `name` (`push`), `tries` (3), `timeout` (30); all overridable via env.
+- **Tests** — `PushNotificationServiceTest` (5: dispatch, once, dispatch without tokens, no inline provider, safe log); `PushNotificationJobTest` (16: fan-out all active, skip inactive, warn on missing user, info on no tokens, batch continues on one failure, per-token exception logged safely, success/failure logs, no full-token in log, UNREGISTERED deactivates, NOT_FOUND deactivates, INVALID_ARGUMENT does not deactivate, queue/tries/timeout from config, Noop path no HTTP). Full suite: 615 passed; Pint clean.
+- No `PushNotificationJob` fan-out to Scheduler, Smart Home, mobile, tap routing, marketing, analytics, or event integration.
 
 ---
 
