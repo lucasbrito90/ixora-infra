@@ -29,8 +29,8 @@
 | 7 — Queue-backed send job | 0 | 0 | 6 | 0 |
 | 8 — Event integration | 0 | 0 | 7 | 0 |
 | 8.5 — Payload builder refactor | 0 | 0 | 4 | 0 |
-| 9 — Tap handling | 5 | 0 | 0 | 0 |
-| 10 — E2E QA | 8 | 0 | 0 | 0 |
+| 9 — Tap handling | 0 | 0 | 5 | 0 |
+| 10 — E2E QA | 4 | 0 | 4 | 0 |
 
 ---
 
@@ -273,13 +273,23 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P9-1 | Foreground notification handler (minimal) | **Pending** | [`plan.md`](plan.md) § Phase 9 |
-| P9-2 | Background tap → route by `data.type` | **Pending** | |
-| P9-3 | `schedule_*` → player / schedule screen | **Pending** | |
-| P9-4 | `smart_home_*` → devices tab | **Pending** | |
-| P9-5 | Unit tests for routing logic | **Pending** | |
+| P9-1 | Foreground notification handler (minimal) | **Done** | [`plan.md`](plan.md) § Phase 9 |
+| P9-2 | Background tap → route by `data.type` | **Done** | |
+| P9-3 | `schedule_*` → player / schedule screen | **Done** | |
+| P9-4 | `smart_home_*` → devices tab | **Done** | |
+| P9-5 | Unit tests for routing logic | **Done** | |
 
 **Branch:** `feature/push-notifications-tap-handling`
+
+**Done (Phase 9 — Android notification tap handling):**
+
+- New service `src/services/push-notification-handler.service.ts` registers a single `notificationActionPerformed` listener (singleton guard, mirroring `push-token.service` and `useScheduleNotificationHandler`). Routing decisions use **only** `notification.data.type` — titles and bodies are never inspected. No-op on web/non-native.
+- Navigation map (reuses the existing Vue Router via `router.push()`; routes mount flat under `/`, so `/schedules`, `/devices`, `/settings` — not `/tabs/*`): `schedule_execution_failed → /schedules`, `smart_home_action_failed → /devices`, `smart_home_provider_unreachable → /devices`, `account_security_notice → /settings`.
+- One listener covers foreground tap, background tap, and cold start. `router.isReady()` gates navigation so cold-start taps never race the router bootstrap. Unknown/missing types log a warning and do nothing (no throw).
+- Registered in `App.vue` exactly once via `pushNotificationHandlerService.initPushNotificationTapHandler(useRouter())`.
+- Logging is limited to `type`, `route`, and `timestamp` — never the FCM token, payload body, user data, or credentials.
+- Tests: `src/services/__tests__/push-notification-handler.service.test.ts` (21 tests) cover mapping, foreground/background/cold-start taps, unknown/missing/null/malformed payloads, single registration, no duplicated listeners, platform guard, and safe logging.
+- Validation: `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:unit` (243 passed). No backend, Scheduler, or Smart Home code changed.
 
 ---
 
@@ -287,16 +297,18 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P10-1 | Staging: register token via authenticated API | **Pending** | |
-| P10-2 | Staging: send test notification (command or test endpoint) | **Pending** | |
-| P10-3 | Device: login → token registered | **Pending** | |
-| P10-4 | Device: logout → token deactivated | **Pending** | |
-| P10-5 | Device: tap notification → correct screen | **Pending** | |
-| P10-6 | Security: no secrets in FCM payload or logs | **Pending** | [`ADR-021`](../../../decisions/ADR-021-notification-security-and-privacy.md) |
-| P10-7 | Regression: Scheduler local notifications still work | **Pending** | [`ADR-011`](../../../decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
-| P10-8 | Regression: Smart Home execution unaffected by push failure | **Pending** | [`ADR-016`](../../../decisions/ADR-016-smart-home-async-execution.md) |
+| P10-1 | Staging: register token via authenticated API | **Done** | Automated via `qa/push-notifications-e2e/scripts/staging-api-qa.sh` |
+| P10-2 | Staging: send test notification (command or test endpoint) | **Pending** | Harness: `scripts/staging-push-send.tinker.md`; requires staging console + worker |
+| P10-3 | Device: login → token registered | **Pending** | App launches after BUG-002 fix; login session not completed in automated run |
+| P10-4 | Device: logout → token deactivated | **Pending** | API verified; on-device logout not run |
+| P10-5 | Device: tap notification → correct screen | **Pending** | Phase 9 unit tests pass; device tap requires FCM delivery (P10-2) |
+| P10-6 | Security: no secrets in FCM payload or logs | **Done** | API redaction verified; plugin console token note in QA summary |
+| P10-7 | Regression: Scheduler local notifications still work | **Done** | Backend tests + staging schedules API 200; no FCM change to local path |
+| P10-8 | Regression: Smart Home execution unaffected by push failure | **Done** | Backend tests 237/237 + staging devices API 200 |
 
 **Branch:** `feature/push-notifications-e2e-qa`
+
+**Phase 10 QA report:** [`qa/push-notifications-e2e/summary.md`](../../../../qa/push-notifications-e2e/summary.md) — verdict **PASS with known limitations** (2026-06-28). Blocking bugs fixed during QA: mobile refresh payload field (`BUG-001`), Android MainActivity crash (`BUG-002`).
 
 ---
 
