@@ -28,6 +28,7 @@
 | 6 — Push provider abstraction | 0 | 0 | 8 | 0 |
 | 7 — Queue-backed send job | 0 | 0 | 6 | 0 |
 | 8 — Event integration | 0 | 0 | 7 | 0 |
+| 8.5 — Payload builder refactor | 0 | 0 | 4 | 0 |
 | 9 — Tap handling | 5 | 0 | 0 | 0 |
 | 10 — E2E QA | 8 | 0 | 0 | 0 |
 
@@ -244,6 +245,27 @@
 - **Payloads (`data` is `array<string,string>`, no secrets):** `schedule_execution_failed` {type, schedule_execution_id?, schedule_id}; `smart_home_action_failed` {type, device_id, vibe_id, action_type}; `smart_home_provider_unreachable` {type, provider_connection_id, provider}; `account_security_notice` {type} with dynamic title/body.
 - **Logging:** structured context only (`user_id`, `notification_type`, `schedule_id`/`device_id`/`vibe_id`/`provider_connection_id`/`provider`). Never logs FCM/OAuth tokens, credentials, or raw payloads.
 - **Tests:** `tests/Feature/PushNotifications/PushNotificationEventsTest.php` (all four methods, payload correctness, string-only data, no secrets, `PushNotificationService` invocation via `Bus::fake()`). Scheduler + Smart Home tests updated to assert integration through `PushNotificationEvents` → `PushNotificationJob` (`Bus::fake()` / `Http::fake()`, no real FCM). Full suite green; `pint --test` clean.
+
+---
+
+## Phase 8.5 — Notification payload builder refactor
+
+| ID | Task | Status |
+| --- | --- | --- |
+| P8.5-1 | Create `ScheduleExecutionFailedNotification` builder | **Done** |
+| P8.5-2 | Create `SmartHomeActionFailedNotification` builder | **Done** |
+| P8.5-3 | Create `SmartHomeProviderUnreachableNotification` builder | **Done** |
+| P8.5-4 | Create `AccountSecurityNoticeNotification` builder | **Done** |
+
+**Branch:** `feature/push-notifications-payload-builders`
+
+**Done (Phase 8.5 — payload builder refactor):**
+
+- Created `app/PushNotifications/Notifications/` namespace with one `final` class per notification type. Each exposes a single `static build(...): NotificationPayload` factory — no state, no side effects.
+- `PushNotificationEvents` delegates to the builders instead of assembling arrays inline. Its public API signatures, return types, error handling, and logging are **unchanged**. Scheduler and Smart Home calling code is **unchanged**.
+- Payloads are byte-for-byte identical to Phase 8 output.
+- Unit tests: `tests/Unit/PushNotifications/Notifications/` — four test files covering title, body, data keys/values, string enforcement, null-omission, and absence of secrets.
+- Full suite: **663 passed, 1903 assertions**; `pint --test` clean.
 
 ---
 
