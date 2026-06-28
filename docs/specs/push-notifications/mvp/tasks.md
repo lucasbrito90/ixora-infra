@@ -27,7 +27,7 @@
 | 5 — Mobile token registration | 0 | 0 | 7 | 0 |
 | 6 — Push provider abstraction | 0 | 0 | 8 | 0 |
 | 7 — Queue-backed send job | 0 | 0 | 6 | 0 |
-| 8 — Event integration | 6 | 0 | 0 | 0 |
+| 8 — Event integration | 0 | 0 | 7 | 0 |
 | 9 — Tap handling | 5 | 0 | 0 | 0 |
 | 10 — E2E QA | 8 | 0 | 0 | 0 |
 
@@ -225,14 +225,25 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P8-1 | Emit **`schedule_execution_failed`** from scheduler failure path | **Pending** | [`ADR-019`](../../../decisions/ADR-019-notification-event-taxonomy.md) |
-| P8-2 | Emit **`smart_home_action_failed`** from `SmartHomeActionJob` | **Pending** | |
-| P8-3 | Emit **`smart_home_provider_unreachable`** from provider failures | **Pending** | |
-| P8-4 | All emits async via `PushNotificationService` only | **Pending** | [`ADR-020`](../../../decisions/ADR-020-push-delivery-and-fallback-strategy.md) |
-| P8-5 | Confirm Scheduler dispatch loop unchanged | **Pending** | |
-| P8-6 | Confirm Smart Home job never rethrows on push failure | **Pending** | [`ADR-016`](../../../decisions/ADR-016-smart-home-async-execution.md) |
+| P8-0 | Create **`PushNotificationEvents`** domain service (single entry point) + register singleton | **Done** | [`ADR-019`](../../../decisions/ADR-019-notification-event-taxonomy.md) |
+| P8-1 | Emit **`schedule_execution_failed`** from scheduler failure path | **Done** | [`ADR-019`](../../../decisions/ADR-019-notification-event-taxonomy.md) |
+| P8-2 | Emit **`smart_home_action_failed`** from `SmartHomeActionJob` | **Done** | |
+| P8-3 | Emit **`smart_home_provider_unreachable`** from provider failures | **Done** | |
+| P8-4 | All emits async via `PushNotificationService` only | **Done** | [`ADR-020`](../../../decisions/ADR-020-push-delivery-and-fallback-strategy.md) |
+| P8-5 | Confirm Scheduler dispatch loop unchanged | **Done** | |
+| P8-6 | Confirm Smart Home job never rethrows on push failure | **Done** | [`ADR-016`](../../../decisions/ADR-016-smart-home-async-execution.md) |
 
 **Branch:** `feature/push-notifications-event-integration`
+
+**Done (Phase 8 — event integration):**
+
+- New domain service `app/PushNotifications/Services/PushNotificationEvents.php` is the **only** entry point Scheduler and Smart Home use. It builds `NotificationPayload` and calls `PushNotificationService::sendToUser()` — no HTTP, no queue, no FCM, no domain logic. Registered as a singleton in `PushNotificationServiceProvider`.
+- Public API (exactly these): `notifyScheduleExecutionFailed(User, ScheduleExecution)`, `notifySmartHomeActionFailed(User, VibeDeviceAction)`, `notifySmartHomeProviderUnreachable(User, ProviderConnection)`, `notifyAccountSecurityNotice(User, string $title, string $body)`. Each returns `void` and never throws to the caller (push errors are caught + logged).
+- **Scheduler:** `DispatchDueSchedulesCommand` calls `notifyScheduleExecutionFailed` inside its existing per-schedule failure `catch`. Recurrence, `next_run_at`, execution logs, idempotency, dispatch loop, and dry-run are untouched.
+- **Smart Home:** `SmartHomeActionJob` calls `notifySmartHomeActionFailed` on a failed `ActionResult` and on the catch-all `Throwable`; `ProviderDeviceSyncService` calls `notifySmartHomeProviderUnreachable` when `listDevices()` fails (before re-throwing). Execution flow and the Home Assistant adapter are unchanged. Successful executions never notify.
+- **Payloads (`data` is `array<string,string>`, no secrets):** `schedule_execution_failed` {type, schedule_execution_id?, schedule_id}; `smart_home_action_failed` {type, device_id, vibe_id, action_type}; `smart_home_provider_unreachable` {type, provider_connection_id, provider}; `account_security_notice` {type} with dynamic title/body.
+- **Logging:** structured context only (`user_id`, `notification_type`, `schedule_id`/`device_id`/`vibe_id`/`provider_connection_id`/`provider`). Never logs FCM/OAuth tokens, credentials, or raw payloads.
+- **Tests:** `tests/Feature/PushNotifications/PushNotificationEventsTest.php` (all four methods, payload correctness, string-only data, no secrets, `PushNotificationService` invocation via `Bus::fake()`). Scheduler + Smart Home tests updated to assert integration through `PushNotificationEvents` → `PushNotificationJob` (`Bus::fake()` / `Http::fake()`, no real FCM). Full suite green; `pint --test` clean.
 
 ---
 
