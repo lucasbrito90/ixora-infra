@@ -75,6 +75,43 @@ PushProvider::send(
 | **No full token in logs** | Provider uses `PushToken::tokenPreview()` for any log output ([ADR-021](ADR-021-notification-security-and-privacy.md)) |
 | **Explicit failure** | Provider throws or returns a failed `PushResult` — never silently drops |
 
+### `NotificationPayload` — provider-agnostic domain DTO
+
+`NotificationPayload` is a **provider-agnostic domain DTO**. It expresses IXORA notification intent (title, body, routing data, event type) and must **not** mirror FCM HTTP v1 JSON directly.
+
+Each provider maps `NotificationPayload` into its own transport format:
+
+| Provider | Transport mapping |
+| --- | --- |
+| **`FcmPushProvider`** | Maps to FCM HTTP v1 `message` JSON (`notification`, `data`, optional `android`) |
+| **`ApnsPushProvider`** *(future)* | Maps to APNs JSON payload |
+| **`NoopPushProvider`** | No transport — returns a dry-run `PushResult` only |
+
+Domain services and queue jobs build `NotificationPayload` only. Raw FCM/APNs request bodies are constructed **inside** the provider implementation, never in callers.
+
+### `PushResult.messageId` — optional and provider-dependent
+
+`messageId` is **optional** and **provider-dependent**:
+
+| Provider | `messageId` on success |
+| --- | --- |
+| **`FcmPushProvider`** | FCM response `name` (e.g. `projects/{project}/messages/{id}`) |
+| **`ApnsPushProvider`** *(future)* | APNs `apns-id` header value |
+| **`NoopPushProvider`** | Always `null` |
+
+Callers must not assume every successful send returns a transport ID. Use `messageId` for audit/tracing when present; omit from required downstream logic in MVP.
+
+### Future payload extensions (deferred)
+
+The following may be added to `NotificationPayload` in a later phase to improve delivery semantics. They are **not** part of MVP Phase 6 unless explicitly added in a follow-up task:
+
+| Field | Purpose |
+| --- | --- |
+| **`collapseKey` / `tag`** | Avoid duplicate notification stacking when the same logical event fires repeatedly (e.g. repeated schedule failures) |
+| **`priority`** | Route as `low` \| `normal` \| `high` for provider-specific urgency handling |
+
+Do not implement collapse/deduplication or priority routing in Phase 6.
+
 ### Provider implementations (MVP)
 
 | Implementation | Role |

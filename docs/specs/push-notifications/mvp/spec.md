@@ -203,22 +203,41 @@ final readonly class NotificationPayload
     public function __construct(
         public string $title,
         public string $body,
-        /** @var array<string, string> FCM data payload — string key-value pairs only */
+        /** @var array<string, string> Routing data — string key-value pairs only */
         public array $data,
         public string $type,              // notification event type (ADR-019)
-        public ?array $android = null,    // optional FCM Android-specific config
+        public ?array $android = null,    // optional platform-specific config (mapped by provider)
     ) {}
 }
 ```
+
+**Provider-agnostic domain DTO:**
+
+| Rule | Detail |
+| --- | --- |
+| **Not FCM JSON** | `NotificationPayload` is a domain DTO — it must not mirror FCM HTTP v1 request JSON |
+| **Provider maps transport** | `FcmPushProvider` builds FCM `message` JSON internally; future `ApnsPushProvider` builds APNs JSON |
+| **Callers stay transport-free** | `PushNotificationService`, jobs, and event hooks build `NotificationPayload` only — never raw FCM payloads |
 
 **Payload rules (ADR-021):**
 
 | Rule | Detail |
 | --- | --- |
-| `data` values are strings | FCM data payloads require string values — no nested objects |
+| `data` values are strings | FCM (and most push transports) require string values — no nested objects |
 | No secrets in `title`, `body`, or `data` | IDs and type only; no tokens, passwords, or PII |
-| `type` drives mobile routing | Same values as ADR-019 event taxonomy |
-| `android` is optional | For future platform-specific priority / channel overrides |
+| `type` drives mobile routing | Same values as ADR-019 event taxonomy; typically also present in `data` |
+| `android` is optional | Provider-specific Android config block — mapped by `FcmPushProvider` only |
+
+**Future optional fields (deferred — not Phase 6):**
+
+These fields may be added in a later phase. They are documented here for architecture clarity only; Phase 6 implements the current fields above.
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `collapse_key` or `tag` | `string\|null` | Collapse / deduplicate repeated notifications for the same logical event |
+| `priority` | `low\|normal\|high\|null` | Delivery urgency hint — mapped per provider (FCM priority, APNs priority, etc.) |
+
+Do not add `collapse_key`/`tag` or `priority` to the Phase 6 DTO unless a later task explicitly scopes them.
 
 #### `PushResult` DTO
 
@@ -241,11 +260,13 @@ final readonly class PushResult
 
 | Rule | Detail |
 | --- | --- |
-| Safe to log | Contains no raw FCM token — uses `tokenPreview` from `PushToken::tokenPreview()` |
+| Safe to log / serialize | Contains no raw device token; safe for structured logs and job audit output |
 | `provider` always set | Identifies which provider produced this result for log correlation |
-| `messageId` on FCM success | FCM response message ID for audit/tracing |
-| `errorCode` on failure | FCM error code (e.g. `UNREGISTERED`) for token deactivation logic in Phase 7 |
-| `NoopPushProvider` returns | `success: true`, `provider: 'noop'`, all other fields `null` |
+| `messageId` nullable | Optional and provider-dependent — not all providers return a transport ID on success |
+| `messageId` examples | FCM: `projects/{project}/messages/{id}`; future APNs: `apns-id`; `NoopPushProvider`: always `null` |
+| `tokenPreview` for diagnostics | Populated from `PushToken::tokenPreview()` for safe log correlation — never the raw token |
+| `errorCode` on failure | Provider error code (e.g. FCM `UNREGISTERED`) for token deactivation logic in Phase 7 |
+| `NoopPushProvider` returns | `success: true`, `provider: 'noop'`, `messageId: null`, other optional fields `null` |
 
 ### Send flow (future)
 
