@@ -178,6 +178,8 @@
 
 **Phase 6 scope note:** Proves provider abstraction and FCM HTTP v1 integration only. Does **not** enqueue jobs, does **not** integrate Scheduler or Smart Home. No fan-out logic — `PushProvider::send()` receives one token.
 
+**Phase 6 DTO note:** The current Phase 6 `NotificationPayload` implementation should include only `title`, `body`, `data`, `type`, and optional `android`. Do **not** add `collapseKey`/`tag` or `priority` unless a later task explicitly scopes them — these are documented future extensions only ([`spec.md`](spec.md) §6, [`ADR-017`](../../../decisions/ADR-017-push-notification-provider-strategy.md)).
+
 **Branch:** `feature/push-notifications-fcm-provider`
 
 ---

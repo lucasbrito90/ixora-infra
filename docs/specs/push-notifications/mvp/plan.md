@@ -183,6 +183,25 @@ Prove the provider abstraction layer and FCM HTTP v1 integration. **Phase 6 does
 | **`PushProviderResolver` / service provider binding** | Binds `PushProvider` from config; unsupported values throw at boot — no silent fallback |
 | **Pest tests** | `FcmPushProvider` with HTTP fake (no real FCM in CI); `NoopPushProvider` returns correct shape; resolver throws on unknown provider |
 
+### Phase 6 DTO scope (current fields only)
+
+Phase 6 implements **`NotificationPayload`** with these fields only:
+
+| Field | Notes |
+| --- | --- |
+| `title` | Display title |
+| `body` | Display body |
+| `data` | String key-value routing payload |
+| `type` | ADR-019 event type |
+| `android` | Optional — mapped to FCM `android` block by `FcmPushProvider` |
+
+**Future extensions (documented, not implemented in Phase 6):**
+
+- `collapseKey` / `tag` — collapse duplicate notifications for the same logical event
+- `priority` — `low` \| `normal` \| `high` delivery urgency hint
+
+These are architecture placeholders only. Do not add them to the Phase 6 runtime DTO unless a later task explicitly scopes them.
+
 ### Hard boundaries for Phase 6
 
 | Out of scope | Reason |
