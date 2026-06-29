@@ -88,6 +88,7 @@ locals {
       { key = "CORS_ALLOWED_ORIGINS", value = local.api_cors_allowed_origins_effective, type = "GENERAL" },
       { key = "LOG_CHANNEL", value = "stderr", type = "GENERAL" },
       { key = "QUEUE_CONNECTION", value = "database", type = "GENERAL" },
+      { key = "PUSH_PROVIDER", value = "fcm", type = "GENERAL" },
       # Laravel cache/session: avoid Postgres `cache` table (migration owner vs app DB user ACL on staging).
       # App Platform worker + api each get ephemeral local disk; staging accepts that trade-off vs DB/redis cache sharing.
       { key = "CACHE_STORE", value = "file", type = "GENERAL" },
@@ -172,7 +173,7 @@ resource "digitalocean_app" "api" {
       dockerfile_path = var.api_dockerfile_path
       source_dir      = var.api_source_dir
 
-      run_command = "php artisan queue:work --tries=3 --sleep=3 --timeout=90"
+      run_command = "php artisan queue:work --queue=push,smart-home,default --tries=3 --sleep=3 --timeout=90"
 
       dynamic "env" {
         for_each = { for idx, e in local.api_worker_runtime_env : idx => e }

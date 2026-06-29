@@ -79,7 +79,7 @@ flowchart TB
 | **Playback runtime** | `front_vibes` (Pinia + services) | Orchestrate layers, native audio, UI state, foreground service | Build plan from API pivot data only; no server tick |
 | **Execution plan** | `front_vibes` (`buildVibeExecutionPlan`) | Pure transform **`VibeSound[]` → `VibeExecutionLayer[]`** | Load bytes, enqueue server jobs, apply fades |
 | **Offline storage** | `front_vibes` (Preferences + Filesystem) | Explicit download, manifests, **`file://`** resolve when URL matches | Auto-sync on play; ExoPlayer cache as guarantee |
-| **Queue worker** | App Platform worker (`queue:work`) | Drain Laravel **database** queue (e.g. queued mail) | HTTP API, playback, Spaces policy |
+| **Queue worker** | App Platform worker (`queue:work --queue=push,smart-home,default`) | Drain Laravel **database** queue (mail, push, Smart Home jobs) | HTTP API, playback, Spaces policy |
 
 ---
 
@@ -393,8 +393,8 @@ HTTP request (api service)
     ▼
 jobs table (PostgreSQL)
     ▼
-queue worker — php artisan queue:work
-    │  same RUN_TIME env as API (DB, mail, FIREBASE_*)
+queue worker — php artisan queue:work --queue=push,smart-home,default
+    │  same RUN_TIME env as API (DB, mail, FIREBASE_*, PUSH_PROVIDER=fcm)
     ▼
 external side effect (e.g. SMTP)
 ```

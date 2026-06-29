@@ -24,7 +24,7 @@
 | Node.js | v22.22.0 |
 | Android device | **Not connected** — `adb devices` shows no device |
 | Home Assistant instance | Not configured for this QA session |
-| Queue worker command | `php artisan queue:work --queue=smart-home,default` |
+| Queue worker command | `php artisan queue:work --queue=push,smart-home,default --tries=3 --sleep=3 --timeout=90` |
 | BUG-001 | ✅ **Resolved** — migrations manually applied to staging |
 
 ---
@@ -118,7 +118,7 @@ GET https://staging-api.ixora-app.app/api/health → HTTP 200
 
 - Queue name: `smart-home` (configured in `config/smart_home.php`)
 - Job timeout: 30 s | Tries: 3
-- Worker command: `php artisan queue:work --queue=smart-home,default`
+- Worker command: `php artisan queue:work --queue=push,smart-home,default --tries=3 --sleep=3 --timeout=90`
 - DO App Platform queue worker: **status not verifiable from local env**
 
 > Verify via DO App Platform console → App → Components → Worker that queue worker is running. Check DO App logs for `SmartHomeActionJob` log entries after dispatch.
