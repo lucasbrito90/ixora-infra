@@ -179,8 +179,10 @@ Postgres **`cache` table** is intentionally avoided on staging (ACL / migration 
 │   ┌─────────────────────┐         ┌─────────────────────────┐   │
 │   │  service: api       │         │  worker: queue          │   │
 │   │  HTTP requests      │         │  php artisan queue:work │   │
-│   │  dispatches jobs    │         │  --tries=3 --sleep=3    │   │
-│   │  to `jobs` table    │────────►│  --timeout=90           │   │
+│   │  dispatches jobs    │         │  --queue=push,          │   │
+│   │  to `jobs` table    │────────►│  smart-home,default     │   │
+│   │                     │         │  --tries=3 --sleep=3    │   │
+│   │                     │         │  --timeout=90           │   │
 │   └─────────────────────┘  DB     └─────────────────────────┘   │
 │              │                              │                    │
 │              └──────────┬───────────────────┘                    │
@@ -193,12 +195,38 @@ Postgres **`cache` table** is intentionally avoided on staging (ACL / migration 
 | Topic | Staging behaviour |
 | --- | --- |
 | **Queue driver** | `database` (`QUEUE_CONNECTION=database`) |
-| **Worker command** | `php artisan queue:work --tries=3 --sleep=3 --timeout=90` |
+| **Worker command** | `php artisan queue:work --queue=push,smart-home,default --tries=3 --sleep=3 --timeout=90` |
+| **Named queues** | `push` (FCM delivery), `smart-home` (device actions), `default` (mail and other jobs) |
+| **Push provider** | `PUSH_PROVIDER=fcm` (explicit in `local.api_worker_runtime_env`) |
 | **Shared config** | `local.api_worker_runtime_env` in `app-api.tf` — **identical RUN_TIME env** on `api`, `queue`, and `scheduler` |
 | **Known queued mail** | `AdminAccessRequestedMail` implements `ShouldQueue` |
 | **Scaling** | **`instance_count = 1`** for both service and worker — no horizontal autoscaling |
 
-**Important:** HTTP handlers enqueue work; the **worker process** must be healthy for async mail (and any future `ShouldQueue` jobs) to drain. API and worker deploy together on the same branch push but run as **separate processes/containers**.
+**Important:** HTTP handlers enqueue work; the **worker process** must be healthy for async mail, Smart Home actions, and push notifications to drain. API and worker deploy together on the same branch push but run as **separate processes/containers**.
+
+---
+
+## Push Notifications runtime validation
+
+Use this checklist after OpenTofu apply (or any worker/env change) to confirm staging can deliver real FCM push.
+
+- [ ] Queue worker `run_command` includes `--queue=push,smart-home,default`
+- [ ] `PUSH_PROVIDER=fcm` present on worker `queue` (and shared with `api`)
+- [ ] `FIREBASE_PROJECT_ID` present (SECRET)
+- [ ] `FIREBASE_PRIVATE_KEY` present (SECRET)
+- [ ] `FIREBASE_CLIENT_EMAIL` present (SECRET)
+- [ ] Queue worker component **`queue`** status **Running** (no crash loop)
+
+Connect to a running API or `queue` worker console:
+
+```bash
+php artisan tinker --execute="echo config('push_notifications.provider');"
+# Expected: fcm
+
+php artisan queue:monitor push,smart-home,default
+```
+
+See also [`qa/push-notifications-e2e/scripts/staging-push-send.tinker.md`](../../../../qa/push-notifications-e2e/scripts/staging-push-send.tinker.md) for a manual send harness after the worker is healthy.
 
 ---
 

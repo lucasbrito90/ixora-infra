@@ -310,6 +310,13 @@
 
 **Phase 10 QA report:** [`qa/push-notifications-e2e/summary.md`](../../../../qa/push-notifications-e2e/summary.md) — verdict **PASS with known limitations** (2026-06-28). Blocking bugs fixed during QA: mobile refresh payload field (`BUG-001`), Android MainActivity crash (`BUG-002`).
 
+### Operational readiness
+
+- Worker updated to consume named queues: `push`, `smart-home`, `default` (`app-api.tf` worker `queue` run_command).
+- `PUSH_PROVIDER=fcm` explicit in shared RUN_TIME env (`local.api_worker_runtime_env`).
+- Firebase Admin credentials provisioned via OpenTofu discrete `FIREBASE_*` variables (see `terraform.tfvars.example`).
+- Staging ready for real FCM push delivery **after** `tofu apply` + worker redeploy — validate with [Push Notifications runtime validation](../../../architecture/backend/staging-digitalocean.md#push-notifications-runtime-validation).
+
 ---
 
 ## Cross-cutting validation tasks

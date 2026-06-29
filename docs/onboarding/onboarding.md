@@ -168,7 +168,7 @@ Homologation runs on **DigitalOcean App Platform** (Toronto), managed by OpenTof
 **Runtime components:**
 
 - **API service** — FrankenPHP Laravel (HTTP :8080)  
-- **Queue worker** — same image, `queue:work`, database driver  
+- **Queue worker** — same image, `queue:work --queue=push,smart-home,default`, database driver  
 - **PostgreSQL** — VPC-private `ixora_staging`  
 - **Spaces + CDN** — Laravel-only writes  
 

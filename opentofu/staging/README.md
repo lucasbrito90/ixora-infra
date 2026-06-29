@@ -7,7 +7,7 @@ Declarative **staging** footprint on **DigitalOcean** (Toronto `tor1` / App Plat
 | VPC | `digitalocean_vpc` |
 | PostgreSQL | Managed cluster in VPC, **no Droplets** |
 | Spaces | Private ACL bucket (optional via `manage_spaces_bucket`) |
-| Laravel API | App Platform **service** `api` (web) + **worker** `queue` (`queue:work`, same image/env) |
+| Laravel API | App Platform **service** `api` (web) + **worker** `queue` (`queue:work --queue=push,smart-home,default`, same image/env) |
 | Nuxt Admin | App Platform **static site** (`npm run generate`) |
 | Custom domains | Declared on apps; DNS steps documented |
 
@@ -64,7 +64,7 @@ tofu apply
 
 - **No Droplets** are defined.
 - Postgres sits in a **VPC**; runtime DB connections use **`private_host`** from the cluster.
-- **`digitalocean_database_firewall`** allows only **`digitalocean_vpc.staging.ip_range`** (private CIDR — not `0.0.0.0/0`). Apps must still use **`private_host`**; there is no public DB exposure from this rule alone.
+- **`digitalocean_database_firewall`** allows **`digitalocean_vpc.staging.ip_range`** (private CIDR) plus optional extra `ip_addr` rules via `db_firewall_extra_ip_addrs` (default preserves existing ops/developer IP `108.180.255.58`). Apps must still use **`private_host`** for runtime; extra IPs are for direct psql/ops access only.
 - Spaces bucket uses **`acl = "private"`**. Laravel still needs **runtime** Spaces keys (`DO_SPACES_*`) passed as App secrets — those are **not** stored in this repo.
 - App env secrets use App Platform **SECRET** types where appropriate; OpenTofu may still show perpetual drift for encrypted values — see [provider discussion](https://github.com/digitalocean/terraform-provider-digitalocean/issues/869).
 
@@ -89,7 +89,7 @@ Check current DigitalOcean pricing pages — amounts change.
 - **SSL** for custom domains: App Platform provisions certs after DNS validates.
 - **Bucket CDN / CORS** toggles — only the private bucket + example CDN hostname output are scaffolded.
 - **Migrations / APP_KEY rotation / Spaces key rotation** — operational tasks outside IaC.
-- **Firewall**: DB trusted source is the **staging VPC CIDR** (`ip_addr` rule); cluster lives in that VPC. Adjust if you peer additional VPCs and need DB access from them.
+- **Firewall**: DB trusted sources are the **staging VPC CIDR** (`ip_addr` rule) plus any **`db_firewall_extra_ip_addrs`** (default `108.180.255.58`). Adjust if you peer additional VPCs or need other ops IPs.
 
 ---
 
@@ -118,3 +118,4 @@ Check current DigitalOcean pricing pages — amounts change.
 3. Set **all required secrets** (`APP_KEY`, discrete `api_firebase_*` credentials, mail, Laravel Spaces keys) via `TF_VAR_*` or untracked tfvars before first deploy — see `terraform.tfvars.example`.
 4. Complete **custom domain DNS** using `tofu output api_live_url` / `admin_live_url` targets from DO.
 5. **Bucket name** must be globally unique — adjust `spaces_bucket_name` if taken.
+6. After apply, validate push readiness: [Push Notifications runtime validation](../../docs/architecture/backend/staging-digitalocean.md#push-notifications-runtime-validation) (`PUSH_PROVIDER=fcm`, named queue worker).

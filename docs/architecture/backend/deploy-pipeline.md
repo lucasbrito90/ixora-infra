@@ -235,7 +235,7 @@ App Platform: Docker build (Dockerfile, port 8080)
         │
         ├──► service "api"     → FrankenPHP / Laravel HTTP
         │
-        └──► worker "queue"    → php artisan queue:work --tries=3 --sleep=3 --timeout=90
+        └──► worker "queue"    → php artisan queue:work --queue=push,smart-home,default --tries=3 --sleep=3 --timeout=90
              (same image, same RUN_TIME env, no HTTP ingress)
 ```
 
@@ -439,7 +439,7 @@ From `docker/frankenphp/docker-entrypoint.sh`:
 
 ### Queue worker
 
-Worker **`run_command`** is `php artisan queue:work …` on the **same image**. Worker process bootstraps Laravel without serving HTTP. Treat worker as sharing **RUN_TIME env** with API; queued jobs (`AdminAccessRequestedMail`, future `ShouldQueue` work) use the same DB and mail config.
+Worker **`run_command`** is `php artisan queue:work --queue=push,smart-home,default --tries=3 --sleep=3 --timeout=90` on the **same image**. Worker process bootstraps Laravel without serving HTTP. Treat worker as sharing **RUN_TIME env** with API; queued jobs (`AdminAccessRequestedMail`, `PushNotificationJob`, `SmartHomeActionJob`, and other `ShouldQueue` work) use the same DB, mail, and Firebase config.
 
 ### Admin static site
 
@@ -476,8 +476,8 @@ staging push (back_vibes)
 | **Coupling** | Same GitHub repo, branch, image, and RUN_TIME env |
 | **Deploy unit** | One App Platform app — both components update on the same source revision |
 | **Independence** | Separate processes; worker has **no public URL** |
-| **Failure mode** | If worker is down, HTTP API may still respond but **queued mail/jobs stall** in `jobs` |
-| **Validation** | After deploy, confirm worker logs show `queue:work` processing (e.g. admin access request email) |
+| **Failure mode** | If worker is down, HTTP API may still respond but **queued mail, push, and Smart Home jobs stall** in `jobs` |
+| **Validation** | After deploy, confirm worker logs show `queue:work` processing named queues; see [Push Notifications runtime validation](staging-digitalocean.md#push-notifications-runtime-validation) |
 
 OpenTofu env changes to queue/mail/DB affect **both** components on next apply + container recycle.
 

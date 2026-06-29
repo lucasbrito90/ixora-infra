@@ -59,7 +59,7 @@ This trigger endpoint is **not implemented in Phase 1**. The spec documents the 
 
 | Component | Status | Notes |
 | --- | --- | --- |
-| **`queue` worker** | **Already deployed** — DO App Platform worker (`php artisan queue:work`) | [staging-digitalocean.md](../architecture/backend/staging-digitalocean.md) |
+| **`queue` worker** | **Already deployed** — DO App Platform worker (`php artisan queue:work --queue=push,smart-home,default`) | [staging-digitalocean.md](../architecture/backend/staging-digitalocean.md) |
 | **`SmartHomeActionJob`** | **Not implemented** — future phase | Will use existing queue; no new infra needed |
 | **Queue connection** | Existing (`database` or Redis — per current config) | No change required |
 | **`scheduler` worker** | Separate worker — dispatch loop only | Does not execute device actions |
