@@ -82,6 +82,7 @@ High-level **document** map by domain. **Bold** = active source of truth; *itali
 
 ```
 docs/architecture/
+├── domain-validation.md             ← HTTP Policies vs background Domain Validators (ADR-026)
 ├── backend/
 │   ├── staging-digitalocean.md      ← Staging topology (DO App Platform)
 │   ├── deploy-pipeline.md           ← Git → OpenTofu → App Platform
@@ -111,6 +112,8 @@ docs/architecture/
 | **Scheduler (MVP)** | [scheduler/mvp/spec](specs/scheduler/mvp/spec.md) | [ADR-009](decisions/ADR-009-scheduler-timezone-utc-storage.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
 | **Smart Home (Foundation)** | [smart-home/mvp/spec](specs/smart-home/mvp/spec.md) | [ADR-012](decisions/ADR-012-smart-home-provider-strategy.md) · [ADR-013](decisions/ADR-013-home-assistant-first-provider.md) · [ADR-014](decisions/ADR-014-device-abstraction-and-deduplication.md) · [ADR-015](decisions/ADR-015-vibe-device-action-architecture.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Push Notifications (Foundation)** | [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md) | [ADR-017](decisions/ADR-017-push-notification-provider-strategy.md) · [ADR-018](decisions/ADR-018-device-token-registration.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [ADR-020](decisions/ADR-020-push-delivery-and-fallback-strategy.md) · [ADR-021](decisions/ADR-021-notification-security-and-privacy.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
+| **Scheduler + Smart Home Automations** | [scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md) | [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [domain-validation](architecture/domain-validation.md) |
+| **Async execution security** | [domain-validation](architecture/domain-validation.md) | [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Staging ops** | [staging-digitalocean](architecture/backend/staging-digitalocean.md) | [deploy-pipeline](architecture/backend/deploy-pipeline.md) |
 
 ---
@@ -133,6 +136,7 @@ docs/architecture/
 | **Scheduler MVP** | Shipped — recurrence, local notifications, dispatcher ([scheduler/mvp/spec](specs/scheduler/mvp/spec.md)) |
 | **Smart Home MVP** | Shipped — provider connections, devices, vibe actions, async HA execution ([smart-home/mvp/spec](specs/smart-home/mvp/spec.md)) |
 | **Push Notifications Foundation** | Spec + ADRs 017–021 accepted — **not implemented** ([push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md)) |
+| **Scheduler + Smart Home Automations** | Phase 1 — ADRs + Spec ([scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md); ADRs 022–025) |
 | **Staging environment** | Shipped — DO App Platform + OpenTofu ([staging-digitalocean](architecture/backend/staging-digitalocean.md)) |
 | **Safe delete (sounds, cover bundles)** | Shipped — reference-checked Spaces cleanup |
 | **Legacy Firebase asset URLs** | May coexist on rows until migration |
@@ -297,11 +301,27 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 | [push-notifications/mvp/plan.md](specs/push-notifications/mvp/plan.md) | 10-phase implementation plan |
 | [push-notifications/mvp/tasks.md](specs/push-notifications/mvp/tasks.md) | Task checklist |
 
+## Scheduler + Smart Home Automations (Phase 1 — ADRs + Spec)
+
+| Document | Description |
+| --- | --- |
+| [scheduler-smart-home-automations/mvp/spec.md](specs/scheduler-smart-home-automations/mvp/spec.md) | Compose Schedule + Vibe + VibeDeviceAction — no automation engine; dispatcher integration + mobile surfacing |
+| [scheduler-smart-home-automations/mvp/plan.md](specs/scheduler-smart-home-automations/mvp/plan.md) | 8-phase implementation plan |
+| [scheduler-smart-home-automations/mvp/tasks.md](specs/scheduler-smart-home-automations/mvp/tasks.md) | Task checklist |
+
+**ADRs:** [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md)
+
 ---
 
 # 2. Architecture
 
 System design, boundaries, and runtime behaviour — **not** feature acceptance checklists.
+
+## Cross-cutting
+
+| Document | Status | Description |
+| --- | --- | --- |
+| [domain-validation.md](architecture/domain-validation.md) | Active | **HTTP Policies vs Domain Validators** — async execution security ([ADR-026](decisions/ADR-026-automation-execution-security.md)) |
 
 ## Backend
 
@@ -382,6 +402,11 @@ Accepted decisions with context, tradeoffs, and links to implementation.
 | [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) | Notification event taxonomy | Operational events only; explicit payload schema; no marketing |
 | [ADR-020](decisions/ADR-020-push-delivery-and-fallback-strategy.md) | Push delivery and fallback | Async queue; best-effort; local notifications preserved |
 | [ADR-021](decisions/ADR-021-notification-security-and-privacy.md) | Notification security and privacy | Minimal payload; no secrets; no cross-user tokens |
+| [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) | Scheduler + Smart Home automation model | No automation engine; Schedule + Vibe + VibeDeviceAction composition |
+| [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) | Automation execution order and failure policy | Best-effort async; SH failure must not block recurrence |
+| [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) | Automation notifications and observability | Reuse failure events; no success push by default |
+| [ADR-025](decisions/ADR-025-automation-mobile-ux.md) | Automation mobile UX | Surface on existing screens; no automation builder in MVP |
+| [ADR-026](decisions/ADR-026-automation-execution-security.md) | Automation execution security | Policies = HTTP; Domain Validators = async; platform-wide ([domain-validation](architecture/domain-validation.md)) |
 
 ---
 
@@ -471,4 +496,4 @@ App repos maintain **copies** of some docs for local discovery — sync from her
 
 ---
 
-*Last indexed: documentation tree under `ixora-infra/docs/` (55 markdown files). Last updated: 2026-06-14.*
+*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-06-28 (ADR-026, domain-validation).*
