@@ -25,6 +25,10 @@ spaces_bucket_name   = "ixora-buckets-staging-example"
 db_cluster_name = "ixora-staging-postgres"
 db_node_size    = "db-s-1vcpu-1gb"
 
+# Postgres firewall — extra trusted public IPs (beyond VPC CIDR in database.tf).
+# Default includes 108.180.255.58 (already on remote/staging; preserved from manual DO console rule).
+# db_firewall_extra_ip_addrs = ["108.180.255.58"]
+
 # Laravel runtime secrets — set via environment or a local untracked tfvars file:
 # api_app_key = "base64:..."
 #
@@ -45,6 +49,9 @@ db_node_size    = "db-s-1vcpu-1gb"
 # api_do_spaces_secret = "..."
 
 admin_access_review_email = "ops-example@yourcompany.invalid"
+
+# Push notifications — PUSH_PROVIDER=fcm is set in app-api.tf (local.api_worker_runtime_env), shared by api + workers.
+# Currently fcm is the only supported production provider; future values may include noop (dev/test), apns, webpush, etc.
 
 api_env_general = {
   # MAIL_MAILER = "smtp"

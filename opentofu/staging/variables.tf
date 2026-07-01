@@ -90,6 +90,12 @@ variable "db_node_count" {
   default     = 1
 }
 
+variable "db_firewall_extra_ip_addrs" {
+  description = "Additional Postgres firewall ip_addr rules beyond the staging VPC CIDR (e.g. developer/ops public IP for direct psql). Empty strings are ignored."
+  type        = list(string)
+  default     = ["108.180.255.58"]
+}
+
 # ── Spaces ────────────────────────────────────────────────────────────────────
 
 variable "spaces_bucket_name" {

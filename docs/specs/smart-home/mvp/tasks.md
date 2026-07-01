@@ -228,7 +228,7 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 - `SmartHomeActionJob` — queue `smart-home`, timeout 30 s, tries 3. Phase 8 stub: loads action + logs intent only. Gracefully skips missing/deleted actions. No HA call, no HTTP.
 - `VibeSmartHomeDispatchService` — loads `vibe_device_actions` ordered by `sort_order`, dispatches one job per action, returns `SmartHomeDispatchResult` DTO (vibe_id, dispatched, skipped, action_ids). Skips actions whose device has been deleted.
 - `POST /api/vibes/{vibe}/smart-home/dispatch` — single-action invokable controller, authorises via `VibePolicy::view`, delegates to dispatch service, returns JSON summary `{ data: { vibe_id, dispatched, skipped, action_ids } }`.
-- Queue config documented in `config/smart_home.php` under key `queue` (name, job_timeout, job_tries) with env overrides `SMART_HOME_QUEUE_NAME`, `SMART_HOME_JOB_TIMEOUT`, `SMART_HOME_JOB_TRIES`. Worker must use `--queue=smart-home,default`.
+- Queue config documented in `config/smart_home.php` under key `queue` (name, job_timeout, job_tries) with env overrides `SMART_HOME_QUEUE_NAME`, `SMART_HOME_JOB_TIMEOUT`, `SMART_HOME_JOB_TRIES`. Staging worker must use `--queue=push,smart-home,default` (see [staging-digitalocean.md](../../../architecture/backend/staging-digitalocean.md)).
 - Mobile integration: `front_vibes/src/services/smart-home-dispatch.service.ts` — fire-and-forget, skips silently when offline, never throws. Called in `VibePlayerPage.vue#togglePlayback()` immediately after `store.playVibe()` returns `started = true`. Audio path unchanged.
 - Validation: `php artisan test --filter=VibeSmartHomeDispatchApiTest` → 11 passing; `--filter=SmartHomeActionJobTest` → 9 passing; `php artisan test` → all passing; `pint --test` clean; `npm run lint`, `npm run typecheck`, `npm run build`, `npm run test:unit` clean.
 
@@ -253,7 +253,7 @@ cd front_vibes && npm run lint && npm run typecheck && npm run build && npm run 
 - Structured log context: `vibe_device_action_id`, `vibe_id`, `device_id`, `provider_connection_id`, `provider`, `provider_device_id`, `action_type`, `success`, `status_code`, `error_message`. Credentials (`access_token` / `encrypted_credentials`) are never logged — verified by test.
 - No `action_execution_logs` table introduced (log-only for MVP, per task scope). No new migrations.
 - Dispatch endpoint unchanged and still asynchronous: `POST /api/vibes/{vibe}/smart-home/dispatch` only queues jobs (`Bus::fake()` tests assert no inline HA HTTP); HA execution happens exclusively inside the queued job.
-- Worker command: `php artisan queue:work --queue=smart-home,default`.
+- Worker command: `php artisan queue:work --queue=push,smart-home,default --tries=3 --sleep=3 --timeout=90` (shared staging worker; `push` added for FCM — see [staging-digitalocean.md](../../../architecture/backend/staging-digitalocean.md)).
 - Validation: `--filter=SmartHomeActionJobTest` → 14 passing; `--filter=VibeSmartHomeDispatchApiTest` → 9 passing; `--filter=SmartHome` → 214 passing; `php artisan test` → 512 passing; `pint --test` clean. Frontend untouched (no mobile changes in Phase 9).
 
 ---
