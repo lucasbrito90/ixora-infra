@@ -1,6 +1,6 @@
 # Scheduler + Smart Home Automations MVP — task checklist
 
-**Status:** Phase 3 complete — pre-implementation  
+**Status:** Phase 4A complete — validator shipped; Phase 4B integration pending  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `scheduler-smart-home-automations/mvp`
@@ -23,6 +23,7 @@
 | 1 — ADRs + Spec | 0 | 0 | 9 | 0 |
 | 2 — Schema/domain review | 0 | 0 | 5 | 0 |
 | 3 — Dispatch integration review | 0 | 0 | 6 | 0 |
+| 4A — ScheduleAutomationValidator | 0 | 0 | 1 | 0 |
 | 4 — Backend execution integration | 6 | 0 | 0 | 0 |
 | 5 — Mobile UX surface | 6 | 0 | 0 | 0 |
 | 6 — Push/local alignment | 5 | 0 | 0 | 0 |
@@ -104,7 +105,24 @@
 
 ---
 
-## Phase 4 — Backend execution integration
+## Phase 4A — ScheduleAutomationValidator
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P4A-1 | Create **`ScheduleAutomationValidator`** + unit tests | **Done** | [`ADR-026`](../../../decisions/ADR-026-automation-execution-security.md) · `back_vibes/app/SmartHome/Validation/ScheduleAutomationValidator.php` |
+
+**Branch:** `feature/schedule-automation-validator` from **`develop`**
+
+**Phase 4A implementation notes:**
+
+- Added `ScheduleAutomationValidator::validate(Schedule): bool` — ownership chain checks per ADR-026; returns `false` for expected failures, never throws.
+- Validation order: vibe exists → schedule/vibe user match → each action has device → device user match → provider connection exists → connection user match.
+- No logs in validator; no Policy/Gate/auth usage; not wired to dispatcher or `VibeSmartHomeDispatchService` (Phase 4B).
+- Pest unit tests in `tests/Unit/SmartHome/ScheduleAutomationValidatorTest.php` — 9 cases including multi-action and zero-action valid paths.
+
+---
+
+## Phase 4 — Backend execution integration (Phase 4B)
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
