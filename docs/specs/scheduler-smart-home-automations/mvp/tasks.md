@@ -1,6 +1,6 @@
 # Scheduler + Smart Home Automations MVP — task checklist
 
-**Status:** Phase 4A complete — validator shipped; Phase 4B integration pending  
+**Status:** Phase 4 complete — backend execution integration shipped  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `scheduler-smart-home-automations/mvp`
@@ -24,7 +24,7 @@
 | 2 — Schema/domain review | 0 | 0 | 5 | 0 |
 | 3 — Dispatch integration review | 0 | 0 | 6 | 0 |
 | 4A — ScheduleAutomationValidator | 0 | 0 | 1 | 0 |
-| 4 — Backend execution integration | 6 | 0 | 0 | 0 |
+| 4 — Backend execution integration | 0 | 0 | 6 | 0 |
 | 5 — Mobile UX surface | 6 | 0 | 0 | 0 |
 | 6 — Push/local alignment | 5 | 0 | 0 | 0 |
 | 7 — QA automation tests | 5 | 0 | 0 | 0 |
@@ -126,14 +126,23 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P4-1 | Wire `VibeSmartHomeDispatchService` into dispatcher after new execution | **Pending** | [`ADR-023`](../../../decisions/ADR-023-automation-execution-order-and-failure-policy.md) |
-| P4-2 | Eager-load vibe + device actions in dispatch batch | **Pending** | |
-| P4-3 | Catch/log enqueue errors — do not fail recurrence | **Pending** | [`spec.md`](spec.md) AUTO-4 |
-| P4-4 | Optional: append SH summary to `schedule_executions.log` | **Pending** | [`ADR-024`](../../../decisions/ADR-024-automation-notifications-and-observability.md) |
-| P4-5 | Pest: schedule with actions → jobs enqueued | **Pending** | |
-| P4-6 | Pest: duplicate tick → no double dispatch; no actions → no jobs | **Pending** | |
+| P4-1 | Wire `VibeSmartHomeDispatchService` into dispatcher after new execution | **Done** | [`ADR-023`](../../../decisions/ADR-023-automation-execution-order-and-failure-policy.md) |
+| P4-2 | Eager-load vibe + device actions in dispatch batch | **Done** | |
+| P4-3 | Catch/log enqueue errors — do not fail recurrence | **Done** | [`spec.md`](spec.md) AUTO-4 |
+| P4-4 | Optional: append SH summary to `schedule_executions.log` | **Deferred** | [`ADR-024`](../../../decisions/ADR-024-automation-notifications-and-observability.md) |
+| P4-5 | Pest: schedule with actions → jobs enqueued | **Done** | |
+| P4-6 | Pest: duplicate tick → no double dispatch; no actions → no jobs | **Done** | |
 
 **Branch:** `feature/scheduler-smart-home-dispatch-integration`
+
+**Phase 4B implementation notes:**
+
+- Wired `ScheduleAutomationValidator` + `VibeSmartHomeDispatchService` into `DispatchDueSchedulesCommand::handle()` — post-commit only when `processSchedule()` returns `'dispatched'`.
+- Eager-load: `vibe.deviceActions.device.providerConnection` on due schedules query.
+- Validator failure: `Log::warning` with `validator_failed: true`, no throw, no push, recurrence already committed.
+- Dispatch exception: isolated try/catch with `Log::warning` + `exception_class`; batch continues; no `schedule_execution_failed` push.
+- `schedule_executions.log` not modified (deferred).
+- Pest integration tests in `DispatchDueSchedulesCommandTest` — 6 Smart Home cases (dispatched, skipped_duplicate, dry-run, validator fail, dispatch exception, multi-schedule isolation).
 
 ---
 
