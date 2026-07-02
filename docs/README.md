@@ -13,7 +13,7 @@
 | --- | --- |
 | Understand the product model | [Architecture map](architecture/architecture-map.md) · [Terminology](#terminology-glossary) |
 | Onboard as a developer | [Engineer onboarding](onboarding/onboarding.md) · [Onboarding path](#onboarding-path-for-new-developers) |
-| Implement a feature | [Specs](#1-specs) → related [Architecture](#2-architecture) + [Standards](#3-standards) |
+| Implement a feature | [Feature design checklist](architecture/feature-design-checklist.md) → [Feature spec template](#8-templates) → [Specs](#1-specs) → related [Architecture](#2-architecture) + [Standards](#3-standards) |
 | Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality harness](quality-harness.md) |
 | Understand a past decision | [ADRs](#4-architecture-decision-records-adrs) |
 | Know what we deliberately did **not** build | [Intentionally not implemented](#intentionally-not-implemented) |
@@ -82,6 +82,7 @@ High-level **document** map by domain. **Bold** = active source of truth; *itali
 
 ```
 docs/architecture/
+├── feature-design-checklist.md      ← Pre-spec checklist — read BEFORE Feature Specification Template
 ├── domain-validation.md             ← HTTP Policies vs background Domain Validators (ADR-026)
 ├── asynchronous-orchestration.md    ← Async layering: entrypoint → validator → service → job → provider (ADR-027)
 ├── backend/
@@ -206,9 +207,10 @@ Do **not** build or document these as shipped without a new spec + ADR.
 
 ### Day 3 — Feature work
 
-1. Find the **spec** in [§1 Specs](#1-specs).
-2. Read linked **architecture** + **ADRs**.
-3. Create **`feature/…`** from **`develop`**, open PR → **`develop`**.
+1. Complete the [Feature design checklist](architecture/feature-design-checklist.md) before drafting a new spec.
+2. Find the **spec** in [§1 Specs](#1-specs) (or copy the [template](#8-templates)).
+3. Read linked **architecture** + **ADRs**.
+4. Create **`feature/…`** from **`develop`**, open PR → **`develop`**.
 
 ---
 
@@ -240,6 +242,8 @@ Do **not** build or document these as shipped without a new spec + ADR.
 # 1. Specs
 
 Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`** for behaviour; **`plan.md`** / **`tasks.md`** for implementation notes where present.
+
+> **New specs:** complete [`architecture/feature-design-checklist.md`](architecture/feature-design-checklist.md) first, then copy [`templates/feature-spec-template.md`](templates/feature-spec-template.md) — Architecture Mapping is **required** before implementation ([ADR-026](decisions/ADR-026-automation-execution-security.md), [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md)).
 
 ## Sounds
 
@@ -323,6 +327,7 @@ System design, boundaries, and runtime behaviour — **not** feature acceptance 
 
 | Document | Status | Description |
 | --- | --- | --- |
+| [feature-design-checklist.md](architecture/feature-design-checklist.md) | Active | **Pre-spec checklist** — product, domain, architecture, security, failure, and review questions before Feature Specification Template ([ADR-026](decisions/ADR-026-automation-execution-security.md), [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md)) |
 | [domain-validation.md](architecture/domain-validation.md) | Active | **HTTP Policies vs Domain Validators** — async execution security ([ADR-026](decisions/ADR-026-automation-execution-security.md)) |
 | [asynchronous-orchestration.md](architecture/asynchronous-orchestration.md) | Active | **Async layering** — entrypoint → validator → service → job → provider ([ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md); complements [domain-validation](architecture/domain-validation.md)) |
 
@@ -475,14 +480,27 @@ Minimal local validation commands per app repo (tests, lint, typecheck, build).
 
 ---
 
+# 8. Templates
+
+Reusable document scaffolds for spec-driven development. **All new feature specifications must use these templates.**
+
+| Template | Description |
+| --- | --- |
+| [feature-spec-template.md](templates/feature-spec-template.md) | **Feature Specification Template** — mandatory structure for every new feature spec, including required **Architecture Mapping** (async entrypoint → validator → service → job → provider) per [ADR-026](decisions/ADR-026-automation-execution-security.md) and [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md). Complements [`feature-design-checklist.md`](architecture/feature-design-checklist.md), [`domain-validation.md`](architecture/domain-validation.md), and [`asynchronous-orchestration.md`](architecture/asynchronous-orchestration.md). |
+
+**Workflow:** complete [feature-design-checklist.md](architecture/feature-design-checklist.md) → copy template → `docs/specs/<domain>/<feature>/spec.md` → complete Architecture Mapping → review (§9 of checklist) → implement in phases.
+
+---
+
 ## Maintaining this index
 
 When adding documentation:
 
-1. Place files under `docs/specs/`, `docs/architecture/`, `docs/standards/`, `docs/decisions/`, or `docs/onboarding/`.
-2. Add a row to the appropriate **§1–§6** table above.
-3. Cross-link from related specs/architecture docs.
-4. Mark **planning-only** docs clearly — do not list them as shipped in [Current platform status](#current-platform-status).
+1. Place files under `docs/specs/`, `docs/architecture/`, `docs/standards/`, `docs/decisions/`, `docs/templates/`, or `docs/onboarding/`.
+2. Add a row to the appropriate **§1–§8** table above.
+3. **New feature specs:** start from [`architecture/feature-design-checklist.md`](architecture/feature-design-checklist.md), then [`templates/feature-spec-template.md`](templates/feature-spec-template.md).
+4. Cross-link from related specs/architecture docs.
+5. Mark **planning-only** docs clearly — do not list them as shipped in [Current platform status](#current-platform-status).
 
 **Cursor workspace rule:** keep [`.cursor/rules/git-flow.mdc`](../../.cursor/rules/git-flow.mdc) aligned with [git-flow.md](standards/git-flow.md).
 
@@ -500,4 +518,4 @@ App repos maintain **copies** of some docs for local discovery — sync from her
 
 ---
 
-*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-06-28 (ADR-027, asynchronous-orchestration).*
+*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-02 (feature-design-checklist).*
