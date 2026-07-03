@@ -319,6 +319,40 @@ Schedule or Smart Home failure (backend)
 
 **Push complements local. Push never replaces local. Push never suppresses local.**
 
+### End-to-end user experience (automation)
+
+From the user's perspective, schedule-related notifications form one cohesive flow — local reminders and push failure alerts serve **different moments** and never duplicate each other.
+
+```
+Schedule due (device-local)
+    │
+    ├─► Local notification — "Time to start your scheduled vibe."
+    │       Tap → /vibes/:vibe_id/player (user presses Play manually)
+    │
+    └─► Backend dispatch (parallel, server-side)
+            │
+            ├─► Smart Home actions enqueue (best-effort)
+            │
+            └─► On failure only → push notification (cross-device)
+                    Tap routing (mobile):
+                      schedule_execution_failed       → /schedules
+                      smart_home_action_failed        → /devices
+                      smart_home_provider_unreachable → /devices
+```
+
+| User moment | Channel | User sees | Tap destination |
+| --- | --- | --- | --- |
+| Schedule is due | **Local** (mobile) | Schedule name + reminder copy | Vibe player |
+| Scheduler transaction failed | **Push** (server) | "Schedule failed" | Schedules list |
+| Smart Home action failed | **Push** (server) | "Device action failed" | Devices |
+| Provider unreachable | **Push** (server) | "Smart Home unavailable" | Devices |
+
+**No duplicate notifications:** a due-time local reminder and a failure push are triggered by different events — local fires at `next_run_at` on device; push fires only when the backend reports a failure. Success paths emit **no push** ([ADR-024](../decisions/ADR-024-automation-notifications-and-observability.md)).
+
+**No conflicting notifications:** local tap handler (`scheduleNotificationService`) and push tap handler (`pushNotificationHandlerService`) are separate listeners on separate channels — they never compete for the same notification slot.
+
+**Notification fatigue guardrails:** no success push; validator skips log only (no push); unsupported Smart Home action types log only (no push). Multiple failed device actions in one schedule occurrence may produce multiple `smart_home_action_failed` pushes (one per job) — acceptable in MVP; batching is a future optimisation.
+
 ---
 
 ## 9. Adding a New Notification
