@@ -13,8 +13,9 @@
 | --- | --- |
 | Understand the product model | [Architecture map](architecture/architecture-map.md) · [Terminology](#terminology-glossary) |
 | Onboard as a developer | [Engineer onboarding](onboarding/onboarding.md) · [Onboarding path](#onboarding-path-for-new-developers) |
-| Implement a feature | [Feature design checklist](architecture/feature-design-checklist.md) → [Feature spec template](#8-templates) → [Specs](#1-specs) → related [Architecture](#2-architecture) + [Standards](#3-standards) |
-| Design or extend notifications | [Notification architecture](architecture/notification-architecture.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [Push spec](specs/push-notifications/mvp/spec.md) |
+| Implement a feature | [Feature design checklist](architecture/feature-design-checklist.md) → [UX principles](architecture/user-experience-principles.md) → [Feature spec template](#8-templates) → [Specs](#1-specs) → related [Architecture](#2-architecture) + [Standards](#3-standards) |
+| Design user-facing states or copy | [User experience principles](architecture/user-experience-principles.md) · [Notification architecture](architecture/notification-architecture.md) |
+| Design or extend notifications | [Notification architecture](architecture/notification-architecture.md) · [UX principles](architecture/user-experience-principles.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [Push spec](specs/push-notifications/mvp/spec.md) |
 | Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality harness](quality-harness.md) |
 | Understand a past decision | [ADRs](#4-architecture-decision-records-adrs) |
 | Know what we deliberately did **not** build | [Intentionally not implemented](#intentionally-not-implemented) |
@@ -87,6 +88,7 @@ docs/architecture/
 ├── domain-validation.md             ← HTTP Policies vs background Domain Validators (ADR-026)
 ├── asynchronous-orchestration.md    ← Async layering: entrypoint → validator → service → job → provider (ADR-027)
 ├── notification-architecture.md     ← Platform-wide notification design — types, builders, payload, local vs push (ADR-017, ADR-024)
+├── user-experience-principles.md    ← Platform-wide UX — loading, empty, error, microcopy, a11y (ADR-024, ADR-025)
 ├── backend/
 │   ├── staging-digitalocean.md      ← Staging topology (DO App Platform)
 │   ├── deploy-pipeline.md           ← Git → OpenTofu → App Platform
@@ -116,7 +118,7 @@ docs/architecture/
 | **Scheduler (MVP)** | [scheduler/mvp/spec](specs/scheduler/mvp/spec.md) | [ADR-009](decisions/ADR-009-scheduler-timezone-utc-storage.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
 | **Smart Home (Foundation)** | [smart-home/mvp/spec](specs/smart-home/mvp/spec.md) | [ADR-012](decisions/ADR-012-smart-home-provider-strategy.md) · [ADR-013](decisions/ADR-013-home-assistant-first-provider.md) · [ADR-014](decisions/ADR-014-device-abstraction-and-deduplication.md) · [ADR-015](decisions/ADR-015-vibe-device-action-architecture.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Push Notifications (Foundation)** | [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md) · [notification-architecture](architecture/notification-architecture.md) | [ADR-017](decisions/ADR-017-push-notification-provider-strategy.md) · [ADR-018](decisions/ADR-018-device-token-registration.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [ADR-020](decisions/ADR-020-push-delivery-and-fallback-strategy.md) · [ADR-021](decisions/ADR-021-notification-security-and-privacy.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) |
-| **Scheduler + Smart Home Automations** | [scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md) | [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [domain-validation](architecture/domain-validation.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) · [notification-architecture](architecture/notification-architecture.md) |
+| **Scheduler + Smart Home Automations** | [scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md) | [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [domain-validation](architecture/domain-validation.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) · [notification-architecture](architecture/notification-architecture.md) · [user-experience-principles](architecture/user-experience-principles.md) |
 | **Async execution security** | [domain-validation](architecture/domain-validation.md) | [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Async orchestration** | [asynchronous-orchestration](architecture/asynchronous-orchestration.md) | [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [domain-validation](architecture/domain-validation.md) |
 | **Staging ops** | [staging-digitalocean](architecture/backend/staging-digitalocean.md) | [deploy-pipeline](architecture/backend/deploy-pipeline.md) |
@@ -210,9 +212,10 @@ Do **not** build or document these as shipped without a new spec + ADR.
 ### Day 3 — Feature work
 
 1. Complete the [Feature design checklist](architecture/feature-design-checklist.md) before drafting a new spec.
-2. Find the **spec** in [§1 Specs](#1-specs) (or copy the [template](#8-templates)).
-3. Read linked **architecture** + **ADRs**.
-4. Create **`feature/…`** from **`develop`**, open PR → **`develop`**.
+2. Review [User experience principles](architecture/user-experience-principles.md) — §12 UX checklist for loading, empty, error, and copy.
+3. Find the **spec** in [§1 Specs](#1-specs) (or copy the [template](#8-templates)).
+4. Read linked **architecture** + **ADRs**.
+5. Create **`feature/…`** from **`develop`**, open PR → **`develop`**.
 
 ---
 
@@ -242,9 +245,17 @@ Do **not** build or document these as shipped without a new spec + ADR.
 **Notification or push change**
 
 1. [notification-architecture](architecture/notification-architecture.md)  
-2. [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [ADR-021](decisions/ADR-021-notification-security-and-privacy.md)  
-3. [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md)  
-4. For automation context: [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md)  
+2. [user-experience-principles](architecture/user-experience-principles.md) — §5 Notifications, §6 Microcopy  
+3. [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [ADR-021](decisions/ADR-021-notification-security-and-privacy.md)  
+4. [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md)  
+5. For automation context: [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md)  
+
+**Mobile UX or presentation polish**
+
+1. [user-experience-principles](architecture/user-experience-principles.md)  
+2. [ADR-025](decisions/ADR-025-automation-mobile-ux.md) if automation-related  
+3. [notification-architecture](architecture/notification-architecture.md) if notifications involved  
+4. Feature **spec** acceptance criteria for the target screens  
 
 ---
 
@@ -252,7 +263,7 @@ Do **not** build or document these as shipped without a new spec + ADR.
 
 Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`** for behaviour; **`plan.md`** / **`tasks.md`** for implementation notes where present.
 
-> **New specs:** complete [`architecture/feature-design-checklist.md`](architecture/feature-design-checklist.md) first, then copy [`templates/feature-spec-template.md`](templates/feature-spec-template.md) — Architecture Mapping is **required** before implementation ([ADR-026](decisions/ADR-026-automation-execution-security.md), [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md)).
+> **New specs:** complete [`architecture/feature-design-checklist.md`](architecture/feature-design-checklist.md) first, review [`architecture/user-experience-principles.md`](architecture/user-experience-principles.md) (§12 UX checklist), then copy [`templates/feature-spec-template.md`](templates/feature-spec-template.md) — Architecture Mapping is **required** before implementation ([ADR-026](decisions/ADR-026-automation-execution-security.md), [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md)).
 
 ## Sounds
 
@@ -340,6 +351,7 @@ System design, boundaries, and runtime behaviour — **not** feature acceptance 
 | [domain-validation.md](architecture/domain-validation.md) | Active | **HTTP Policies vs Domain Validators** — async execution security ([ADR-026](decisions/ADR-026-automation-execution-security.md)) |
 | [asynchronous-orchestration.md](architecture/asynchronous-orchestration.md) | Active | **Async layering** — entrypoint → validator → service → job → provider ([ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md); complements [domain-validation](architecture/domain-validation.md)) |
 | [notification-architecture.md](architecture/notification-architecture.md) | Active | **Notification design** — platform-wide types, builders, payload rules, local vs push, failure policy ([ADR-017](decisions/ADR-017-push-notification-provider-strategy.md), [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md); complements [asynchronous-orchestration](architecture/asynchronous-orchestration.md)) |
+| [user-experience-principles.md](architecture/user-experience-principles.md) | Active | **UX architecture** — loading, empty, error, microcopy, badges, a11y, navigation ([ADR-024](decisions/ADR-024-automation-notifications-and-observability.md), [ADR-025](decisions/ADR-025-automation-mobile-ux.md); complements [feature-design-checklist](architecture/feature-design-checklist.md) and [notification-architecture](architecture/notification-architecture.md)) |
 
 ## Backend
 
@@ -496,9 +508,9 @@ Reusable document scaffolds for spec-driven development. **All new feature speci
 
 | Template | Description |
 | --- | --- |
-| [feature-spec-template.md](templates/feature-spec-template.md) | **Feature Specification Template** — mandatory structure for every new feature spec, including required **Architecture Mapping** (async entrypoint → validator → service → job → provider) per [ADR-026](decisions/ADR-026-automation-execution-security.md) and [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md). Complements [`feature-design-checklist.md`](architecture/feature-design-checklist.md), [`domain-validation.md`](architecture/domain-validation.md), and [`asynchronous-orchestration.md`](architecture/asynchronous-orchestration.md). |
+| [feature-spec-template.md](templates/feature-spec-template.md) | **Feature Specification Template** — mandatory structure for every new feature spec, including required **Architecture Mapping** (async entrypoint → validator → service → job → provider) per [ADR-026](decisions/ADR-026-automation-execution-security.md) and [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md). Complements [`feature-design-checklist.md`](architecture/feature-design-checklist.md), [`user-experience-principles.md`](architecture/user-experience-principles.md), [`domain-validation.md`](architecture/domain-validation.md), and [`asynchronous-orchestration.md`](architecture/asynchronous-orchestration.md). |
 
-**Workflow:** complete [feature-design-checklist.md](architecture/feature-design-checklist.md) → copy template → `docs/specs/<domain>/<feature>/spec.md` → complete Architecture Mapping → review (§9 of checklist) → implement in phases.
+**Workflow:** complete [feature-design-checklist.md](architecture/feature-design-checklist.md) → review [user-experience-principles.md](architecture/user-experience-principles.md) §12 → copy template → `docs/specs/<domain>/<feature>/spec.md` → complete Architecture Mapping → review (§9 of checklist) → implement in phases.
 
 ---
 
@@ -508,7 +520,7 @@ When adding documentation:
 
 1. Place files under `docs/specs/`, `docs/architecture/`, `docs/standards/`, `docs/decisions/`, `docs/templates/`, or `docs/onboarding/`.
 2. Add a row to the appropriate **§1–§8** table above.
-3. **New feature specs:** start from [`architecture/feature-design-checklist.md`](architecture/feature-design-checklist.md), then [`templates/feature-spec-template.md`](templates/feature-spec-template.md).
+3. **New feature specs:** start from [`architecture/feature-design-checklist.md`](architecture/feature-design-checklist.md), then [`architecture/user-experience-principles.md`](architecture/user-experience-principles.md), then [`templates/feature-spec-template.md`](templates/feature-spec-template.md).
 4. Cross-link from related specs/architecture docs.
 5. Mark **planning-only** docs clearly — do not list them as shipped in [Current platform status](#current-platform-status).
 
@@ -528,4 +540,4 @@ App repos maintain **copies** of some docs for local discovery — sync from her
 
 ---
 
-*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-02 (notification-architecture).*
+*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-02 (user-experience-principles).*
