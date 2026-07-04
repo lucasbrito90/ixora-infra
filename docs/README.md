@@ -16,7 +16,7 @@
 | Implement a feature | [Feature design checklist](architecture/feature-design-checklist.md) → [UX principles](architecture/user-experience-principles.md) → [Feature spec template](#8-templates) → [Specs](#1-specs) → related [Architecture](#2-architecture) + [Standards](#3-standards) |
 | Design user-facing states or copy | [User experience principles](architecture/user-experience-principles.md) · [Notification architecture](architecture/notification-architecture.md) |
 | Design or extend notifications | [Notification architecture](architecture/notification-architecture.md) · [UX principles](architecture/user-experience-principles.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [Push spec](specs/push-notifications/mvp/spec.md) |
-| Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality harness](quality-harness.md) |
+| Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality & testing](#7-quality--testing) |
 | Understand a past decision | [ADRs](#4-architecture-decision-records-adrs) |
 | Know what we deliberately did **not** build | [Intentionally not implemented](#intentionally-not-implemented) |
 
@@ -118,7 +118,7 @@ docs/architecture/
 | **Scheduler (MVP)** | [scheduler/mvp/spec](specs/scheduler/mvp/spec.md) | [ADR-009](decisions/ADR-009-scheduler-timezone-utc-storage.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
 | **Smart Home (Foundation)** | [smart-home/mvp/spec](specs/smart-home/mvp/spec.md) | [ADR-012](decisions/ADR-012-smart-home-provider-strategy.md) · [ADR-013](decisions/ADR-013-home-assistant-first-provider.md) · [ADR-014](decisions/ADR-014-device-abstraction-and-deduplication.md) · [ADR-015](decisions/ADR-015-vibe-device-action-architecture.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Push Notifications (Foundation)** | [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md) · [notification-architecture](architecture/notification-architecture.md) | [ADR-017](decisions/ADR-017-push-notification-provider-strategy.md) · [ADR-018](decisions/ADR-018-device-token-registration.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [ADR-020](decisions/ADR-020-push-delivery-and-fallback-strategy.md) · [ADR-021](decisions/ADR-021-notification-security-and-privacy.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) |
-| **Scheduler + Smart Home Automations** | [scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md) · [operational checklist](operations/scheduler-smart-home-operational-checklist.md) | [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [domain-validation](architecture/domain-validation.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) · [notification-architecture](architecture/notification-architecture.md) · [user-experience-principles](architecture/user-experience-principles.md) |
+| **Scheduler + Smart Home Automations** | [scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md) · [operational checklist](operations/scheduler-smart-home-operational-checklist.md) · [E2E QA report](qa/scheduler-smart-home-e2e/summary.md) | [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [domain-validation](architecture/domain-validation.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) · [notification-architecture](architecture/notification-architecture.md) · [user-experience-principles](architecture/user-experience-principles.md) |
 | **Async execution security** | [domain-validation](architecture/domain-validation.md) | [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Async orchestration** | [asynchronous-orchestration](architecture/asynchronous-orchestration.md) | [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [domain-validation](architecture/domain-validation.md) |
 | **Staging ops** | [staging-digitalocean](architecture/backend/staging-digitalocean.md) | [deploy-pipeline](architecture/backend/deploy-pipeline.md) |
@@ -229,6 +229,15 @@ Do **not** build or document these as shipped without a new spec + ADR.
 4. [admin-form-patterns](standards/admin-form-patterns.md) if admin UI involved  
 5. [mobile-cdn-validation](architecture/storage/mobile-cdn-validation.md) if mobile displays the asset  
 
+**Mobile feature (native behaviour, notifications, offline)**
+
+1. Feature **spec** (acceptance criteria)  
+2. [user-experience-principles](architecture/user-experience-principles.md) — loading, empty, error, a11y  
+3. [notification-architecture](architecture/notification-architecture.md) if notifications involved  
+4. [quality-harness](quality-harness.md) — unit/lint/typecheck/build baseline  
+5. [mobile-e2e-testing](testing/mobile-e2e-testing.md) — Appium critical path before release  
+6. [mobile-cdn-validation](architecture/storage/mobile-cdn-validation.md) if assets on device  
+
 **Mobile playback change**
 
 1. [execution-plan spec](specs/vibes/execution-plan/spec.md)  
@@ -255,6 +264,7 @@ Do **not** build or document these as shipped without a new spec + ADR.
 1. [scheduler-smart-home-operational-checklist](operations/scheduler-smart-home-operational-checklist.md)  
 2. [staging-digitalocean](architecture/backend/staging-digitalocean.md) — worker topology  
 3. [scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md)  
+4. [E2E QA report — Phase 8](qa/scheduler-smart-home-e2e/summary.md) — automated + on-device pending  
 
 **Mobile UX or presentation polish**
 
@@ -469,6 +479,7 @@ Runbooks for homologation deploy, validation, and coordination.
 | Document | Description |
 | --- | --- |
 | [scheduler-smart-home-operational-checklist.md](operations/scheduler-smart-home-operational-checklist.md) | **Scheduler + Smart Home ops runbook** — workers, queues, env, health checks, failure matrix, deploy/recovery/troubleshooting |
+| [scheduler-smart-home-e2e/summary.md](qa/scheduler-smart-home-e2e/summary.md) | **Phase 8 E2E QA report** — happy-path, failure, mobile UX, notification, architecture ADR validation |
 | [deploy-pipeline.md](architecture/backend/deploy-pipeline.md) | `feature` → `develop` → `staging`, OpenTofu apply, App Platform, migrations |
 | [staging-digitalocean.md](architecture/backend/staging-digitalocean.md) | Runtime topology, queue worker, secrets boundaries |
 | [git-flow.md](standards/git-flow.md) | Branch protection rules, multi-repo promotion checklist |
@@ -499,13 +510,16 @@ cd opentofu/staging && tofu plan && tofu apply
 
 ---
 
-# 7. Quality harness
+# 7. Quality & testing
 
-Minimal local validation commands per app repo (tests, lint, typecheck, build).
+Minimal local validation commands and real-device mobile E2E standards.
 
 | Document | Description |
 | --- | --- |
-| [quality-harness.md](quality-harness.md) | **Baseline commands** — back_vibes, ixora-admin, front_vibes |
+| [quality-harness.md](quality-harness.md) | **Baseline commands** — back_vibes, ixora-admin, front_vibes (unit, lint, typecheck, build) |
+| [mobile-e2e-testing.md](testing/mobile-e2e-testing.md) | **Real-device Android E2E** — Appium + WebdriverIO: when required, what to test, selectors, release criteria, failure triage |
+
+**Appium** is the official gate for native plugins, local/push notifications, offline sync, and release-critical mobile journeys. It complements — does not replace — the quality harness.
 
 ---
 
@@ -525,7 +539,7 @@ Reusable document scaffolds for spec-driven development. **All new feature speci
 
 When adding documentation:
 
-1. Place files under `docs/specs/`, `docs/architecture/`, `docs/operations/`, `docs/standards/`, `docs/decisions/`, `docs/templates/`, or `docs/onboarding/`.
+1. Place files under `docs/specs/`, `docs/architecture/`, `docs/operations/`, `docs/standards/`, `docs/decisions/`, `docs/templates/`, `docs/testing/`, or `docs/onboarding/`.
 2. Add a row to the appropriate **§1–§8** table above.
 3. **New feature specs:** start from [`architecture/feature-design-checklist.md`](architecture/feature-design-checklist.md), then [`architecture/user-experience-principles.md`](architecture/user-experience-principles.md), then [`templates/feature-spec-template.md`](templates/feature-spec-template.md).
 4. Cross-link from related specs/architecture docs.
@@ -547,4 +561,4 @@ App repos maintain **copies** of some docs for local discovery — sync from her
 
 ---
 
-*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-03 (scheduler-smart-home-operational-checklist).*
+*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-03 (mobile-e2e-testing guide).*
