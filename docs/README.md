@@ -16,7 +16,7 @@
 | Implement a feature | [Feature design checklist](architecture/feature-design-checklist.md) → [UX principles](architecture/user-experience-principles.md) → [Feature spec template](#8-templates) → [Specs](#1-specs) → related [Architecture](#2-architecture) + [Standards](#3-standards) |
 | Design user-facing states or copy | [User experience principles](architecture/user-experience-principles.md) · [Notification architecture](architecture/notification-architecture.md) |
 | Design or extend notifications | [Notification architecture](architecture/notification-architecture.md) · [UX principles](architecture/user-experience-principles.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [Push spec](specs/push-notifications/mvp/spec.md) |
-| Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality harness](quality-harness.md) |
+| Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality & testing](#7-quality--testing) |
 | Understand a past decision | [ADRs](#4-architecture-decision-records-adrs) |
 | Know what we deliberately did **not** build | [Intentionally not implemented](#intentionally-not-implemented) |
 
@@ -228,6 +228,15 @@ Do **not** build or document these as shipped without a new spec + ADR.
 3. [ADR-002](decisions/ADR-002-laravel-only-storage-writes.md)  
 4. [admin-form-patterns](standards/admin-form-patterns.md) if admin UI involved  
 5. [mobile-cdn-validation](architecture/storage/mobile-cdn-validation.md) if mobile displays the asset  
+
+**Mobile feature (native behaviour, notifications, offline)**
+
+1. Feature **spec** (acceptance criteria)  
+2. [user-experience-principles](architecture/user-experience-principles.md) — loading, empty, error, a11y  
+3. [notification-architecture](architecture/notification-architecture.md) if notifications involved  
+4. [quality-harness](quality-harness.md) — unit/lint/typecheck/build baseline  
+5. [mobile-e2e-testing](testing/mobile-e2e-testing.md) — Appium critical path before release  
+6. [mobile-cdn-validation](architecture/storage/mobile-cdn-validation.md) if assets on device  
 
 **Mobile playback change**
 
@@ -501,13 +510,16 @@ cd opentofu/staging && tofu plan && tofu apply
 
 ---
 
-# 7. Quality harness
+# 7. Quality & testing
 
-Minimal local validation commands per app repo (tests, lint, typecheck, build).
+Minimal local validation commands and real-device mobile E2E standards.
 
 | Document | Description |
 | --- | --- |
-| [quality-harness.md](quality-harness.md) | **Baseline commands** — back_vibes, ixora-admin, front_vibes |
+| [quality-harness.md](quality-harness.md) | **Baseline commands** — back_vibes, ixora-admin, front_vibes (unit, lint, typecheck, build) |
+| [mobile-e2e-testing.md](testing/mobile-e2e-testing.md) | **Real-device Android E2E** — Appium + WebdriverIO: when required, what to test, selectors, release criteria, failure triage |
+
+**Appium** is the official gate for native plugins, local/push notifications, offline sync, and release-critical mobile journeys. It complements — does not replace — the quality harness.
 
 ---
 
@@ -527,7 +539,7 @@ Reusable document scaffolds for spec-driven development. **All new feature speci
 
 When adding documentation:
 
-1. Place files under `docs/specs/`, `docs/architecture/`, `docs/operations/`, `docs/standards/`, `docs/decisions/`, `docs/templates/`, or `docs/onboarding/`.
+1. Place files under `docs/specs/`, `docs/architecture/`, `docs/operations/`, `docs/standards/`, `docs/decisions/`, `docs/templates/`, `docs/testing/`, or `docs/onboarding/`.
 2. Add a row to the appropriate **§1–§8** table above.
 3. **New feature specs:** start from [`architecture/feature-design-checklist.md`](architecture/feature-design-checklist.md), then [`architecture/user-experience-principles.md`](architecture/user-experience-principles.md), then [`templates/feature-spec-template.md`](templates/feature-spec-template.md).
 4. Cross-link from related specs/architecture docs.
@@ -549,4 +561,4 @@ App repos maintain **copies** of some docs for local discovery — sync from her
 
 ---
 
-*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-03 (scheduler-smart-home-operational-checklist).*
+*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-03 (mobile-e2e-testing guide).*
