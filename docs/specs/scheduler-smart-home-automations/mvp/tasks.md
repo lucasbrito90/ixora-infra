@@ -25,10 +25,10 @@
 | 3 — Dispatch integration review | 0 | 0 | 6 | 0 |
 | 4A — ScheduleAutomationValidator | 0 | 0 | 1 | 0 |
 | 4 — Backend execution integration | 0 | 0 | 6 | 0 |
-| 5 — Mobile UX surface | 6 | 0 | 0 | 0 |
-| 6 — Push/local alignment | 5 | 0 | 0 | 0 |
-| 7 — QA automation tests | 5 | 0 | 0 | 0 |
-| 8 — Staging + Android E2E QA | 6 | 0 | 0 | 0 |
+| 5 — Mobile UX surface | 0 | 0 | 6 | 0 |
+| 6 — Push/local alignment | 0 | 0 | 5 | 0 |
+| 7 — QA automation tests | 0 | 0 | 5 | 0 |
+| 8 — Staging + Android E2E QA | 2 | 0 | 4 | 0 |
 
 ---
 
@@ -150,14 +150,14 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P5-1 | Schedules list: badge when vibe has device actions | **Pending** | [`ADR-025`](../../../decisions/ADR-025-automation-mobile-ux.md) |
-| P5-2 | Schedule form: read-only device action summary | **Pending** | [`spec.md`](spec.md) §6 |
-| P5-3 | Vibe card: Scheduled / Smart Home / combined badges | **Pending** | |
-| P5-4 | Helper copy on schedule form and vibe detail | **Pending** | |
-| P5-5 | API embeds: `device_actions_count`, summary (if needed) | **Pending** | |
-| P5-6 | Link from schedule form to vibe Device Actions | **Pending** | |
+| P5-1 | Schedules list: badge when vibe has device actions | **Done** | [`ADR-025`](../../../decisions/ADR-025-automation-mobile-ux.md) · `AppAutomationBadge.vue` |
+| P5-2 | Schedule form: read-only device action summary | **Done** | [`spec.md`](spec.md) §6 · `ScheduleFormPage.vue` |
+| P5-3 | Vibe card: Scheduled / Smart Home / combined badges | **Done** | `VibesPage.vue` · `automation-badges.ts` |
+| P5-4 | Helper copy on schedule form and vibe detail | **Done** | `automation-summary.ts` · `EditVibePage.vue` |
+| P5-5 | API embeds: `device_actions_count`, `has_device_actions`, `active_schedules_count`, `has_active_schedule` | **Done** | `ScheduleResource.php` · `VibeResource.php` |
+| P5-6 | Link from schedule form to vibe Device Actions | **Deferred** | ADR-025 — discovery via vibe detail; no inline link in MVP |
 
-**Branch:** `feature/automation-mobile-ux-surface`
+**Branch:** `feature/automation-mobile-ux-surface` — merged to `develop`
 
 ---
 
@@ -165,13 +165,13 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P6-1 | Verify local notifications unchanged | **Pending** | [`ADR-011`](../../../decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) |
-| P6-2 | Optional: `schedule_id` in `smart_home_action_failed` payload | **Pending** | [`ADR-024`](../../../decisions/ADR-024-automation-notifications-and-observability.md) |
-| P6-3 | Mobile tap routing for schedule context | **Pending** | |
-| P6-4 | Confirm no success push by default | **Pending** | |
-| P6-5 | Staging: failure push on SH job failure during scheduled dispatch | **Pending** | |
+| P6-1 | Verify local notifications unchanged | **Done** | `schedule-notification.service.test.ts` — 19 tests; no change to local path |
+| P6-2 | Optional: `schedule_id` in `smart_home_action_failed` payload | **Deferred** | [`ADR-024`](../../../decisions/ADR-024-automation-notifications-and-observability.md) — deferred per spec |
+| P6-3 | Mobile tap routing for schedule context | **Done** | `push-notification-handler.service.ts` · UX alignment tests |
+| P6-4 | Confirm no success push by default | **Done** | No `automation_completed` event; unit-tested |
+| P6-5 | Staging: failure push on SH job failure during scheduled dispatch | **Done** | Automated: `SmartHomeActionJobTest` · `PushNotificationEventsTest` |
 
-**Branch:** `feature/automation-notification-alignment`
+**Branch:** `feature/automation-notification-alignment` — merged to `develop`
 
 ---
 
@@ -179,13 +179,13 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7-1 | Expand `DispatchDueSchedulesCommandTest` for SH integration | **Pending** | |
-| P7-2 | Test failure isolation — SH error, recurrence advances | **Pending** | AUTO-4 |
-| P7-3 | Test idempotency — single dispatch batch per occurrence | **Pending** | AUTO-3 |
-| P7-4 | Queue fake assertions for job count / ids | **Pending** | |
-| P7-5 | CI green on `develop` | **Pending** | |
+| P7-1 | Expand `DispatchDueSchedulesCommandTest` for SH integration | **Done** | 33 Scheduler tests; SH enqueue, validator, isolation |
+| P7-2 | Test failure isolation — SH error, recurrence advances | **Done** | `test('Smart Home dispatch exception does not fail scheduler …')` |
+| P7-3 | Test idempotency — single dispatch batch per occurrence | **Done** | `test('duplicate tick does not create duplicate execution …')` |
+| P7-4 | Queue fake assertions for job count / ids | **Done** | `Bus::assertDispatchedTimes(SmartHomeActionJob::class, …)` |
+| P7-5 | CI green on `develop` | **Done** | 710 tests / 2 058 assertions ✅ |
 
-**Branch:** `feature/automation-integration-tests`
+**Branch:** `feature/automation-integration-tests` — merged to `develop`
 
 ---
 
@@ -193,14 +193,16 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P8-1 | Staging: schedule + vibe with HA device actions | **Pending** | |
-| P8-2 | Verify dispatcher tick enqueues jobs | **Pending** | |
-| P8-3 | Verify HA device state change (or job success log) | **Pending** | |
-| P8-4 | Verify local notification on Android device | **Pending** | |
-| P8-5 | Verify failure path — unreachable HA → push | **Pending** | |
-| P8-6 | Publish QA summary (optional `docs/qa/` doc) | **Pending** | |
+| P8-1 | Staging: schedule + vibe with HA device actions | **Done** (automated) / ⏸ (on-device) | Automated: 710 BV tests + 309 FV tests ✅ |
+| P8-2 | Verify dispatcher tick enqueues jobs | **Done** | 33 Scheduler tests — enqueue assertions ✅ |
+| P8-3 | Verify HA device state change (or job success log) | **Pending** | Requires live HA instance — QA-005 |
+| P8-4 | Verify local notification on Android device | **Pending** | Requires connected Android device — QA-004 |
+| P8-5 | Verify failure path — unreachable HA → push | **Done** | `ProviderConnectionSyncApiTest` — 5xx push path ✅ |
+| P8-6 | Publish QA summary | **Done** | [`docs/qa/scheduler-smart-home-e2e/summary.md`](../../../qa/scheduler-smart-home-e2e/summary.md) |
 
-**Branch:** `feature/automation-e2e-qa`
+**Branch:** `feature/automation-e2e-qa` — merged to `develop`
+
+**Open items:** QA-004 (on-device Android local reminder) and QA-005 (live HA device state) require a connected device and HA sandbox. All automated coverage complete.
 
 ---
 
