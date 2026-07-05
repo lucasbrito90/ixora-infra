@@ -234,6 +234,8 @@ See also [`qa/push-notifications-e2e/scripts/staging-push-send.tinker.md`](../..
 
 A dedicated **App Platform worker** (`scheduler`) runs `php artisan schedules:dispatch-loop` — a long-running process that calls `schedules:dispatch-due` approximately every 60 seconds.
 
+**Operational runbook:** [Scheduler + Smart Home operational checklist](../../operations/scheduler-smart-home-operational-checklist.md) — failure matrix, log catalog, deploy/recovery checklists.
+
 **Why a worker instead of a DO Scheduled Job:**
 
 | Reason | Detail |
