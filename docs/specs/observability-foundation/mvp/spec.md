@@ -206,5 +206,9 @@ Before marking any implementation phase **Done**:
 | [ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md) | Product observability today |
 | [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) | Official naming — services, metrics, spans, logs, events, labels |
 | [infrastructure-review.md](infrastructure-review.md) | Phase 2 — deployment topology, ports, storage, failure analysis |
+| [security-review.md](security-review.md) | Phase 2.5 — threat model, auth, TLS, PII, redaction |
+| [telemetry-availability-policy.md](../../../architecture/telemetry-availability-policy.md) | Non-blocking telemetry export policy |
+| [observability-operational-limits.md](../../../architecture/observability-operational-limits.md) | Architectural limits for Collector and backends |
+| [collector-hardening-checklist.md](../../../operations/collector-hardening-checklist.md) | Phase 3 Collector deploy checklist |
 | [mobile-e2e-testing.md](../../../testing/mobile-e2e-testing.md) | Phase 11.5 mobile validation |
 | [plan.md](plan.md) · [tasks.md](tasks.md) | Implementation tracking |

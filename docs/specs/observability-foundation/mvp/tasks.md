@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 9.5 complete — ADRs + Spec + Naming + Infra Review + Guides  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 complete — ADRs + Spec + Infra + Security + Guides  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -23,7 +23,7 @@
 | 1 — ADRs + Spec | 0 | 0 | 9 | 0 |
 | 1.5 — Naming Convention | 0 | 0 | 1 | 0 |
 | 2 — Infrastructure review | 0 | 0 | 5 | 0 |
-| 2.5 — Security review | 4 | 0 | 0 | 0 |
+| 2.5 — Security review | 0 | 0 | 5 | 0 |
 | 3 — Collector deployment | 4 | 0 | 0 | 0 |
 | 4 — Prometheus | 3 | 0 | 0 | 0 |
 | 5 — Loki | 3 | 0 | 0 | 0 |
@@ -100,16 +100,26 @@
 
 ---
 
-## Phase 2.5 — Security review
+## Phase 2.5 — Security review + telemetry availability
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P2.5-1 | Review ADR-030 against existing Laravel log patterns | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
-| P2.5-2 | Document Collector redaction processor requirements | **Pending** | |
-| P2.5-3 | Define Grafana authentication model | **Pending** | |
-| P2.5-4 | Threat model: public OTLP endpoint → API key or mTLS decision | **Pending** | |
+| P2.5-1 | Publish **`security-review.md`** — threat model, auth, TLS, PII, redaction | **Done** | [`security-review.md`](security-review.md) |
+| P2.5-2 | Publish **`telemetry-availability-policy.md`** — non-blocking export rules | **Done** | [`telemetry-availability-policy.md`](../../../architecture/telemetry-availability-policy.md) |
+| P2.5-3 | Publish **`observability-operational-limits.md`** — architectural caps | **Done** | [`observability-operational-limits.md`](../../../architecture/observability-operational-limits.md) |
+| P2.5-4 | Publish **`collector-hardening-checklist.md`** — Phase 3 deploy checklist | **Done** | [`collector-hardening-checklist.md`](../../../operations/collector-hardening-checklist.md) |
+| P2.5-5 | Update **`spec.md`**, **`README.md`**, cross-links | **Done** | This file |
 
 **Branch:** `feature/observability-security-review`
+
+**Phase 2.5 implementation notes:**
+
+- MVP ingest auth: **OTLP API Keys + TLS** (mTLS deferred for mobile).
+- Collector redaction is second line of defense after application discipline.
+- Telemetry must never block business logic — aligns with ADR-028/029 and push best-effort.
+- Operational limits are architectural; concrete values set in Phase 3+.
+- Documentation only — no runtime code, Collector config, Docker, OpenTofu, or DO resources.
+- **Next:** Phase 3 — Collector Deployment using collector-hardening-checklist.
 
 ---
 
