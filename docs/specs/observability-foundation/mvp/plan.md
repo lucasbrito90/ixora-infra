@@ -56,6 +56,7 @@ Phase 6    ──► Tempo
 Phase 7    ──► Backend SDK (back_vibes)
 Phase 8    ──► Frontend SDK (front_vibes)
 Phase 9    ──► Grafana dashboards
+Phase 9.5  ──► Telemetry Decision Guide + Observability Playbook (complete)
 Phase 10   ──► Operational readiness
 Phase 11   ──► QA
 Phase 11.5 ──► Appium mobile telemetry validation
@@ -223,13 +224,36 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 ---
 
+## Phase 9.5 — Telemetry Decision Guide + Observability Playbook
+
+**Goal:** Document **which** telemetry signal to emit and **how to investigate** production issues — before and alongside SDK/dashboard implementation.
+
+**Complete (documentation only).**
+
+### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Signal choice guide | [`telemetry-decision-guide.md`](../../../architecture/telemetry-decision-guide.md) |
+| Investigation runbook | [`observability-playbook.md`](../../../operations/observability-playbook.md) |
+
+### Exit criteria
+
+- Both documents published; README, plan, and tasks updated.
+- **No runtime code**, SDK, Collector, Grafana, or infrastructure changes.
+
+> Instrumentation PRs must follow [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md) for signal choice and [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) for names. On-call uses [observability-playbook.md](../../../operations/observability-playbook.md).
+
+---
+
 ## Phase 10 — Operational readiness
 
 **Goal:** Runbook for observability VM ops.
 
 ### Deliverables
 
-- `docs/operations/observability-operational-checklist.md` (future)
+- `docs/operations/observability-operational-checklist.md` (future — VM health, retention verification)
+- Complements [`observability-playbook.md`](../../../operations/observability-playbook.md) (investigation workflows)
 - Disk alert thresholds, retention verification, Collector restart procedure
 
 ### Exit criteria

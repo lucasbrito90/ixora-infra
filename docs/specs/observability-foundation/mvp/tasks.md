@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 complete — ADRs + Spec + Naming Convention  
+**Status:** Phase 1 + 1.5 + 2 + 9.5 complete — ADRs + Spec + Naming + Infra Review + Guides  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -22,7 +22,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | 1 — ADRs + Spec | 0 | 0 | 9 | 0 |
 | 1.5 — Naming Convention | 0 | 0 | 1 | 0 |
-| 2 — Infrastructure review | 5 | 0 | 0 | 0 |
+| 2 — Infrastructure review | 0 | 0 | 5 | 0 |
 | 2.5 — Security review | 4 | 0 | 0 | 0 |
 | 3 — Collector deployment | 4 | 0 | 0 | 0 |
 | 4 — Prometheus | 3 | 0 | 0 | 0 |
@@ -31,6 +31,7 @@
 | 7 — Backend SDK | 6 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
 | 9 — Dashboards | 5 | 0 | 0 | 0 |
+| 9.5 — Decision Guide + Playbook | 0 | 0 | 2 | 0 |
 | 10 — Operational readiness | 4 | 0 | 0 | 0 |
 | 11 — QA | 5 | 0 | 0 | 0 |
 | 11.5 — Appium telemetry QA | 3 | 0 | 0 | 0 |
@@ -82,13 +83,20 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P2-1 | Document DO VM sizing (CPU/RAM/disk) vs ADR-031 budgets | **Pending** | [`ADR-031`](../../../decisions/ADR-031-retention-storage-and-cost-control.md) |
-| P2-2 | Document firewall / OTLP ingress from App Platform + mobile | **Pending** | [`ADR-028`](../../../decisions/ADR-028-observability-platform.md) |
-| P2-3 | Document Collector endpoint DNS/TLS strategy | **Pending** | |
-| P2-4 | Review App Platform egress to observability VM | **Pending** | [staging-digitalocean](../../../architecture/backend/staging-digitalocean.md) |
-| P2-5 | Publish infrastructure review note | **Pending** | |
+| P2-1 | Document DO VM sizing (CPU/RAM/disk) vs ADR-031 budgets | **Done** | [`infrastructure-review.md`](infrastructure-review.md) §6, §10 |
+| P2-2 | Document firewall / OTLP ingress from App Platform + mobile | **Done** | [`infrastructure-review.md`](infrastructure-review.md) §4, §5 |
+| P2-3 | Document Collector endpoint DNS/TLS strategy | **Done** | [`infrastructure-review.md`](infrastructure-review.md) §5 |
+| P2-4 | Review App Platform egress to observability VM | **Done** | [`infrastructure-review.md`](infrastructure-review.md) §1, §3 · [staging-digitalocean](../../../architecture/backend/staging-digitalocean.md) |
+| P2-5 | Publish infrastructure review note | **Done** | [`infrastructure-review.md`](infrastructure-review.md) |
 
 **Branch:** `feature/observability-infra-review`
+
+**Phase 2 implementation notes:**
+
+- Single DO Droplet topology validated; all components co-located for MVP staging.
+- Communication matrix, ports, storage budgets, failure analysis, and scaling path documented.
+- Documentation only — no runtime code, OpenTofu, Docker, Collector config, or DO resources created.
+- Implementation begins in **Phase 3 — Collector Deployment**.
 
 ---
 
@@ -194,6 +202,22 @@
 | P9-5 | Document dashboard URLs in runbook | **Pending** | |
 
 **Branch:** `feature/observability-grafana-dashboards`
+
+---
+
+## Phase 9.5 — Telemetry Decision Guide + Observability Playbook
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P9.5-1 | Publish **`telemetry-decision-guide.md`** | **Done** | [`telemetry-decision-guide.md`](../../../architecture/telemetry-decision-guide.md) |
+| P9.5-2 | Publish **`observability-playbook.md`** | **Done** | [`observability-playbook.md`](../../../operations/observability-playbook.md) |
+
+**Phase 9.5 implementation notes:**
+
+- Decision guide: which signal (metric, trace, span, event, log, label) — complements naming convention.
+- Playbook: operational investigation workflows for scheduler, Smart Home, push, and observability stack.
+- Documentation only — no runtime code, SDK, Collector, Grafana, or infrastructure changes.
+- Placed in roadmap between Phase 9 (dashboards) and Phase 10 (operational readiness).
 
 ---
 
