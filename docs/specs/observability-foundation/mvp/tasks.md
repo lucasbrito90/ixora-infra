@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 complete — ADRs + Spec  
+**Status:** Phase 1 + 1.5 complete — ADRs + Spec + Naming Convention  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -21,6 +21,7 @@
 | Phase | Pending | In progress | Done | Deferred |
 | --- | ---: | ---: | ---: | ---: |
 | 1 — ADRs + Spec | 0 | 0 | 9 | 0 |
+| 1.5 — Naming Convention | 0 | 0 | 1 | 0 |
 | 2 — Infrastructure review | 5 | 0 | 0 | 0 |
 | 2.5 — Security review | 4 | 0 | 0 | 0 |
 | 3 — Collector deployment | 4 | 0 | 0 | 0 |
@@ -60,6 +61,20 @@
 - Collector-only ingestion is mandatory; apps never talk directly to Prometheus/Loki/Tempo.
 - MVP targets single DigitalOcean VM; staging first.
 - No OpenTelemetry SDK, Collector configs, Docker, Terraform, or Grafana in Phase 1.
+
+---
+
+## Phase 1.5 — Telemetry Naming Convention
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P1.5-1 | Publish **`telemetry-naming-convention.md`** | **Done** | [`telemetry-naming-convention.md`](../../../architecture/telemetry-naming-convention.md) |
+
+**Phase 1.5 implementation notes:**
+
+- Platform-wide naming standard for services, metrics, spans, logs, events, labels, dashboards, and alerts.
+- Documentation only — no runtime code, SDK, Collector, Grafana, or infrastructure changes.
+- All implementation phases (2–11.5) must follow this guide.
 
 ---
 
