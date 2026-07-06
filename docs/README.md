@@ -16,6 +16,7 @@
 | Implement a feature | [Feature design checklist](architecture/feature-design-checklist.md) → [UX principles](architecture/user-experience-principles.md) → [Feature spec template](#8-templates) → [Specs](#1-specs) → related [Architecture](#2-architecture) + [Standards](#3-standards) |
 | Design user-facing states or copy | [User experience principles](architecture/user-experience-principles.md) · [Notification architecture](architecture/notification-architecture.md) |
 | Design or extend notifications | [Notification architecture](architecture/notification-architecture.md) · [UX principles](architecture/user-experience-principles.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [Push spec](specs/push-notifications/mvp/spec.md) |
+| Design or extend observability | [Observability Foundation spec](specs/observability-foundation/mvp/spec.md) · [ADR-028](decisions/ADR-028-observability-platform.md) · [ADR-029](decisions/ADR-029-telemetry-data-model.md) · [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) · [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) |
 | Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality & testing](#7-quality--testing) |
 | Understand a past decision | [ADRs](#4-architecture-decision-records-adrs) |
 | Know what we deliberately did **not** build | [Intentionally not implemented](#intentionally-not-implemented) |
@@ -119,6 +120,7 @@ docs/architecture/
 | **Smart Home (Foundation)** | [smart-home/mvp/spec](specs/smart-home/mvp/spec.md) | [ADR-012](decisions/ADR-012-smart-home-provider-strategy.md) · [ADR-013](decisions/ADR-013-home-assistant-first-provider.md) · [ADR-014](decisions/ADR-014-device-abstraction-and-deduplication.md) · [ADR-015](decisions/ADR-015-vibe-device-action-architecture.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Push Notifications (Foundation)** | [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md) · [notification-architecture](architecture/notification-architecture.md) | [ADR-017](decisions/ADR-017-push-notification-provider-strategy.md) · [ADR-018](decisions/ADR-018-device-token-registration.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [ADR-020](decisions/ADR-020-push-delivery-and-fallback-strategy.md) · [ADR-021](decisions/ADR-021-notification-security-and-privacy.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) |
 | **Scheduler + Smart Home Automations** | [scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md) · [operational checklist](operations/scheduler-smart-home-operational-checklist.md) · [E2E QA report](qa/scheduler-smart-home-e2e/summary.md) | [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [domain-validation](architecture/domain-validation.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) · [notification-architecture](architecture/notification-architecture.md) · [user-experience-principles](architecture/user-experience-principles.md) |
+| **Observability (Foundation)** | [observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md) | [ADR-028](decisions/ADR-028-observability-platform.md) · [ADR-029](decisions/ADR-029-telemetry-data-model.md) · [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) · [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) |
 | **Async execution security** | [domain-validation](architecture/domain-validation.md) | [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Async orchestration** | [asynchronous-orchestration](architecture/asynchronous-orchestration.md) | [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [domain-validation](architecture/domain-validation.md) |
 | **Staging ops** | [staging-digitalocean](architecture/backend/staging-digitalocean.md) | [deploy-pipeline](architecture/backend/deploy-pipeline.md) |
@@ -143,7 +145,8 @@ docs/architecture/
 | **Scheduler MVP** | Shipped — recurrence, local notifications, dispatcher ([scheduler/mvp/spec](specs/scheduler/mvp/spec.md)) |
 | **Smart Home MVP** | Shipped — provider connections, devices, vibe actions, async HA execution ([smart-home/mvp/spec](specs/smart-home/mvp/spec.md)) |
 | **Push Notifications Foundation** | Spec + ADRs 017–021 accepted — **not implemented** ([push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md)) |
-| **Scheduler + Smart Home Automations** | Phase 1 — ADRs + Spec ([scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md); ADRs 022–025) |
+| **Scheduler + Smart Home Automations** | Shipped — v1.2.0 ([release notes](releases/v1.2.0-scheduler-smart-home-automations.md)) |
+| **Observability Foundation** | Phase 1 — ADRs + Spec ([observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md); ADRs 028–031) |
 | **Staging environment** | Shipped — DO App Platform + OpenTofu ([staging-digitalocean](architecture/backend/staging-digitalocean.md)) |
 | **Safe delete (sounds, cover bundles)** | Shipped — reference-checked Spaces cleanup |
 | **Legacy Firebase asset URLs** | May coexist on rows until migration |
@@ -169,9 +172,26 @@ Do **not** build or document these as shipped without a new spec + ADR.
 | **JS audio fades / crossfade** | Ignored at runtime — [ADR-008](decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md) |
 | **Smart Home non-MVP providers** (Alexa, Google Home, Matter, Tuya, Zigbee direct) | Out of scope — future provider ADRs required per integration |
 | **FCM / push notifications (shipped)** | Not shipped — spec + ADRs 017–021 accepted; local notifications remain for Scheduler — [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md) |
+| **Observability alerting / PagerDuty** | Out of MVP — dashboards first — [observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md) |
+| **Direct app → Prometheus/Loki/Tempo** | Forbidden — Collector only — [ADR-028](decisions/ADR-028-observability-platform.md) |
 | **Marketing / campaign push** | Out of scope — [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) |
 | **iOS / APNs push** | Deferred — Android FCM first — [ADR-017](decisions/ADR-017-push-notification-provider-strategy.md) |
 | **Automatic background vibe sync** | [ADR-004](decisions/ADR-004-offline-audio-strategy.md) |
+
+---
+
+## Platform roadmap
+
+Cross-cutting capabilities in delivery order. **Bold** = active spec work; *italic* = shipped.
+
+| # | Capability | Status | Spec / release |
+| ---: | --- | --- | --- |
+| 1 | Push Notifications Foundation | *Shipped* | [v1.1.0](releases/v1.1.0-push-notifications.md) |
+| 2 | Scheduler + Smart Home Automations | *Shipped* | [v1.2.0](releases/v1.2.0-scheduler-smart-home-automations.md) |
+| 3 | **Observability Foundation** | **Phase 1 — ADRs + Spec** | [observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md) |
+| 4 | Smart Home Scenes | Planned | — (Phase 1 ADRs + Spec next) |
+| 5 | Multi-provider Smart Home | Planned | — |
+| 6 | Analytics | Planned | — |
 
 ---
 
@@ -266,6 +286,15 @@ Do **not** build or document these as shipped without a new spec + ADR.
 3. [scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md)  
 4. [E2E QA report — Phase 8](qa/scheduler-smart-home-e2e/summary.md) — automated + on-device pending  
 
+**Observability Foundation**
+
+1. [observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md)  
+2. [ADR-028](decisions/ADR-028-observability-platform.md) — Collector-only ingestion  
+3. [ADR-029](decisions/ADR-029-telemetry-data-model.md) — metrics, logs, traces, events  
+4. [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) — redaction and PII  
+5. [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) — retention and cost  
+6. [asynchronous-orchestration](architecture/asynchronous-orchestration.md) — trace spans for async layers  
+
 **Mobile UX or presentation polish**
 
 1. [user-experience-principles](architecture/user-experience-principles.md)  
@@ -352,6 +381,16 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 | [scheduler-smart-home-automations/mvp/tasks.md](specs/scheduler-smart-home-automations/mvp/tasks.md) | Task checklist |
 
 **ADRs:** [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md)
+
+## Observability Foundation (Phase 1 — ADRs + Spec)
+
+| Document | Description |
+| --- | --- |
+| [observability-foundation/mvp/spec.md](specs/observability-foundation/mvp/spec.md) | OpenTelemetry Collector pipeline — Prometheus, Loki, Tempo, Grafana; staging VM MVP |
+| [observability-foundation/mvp/plan.md](specs/observability-foundation/mvp/plan.md) | 11-phase implementation plan + release |
+| [observability-foundation/mvp/tasks.md](specs/observability-foundation/mvp/tasks.md) | Task checklist |
+
+**ADRs:** [ADR-028](decisions/ADR-028-observability-platform.md) · [ADR-029](decisions/ADR-029-telemetry-data-model.md) · [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) · [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md)
 
 ---
 
@@ -454,6 +493,10 @@ Accepted decisions with context, tradeoffs, and links to implementation.
 | [ADR-025](decisions/ADR-025-automation-mobile-ux.md) | Automation mobile UX | Surface on existing screens; no automation builder in MVP |
 | [ADR-026](decisions/ADR-026-automation-execution-security.md) | Automation execution security | Policies = HTTP; Domain Validators = async; platform-wide ([domain-validation](architecture/domain-validation.md)) |
 | [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) | Asynchronous orchestration pattern | Entrypoints orchestrate; validators guard; services decide; jobs work; providers integrate ([asynchronous-orchestration](architecture/asynchronous-orchestration.md)) |
+| [ADR-028](decisions/ADR-028-observability-platform.md) | Observability platform | Single OTel Collector; apps export OTLP only; Prometheus/Loki/Tempo via Collector |
+| [ADR-029](decisions/ADR-029-telemetry-data-model.md) | Telemetry data model | Metrics, logs, traces, events; `ixora.*` naming; correlation IDs |
+| [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) | Observability security and privacy | No PII/secrets in telemetry; Collector redaction; extends ADR-021 |
+| [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) | Retention and cost control | Metrics 30d / logs 14d / traces 7d; sampling; cardinality limits; single VM |
 
 ---
 
@@ -561,4 +604,4 @@ App repos maintain **copies** of some docs for local discovery — sync from her
 
 ---
 
-*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-03 (mobile-e2e-testing guide).*
+*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-05 (observability-foundation Phase 1).*
