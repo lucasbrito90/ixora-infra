@@ -23,6 +23,8 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 
 **Git Flow:** All work on **`feature/*`** from **`develop`**. Promote to **`staging`** when observability VM and app SDKs are ready for homologation.
 
+> **Naming mandate:** All implementation phases (2–11.5) **must** follow [`telemetry-naming-convention.md`](../../../architecture/telemetry-naming-convention.md) for services, metrics, spans, logs, events, labels, dashboards, and alerts. No ad-hoc names in SDK instrumentation, Collector configs, or Grafana artifacts.
+
 ---
 
 ## Current state
@@ -44,6 +46,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 
 ```
 Phase 1    ──► ADRs + Spec (complete)
+Phase 1.5  ──► Telemetry Naming Convention (complete)
 Phase 2    ──► Infrastructure review
 Phase 2.5  ──► Security review
 Phase 3    ──► Collector deployment
