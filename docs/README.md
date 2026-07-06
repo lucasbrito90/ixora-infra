@@ -16,7 +16,8 @@
 | Implement a feature | [Feature design checklist](architecture/feature-design-checklist.md) → [UX principles](architecture/user-experience-principles.md) → [Feature spec template](#8-templates) → [Specs](#1-specs) → related [Architecture](#2-architecture) + [Standards](#3-standards) |
 | Design user-facing states or copy | [User experience principles](architecture/user-experience-principles.md) · [Notification architecture](architecture/notification-architecture.md) |
 | Design or extend notifications | [Notification architecture](architecture/notification-architecture.md) · [UX principles](architecture/user-experience-principles.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [Push spec](specs/push-notifications/mvp/spec.md) |
-| Design or extend observability | [Observability Foundation spec](specs/observability-foundation/mvp/spec.md) · [Infrastructure Review](specs/observability-foundation/mvp/infrastructure-review.md) · [Security Review](specs/observability-foundation/mvp/security-review.md) · [Telemetry Naming Convention](architecture/telemetry-naming-convention.md) · [Telemetry Decision Guide](architecture/telemetry-decision-guide.md) · [Telemetry Availability Policy](architecture/telemetry-availability-policy.md) · [Observability Playbook](operations/observability-playbook.md) · [Collector Hardening](operations/collector-hardening-checklist.md) · [ADR-028](decisions/ADR-028-observability-platform.md) · [ADR-029](decisions/ADR-029-telemetry-data-model.md) · [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) · [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) |
+| Deploy or operate the Collector | [collector/README.md](../collector/README.md) · [collector-deployment.md](specs/observability-foundation/mvp/collector-deployment.md) · [collector-hardening-checklist.md](operations/collector-hardening-checklist.md) · [security-review.md](specs/observability-foundation/mvp/security-review.md) |
+| Design or extend observability | [Observability Foundation spec](specs/observability-foundation/mvp/spec.md) · [collector-deployment.md](specs/observability-foundation/mvp/collector-deployment.md) · [Infrastructure Review](specs/observability-foundation/mvp/infrastructure-review.md) · [Security Review](specs/observability-foundation/mvp/security-review.md) · [Telemetry Naming Convention](architecture/telemetry-naming-convention.md) · [Telemetry Decision Guide](architecture/telemetry-decision-guide.md) · [Telemetry Availability Policy](architecture/telemetry-availability-policy.md) · [Observability Playbook](operations/observability-playbook.md) · [Collector Hardening](operations/collector-hardening-checklist.md) · [ADR-028](decisions/ADR-028-observability-platform.md) · [ADR-029](decisions/ADR-029-telemetry-data-model.md) · [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) · [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) |
 | Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality & testing](#7-quality--testing) |
 | Understand a past decision | [ADRs](#4-architecture-decision-records-adrs) |
 | Know what we deliberately did **not** build | [Intentionally not implemented](#intentionally-not-implemented) |
@@ -124,7 +125,7 @@ docs/architecture/
 | **Smart Home (Foundation)** | [smart-home/mvp/spec](specs/smart-home/mvp/spec.md) | [ADR-012](decisions/ADR-012-smart-home-provider-strategy.md) · [ADR-013](decisions/ADR-013-home-assistant-first-provider.md) · [ADR-014](decisions/ADR-014-device-abstraction-and-deduplication.md) · [ADR-015](decisions/ADR-015-vibe-device-action-architecture.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Push Notifications (Foundation)** | [push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md) · [notification-architecture](architecture/notification-architecture.md) | [ADR-017](decisions/ADR-017-push-notification-provider-strategy.md) · [ADR-018](decisions/ADR-018-device-token-registration.md) · [ADR-019](decisions/ADR-019-notification-event-taxonomy.md) · [ADR-020](decisions/ADR-020-push-delivery-and-fallback-strategy.md) · [ADR-021](decisions/ADR-021-notification-security-and-privacy.md) · [ADR-011](decisions/ADR-011-scheduler-local-notifications-vs-future-fcm.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) |
 | **Scheduler + Smart Home Automations** | [scheduler-smart-home-automations/mvp/spec](specs/scheduler-smart-home-automations/mvp/spec.md) · [operational checklist](operations/scheduler-smart-home-operational-checklist.md) · [E2E QA report](qa/scheduler-smart-home-e2e/summary.md) | [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [domain-validation](architecture/domain-validation.md) · [asynchronous-orchestration](architecture/asynchronous-orchestration.md) · [notification-architecture](architecture/notification-architecture.md) · [user-experience-principles](architecture/user-experience-principles.md) |
-| **Observability (Foundation)** | [observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md) · [infrastructure-review](specs/observability-foundation/mvp/infrastructure-review.md) · [security-review](specs/observability-foundation/mvp/security-review.md) · [telemetry-naming-convention](architecture/telemetry-naming-convention.md) · [telemetry-decision-guide](architecture/telemetry-decision-guide.md) · [telemetry-availability-policy](architecture/telemetry-availability-policy.md) · [observability-playbook](operations/observability-playbook.md) | [ADR-028](decisions/ADR-028-observability-platform.md) · [ADR-029](decisions/ADR-029-telemetry-data-model.md) · [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) · [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) |
+| **Observability (Foundation)** | [observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md) · [collector-deployment](specs/observability-foundation/mvp/collector-deployment.md) · [infrastructure-review](specs/observability-foundation/mvp/infrastructure-review.md) · [security-review](specs/observability-foundation/mvp/security-review.md) · [telemetry-naming-convention](architecture/telemetry-naming-convention.md) · [telemetry-decision-guide](architecture/telemetry-decision-guide.md) · [telemetry-availability-policy](architecture/telemetry-availability-policy.md) · [observability-playbook](operations/observability-playbook.md) | [ADR-028](decisions/ADR-028-observability-platform.md) · [ADR-029](decisions/ADR-029-telemetry-data-model.md) · [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) · [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) |
 | **Async execution security** | [domain-validation](architecture/domain-validation.md) | [ADR-026](decisions/ADR-026-automation-execution-security.md) · [ADR-010](decisions/ADR-010-scheduler-idempotency-occurrence-key.md) · [ADR-016](decisions/ADR-016-smart-home-async-execution.md) |
 | **Async orchestration** | [asynchronous-orchestration](architecture/asynchronous-orchestration.md) | [ADR-027](decisions/ADR-027-asynchronous-orchestration-pattern.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md) · [domain-validation](architecture/domain-validation.md) |
 | **Staging ops** | [staging-digitalocean](architecture/backend/staging-digitalocean.md) | [deploy-pipeline](architecture/backend/deploy-pipeline.md) |
@@ -150,7 +151,7 @@ docs/architecture/
 | **Smart Home MVP** | Shipped — provider connections, devices, vibe actions, async HA execution ([smart-home/mvp/spec](specs/smart-home/mvp/spec.md)) |
 | **Push Notifications Foundation** | Spec + ADRs 017–021 accepted — **not implemented** ([push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md)) |
 | **Scheduler + Smart Home Automations** | Shipped — v1.2.0 ([release notes](releases/v1.2.0-scheduler-smart-home-automations.md)) |
-| **Observability Foundation** | Phase 1 + 1.5 + 2 + 2.5 + 9.5 — ADRs + Spec + Infra + Security + Guides ([observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md); [security-review](specs/observability-foundation/mvp/security-review.md); ADRs 028–031) |
+| **Observability Foundation** | Phase 1 + 1.5 + 2 + 2.5 + 9.5 + **3 (config)** — ADRs, Spec, Infra, Security, Guides, **Collector Infrastructure** ([observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md); [collector-deployment](specs/observability-foundation/mvp/collector-deployment.md); ADRs 028–031) |
 | **Staging environment** | Shipped — DO App Platform + OpenTofu ([staging-digitalocean](architecture/backend/staging-digitalocean.md)) |
 | **Safe delete (sounds, cover bundles)** | Shipped — reference-checked Spaces cleanup |
 | **Legacy Firebase asset URLs** | May coexist on rows until migration |
@@ -192,7 +193,7 @@ Cross-cutting capabilities in delivery order. **Bold** = active spec work; *ital
 | ---: | --- | --- | --- |
 | 1 | Push Notifications Foundation | *Shipped* | [v1.1.0](releases/v1.1.0-push-notifications.md) |
 | 2 | Scheduler + Smart Home Automations | *Shipped* | [v1.2.0](releases/v1.2.0-scheduler-smart-home-automations.md) |
-| 3 | **Observability Foundation** | **Phase 1–2.5 + 9.5 — Spec through Security Review** | [observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md) · [security-review](specs/observability-foundation/mvp/security-review.md) · [collector-hardening-checklist](operations/collector-hardening-checklist.md) |
+| 3 | **Observability Foundation** | **Phase 1–2.5 + 9.5 + 3 (config) — Collector Infrastructure ready; VM deploy pending** | [observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md) · [collector-deployment](specs/observability-foundation/mvp/collector-deployment.md) · [collector/README.md](../collector/README.md) |
 | 4 | Smart Home Scenes | Planned | — (Phase 1 ADRs + Spec next) |
 | 5 | Multi-provider Smart Home | Planned | — |
 | 6 | Analytics | Planned | — |
@@ -295,17 +296,19 @@ Cross-cutting capabilities in delivery order. **Bold** = active spec work; *ital
 1. [observability-foundation/mvp/spec](specs/observability-foundation/mvp/spec.md)  
 2. [infrastructure-review](specs/observability-foundation/mvp/infrastructure-review.md) — deployment topology (Phase 2)  
 3. [security-review](specs/observability-foundation/mvp/security-review.md) — threat model, auth, PII, redaction (Phase 2.5)  
-4. [telemetry-availability-policy](architecture/telemetry-availability-policy.md) — non-blocking export rules  
-5. [observability-operational-limits](architecture/observability-operational-limits.md) — architectural caps  
-6. [telemetry-naming-convention](architecture/telemetry-naming-convention.md) — official naming  
-7. [telemetry-decision-guide](architecture/telemetry-decision-guide.md) — which signal to emit  
-8. [observability-playbook](operations/observability-playbook.md) — investigation runbook  
-9. [collector-hardening-checklist](operations/collector-hardening-checklist.md) — Phase 3 deploy checklist  
-10. [ADR-028](decisions/ADR-028-observability-platform.md) — Collector-only ingestion  
-11. [ADR-029](decisions/ADR-029-telemetry-data-model.md) — metrics, logs, traces, events  
-12. [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) — redaction and PII  
-13. [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) — retention and cost  
-14. [asynchronous-orchestration](architecture/asynchronous-orchestration.md) — trace spans for async layers  
+4. [collector-deployment](specs/observability-foundation/mvp/collector-deployment.md) — **Phase 3** config, Docker Compose, security, validation  
+5. [collector/README.md](../collector/README.md) — quick start + validation checklist  
+6. [telemetry-availability-policy](architecture/telemetry-availability-policy.md) — non-blocking export rules  
+7. [observability-operational-limits](architecture/observability-operational-limits.md) — architectural caps  
+8. [telemetry-naming-convention](architecture/telemetry-naming-convention.md) — official naming  
+9. [telemetry-decision-guide](architecture/telemetry-decision-guide.md) — which signal to emit  
+10. [observability-playbook](operations/observability-playbook.md) — investigation runbook  
+11. [collector-hardening-checklist](operations/collector-hardening-checklist.md) — deploy hardening checklist  
+12. [ADR-028](decisions/ADR-028-observability-platform.md) — Collector-only ingestion  
+13. [ADR-029](decisions/ADR-029-telemetry-data-model.md) — metrics, logs, traces, events  
+14. [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) — redaction and PII  
+15. [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) — retention and cost  
+16. [asynchronous-orchestration](architecture/asynchronous-orchestration.md) — trace spans for async layers  
 
 **Mobile UX or presentation polish**
 
@@ -394,21 +397,24 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 
 **ADRs:** [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md)
 
-## Observability Foundation (Phase 1 + 1.5 + 2 + 2.5 + 9.5)
+## Observability Foundation (Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3)
 
 | Document | Description |
 | --- | --- |
 | [observability-foundation/mvp/spec.md](specs/observability-foundation/mvp/spec.md) | OpenTelemetry Collector pipeline — Prometheus, Loki, Tempo, Grafana; staging VM MVP |
 | [infrastructure-review.md](specs/observability-foundation/mvp/infrastructure-review.md) | **Phase 2** — deployment topology, ports, storage, failure analysis |
 | [security-review.md](specs/observability-foundation/mvp/security-review.md) | **Phase 2.5** — threat model, auth (API key + TLS), PII, redaction, rate limiting |
+| [collector-deployment.md](specs/observability-foundation/mvp/collector-deployment.md) | **Phase 3** — Collector config, Docker Compose, security, validation, upgrade strategy |
 | [telemetry-availability-policy.md](architecture/telemetry-availability-policy.md) | Telemetry must never block business logic — best-effort export |
 | [observability-operational-limits.md](architecture/observability-operational-limits.md) | Architectural limits — Collector, Prometheus, Loki, Tempo, Grafana |
 | [telemetry-naming-convention.md](architecture/telemetry-naming-convention.md) | Platform-wide naming — services, metrics, spans, logs, events |
 | [telemetry-decision-guide.md](architecture/telemetry-decision-guide.md) | Signal choice — when to use metric, trace, span, event, log |
 | [observability-playbook.md](operations/observability-playbook.md) | Investigation runbook — dashboards, traces, logs, incidents |
-| [collector-hardening-checklist.md](operations/collector-hardening-checklist.md) | **Phase 3** — Collector deploy hardening checklist |
+| [collector-hardening-checklist.md](operations/collector-hardening-checklist.md) | Collector deploy hardening checklist |
 | [observability-foundation/mvp/plan.md](specs/observability-foundation/mvp/plan.md) | Implementation plan (Phases 1–11.5 + release) |
 | [observability-foundation/mvp/tasks.md](specs/observability-foundation/mvp/tasks.md) | Task checklist |
+
+**Implementation:** [`collector/`](../collector/) — `config.yaml`, `docker-compose.yml`, `.env.example`, `README.md`
 
 **ADRs:** [ADR-028](decisions/ADR-028-observability-platform.md) · [ADR-029](decisions/ADR-029-telemetry-data-model.md) · [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) · [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md)
 
@@ -547,7 +553,9 @@ Runbooks for homologation deploy, validation, and coordination.
 | --- | --- |
 | [scheduler-smart-home-operational-checklist.md](operations/scheduler-smart-home-operational-checklist.md) | **Scheduler + Smart Home ops runbook** — workers, queues, env, health checks, failure matrix, deploy/recovery/troubleshooting |
 | [observability-playbook.md](operations/observability-playbook.md) | **Observability investigation runbook** — dashboards, traces, logs, Collector/Prometheus/Loki/Tempo/Grafana incidents, escalation |
-| [collector-hardening-checklist.md](operations/collector-hardening-checklist.md) | **Collector hardening checklist** — firewall, TLS, auth, processors, Phase 3 deploy verification |
+| [collector-hardening-checklist.md](operations/collector-hardening-checklist.md) | **Collector hardening checklist** — firewall, TLS, auth, processors, deploy verification |
+| [collector-deployment.md](specs/observability-foundation/mvp/collector-deployment.md) | **Phase 3 Collector deployment** — config, Docker Compose, security implementation, validation, upgrade |
+| [collector/README.md](../collector/README.md) | **Collector quick start** — `docker compose up`, validation checklist, port reference |
 | [scheduler-smart-home-e2e/summary.md](qa/scheduler-smart-home-e2e/summary.md) | **Phase 8 E2E QA report** — happy-path, failure, mobile UX, notification, architecture ADR validation |
 | [deploy-pipeline.md](architecture/backend/deploy-pipeline.md) | `feature` → `develop` → `staging`, OpenTofu apply, App Platform, migrations |
 | [staging-digitalocean.md](architecture/backend/staging-digitalocean.md) | Runtime topology, queue worker, secrets boundaries |

@@ -1,0 +1,397 @@
+# ============================================================
+# Ixora Observability Platform — OpenTelemetry Collector Config
+# Phase 3 — Collector Deployment
+#
+# Naming: telemetry-naming-convention.md
+# Security: security-review.md + collector-hardening-checklist.md
+# Limits: observability-operational-limits.md (ADR-031)
+# Availability: telemetry-availability-policy.md (ADR-028/029)
+#
+# ⚠️  Backends (Prometheus, Loki, Tempo) are NOT configured here.
+#     They are enabled in Phase 4, 5, 6 respectively.
+#     All exporter sections below are stubs — intentionally disabled.
+# ============================================================
+
+# ============================================================
+# EXTENSIONS
+# ============================================================
+extensions:
+
+  # Health check — required for DO load balancer, systemd, and
+  # collector-hardening-checklist.md §8 validation.
+  health_check:
+    endpoint: "0.0.0.0:13133"
+    path: "/health"
+
+  # Performance profiling — internal only; not exposed publicly.
+  # Disable in production steady state unless debugging.
+  pprof:
+    endpoint: "127.0.0.1:1777"
+
+  # zPages live diagnostics — internal only.
+  zpages:
+    endpoint: "127.0.0.1:55679"
+
+  # Bearer token auth for OTLP ingest.
+  # Shared secret supplied via OTEL_INGEST_API_KEY env var.
+  # security-review.md §3 — MVP: API Keys + TLS.
+  bearertokenauth/backend:
+    token: "${env:OTEL_INGEST_API_KEY_BACKEND}"
+
+  bearertokenauth/mobile:
+    token: "${env:OTEL_INGEST_API_KEY_MOBILE}"
+
+# ============================================================
+# RECEIVERS
+# ============================================================
+receivers:
+
+  # OTLP gRPC — primary for back_vibes-api / back_vibes-worker.
+  # infrastructure-review.md §5: port 4317 public (TLS termination
+  # handled by reverse proxy / Caddy in front of this port).
+  otlp/backend:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+        # TLS is terminated by the reverse proxy (Caddy/nginx).
+        # For end-to-end TLS, set tls block here with cert_file/key_file.
+        # Uncomment when cert paths are confirmed in Phase 3 deployment:
+        # tls:
+        #   cert_file: /etc/otel/tls/server.crt
+        #   key_file:  /etc/otel/tls/server.key
+        #   min_version: "1.2"
+      http:
+        endpoint: "0.0.0.0:4318"
+        # tls: (same as above)
+    auth:
+      authenticator: bearertokenauth/backend
+
+  # OTLP HTTP — primary for front_vibes-android (mobile).
+  # Mobile uses HTTP/JSON over HTTPS; gRPC impractical on Capacitor.
+  # infrastructure-review.md §4: mobile → Collector OTLP/HTTP.
+  otlp/mobile:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:4319"
+        # Port 4319 differentiates mobile auth from backend.
+        # A single port + auth extension per-key is acceptable
+        # alternative; kept separate for clarity and blast radius.
+        # tls: (same as backend when certs are provisioned)
+    auth:
+      authenticator: bearertokenauth/mobile
+
+  # Self-monitoring: Collector exports its own metrics.
+  # Consumed by the metrics pipeline below.
+  prometheus/self:
+    config:
+      scrape_configs:
+        - job_name: "otel-collector"
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["127.0.0.1:8888"]
+
+# ============================================================
+# PROCESSORS
+# ============================================================
+processors:
+
+  # ----------------------------------------------------------
+  # 1. MEMORY LIMITER
+  # Must be the FIRST processor in every pipeline.
+  # Protects VM from OOM when ingest spikes.
+  # observability-operational-limits.md §1.
+  # telemetry-availability-policy.md §5 — drops telemetry, never apps.
+  # ----------------------------------------------------------
+  memory_limiter:
+    check_interval: 5s
+    # Hard limit: refuse new data when RSS exceeds limit_mib.
+    # Set relative to VM RAM in Phase 3 deployment (512–1024 MiB typical).
+    limit_mib: 512
+    # Spike limit: if RSS grows by more than spike_limit_mib in check_interval,
+    # trigger GC and start refusing before the hard limit.
+    spike_limit_mib: 128
+
+  # ----------------------------------------------------------
+  # 2. BATCH PROCESSOR
+  # Groups spans/logs/metrics before export.
+  # Reduces egress to backends and improves throughput.
+  # observability-operational-limits.md §1.
+  # ----------------------------------------------------------
+  batch:
+    # Maximum items per batch before forcing flush.
+    send_batch_size: 1000
+    # Maximum wait before flushing a partial batch.
+    timeout: 10s
+    # Hard cap: reject if pending queue exceeds this.
+    send_batch_max_size: 2000
+
+  # ----------------------------------------------------------
+  # 3. RESOURCE PROCESSOR
+  # Validates and enriches OTel resource attributes.
+  # Enforces service.name allowlist (telemetry poisoning mitigation).
+  # security-review.md §1 + telemetry-naming-convention.md §3.
+  # ----------------------------------------------------------
+  resource:
+    attributes:
+      # Stamp deployment.environment from env var if not already set.
+      # This prevents spoofed environment values from reaching backends.
+      - key: "deployment.environment"
+        value: "${env:OTEL_DEPLOYMENT_ENVIRONMENT}"
+        action: upsert
+
+  # ----------------------------------------------------------
+  # 4. ATTRIBUTES PROCESSOR — SECURITY REDACTION
+  # Implements ADR-030 redaction at Collector boundary.
+  # security-review.md §8 — second line of defense.
+  # Drop forbidden credential and PII keys before any storage.
+  # ----------------------------------------------------------
+  attributes/redact_secrets:
+    actions:
+      # Credential keys — always forbidden (ADR-030).
+      - key: "authorization"
+        action: delete
+      - key: "http.request.header.authorization"
+        action: delete
+      - key: "password"
+        action: delete
+      - key: "token"
+        action: delete
+      - key: "access_token"
+        action: delete
+      - key: "refresh_token"
+        action: delete
+      - key: "id_token"
+        action: delete
+      - key: "fcm_token"
+        action: delete
+      - key: "push_token"
+        action: delete
+      - key: "ha_token"
+        action: delete
+      - key: "provider_credentials"
+        action: delete
+      - key: "secret"
+        action: delete
+      - key: "api_key"
+        action: delete
+      - key: "private_key"
+        action: delete
+      - key: "encrypted_credentials"
+        action: delete
+      # PII — direct identifiers forbidden (ADR-030).
+      - key: "user_email"
+        action: delete
+      - key: "email"
+        action: delete
+      - key: "firebase_uid"
+        action: delete
+      # Raw DB statements — forbidden in MVP traces (ADR-030).
+      - key: "db.statement"
+        action: delete
+
+  # ----------------------------------------------------------
+  # 5. ATTRIBUTES PROCESSOR — METRIC LABEL CARDINALITY CONTROL
+  # Drops high-cardinality labels before Prometheus exporter.
+  # ADR-031: target < 10 000 active series per service.name.
+  # telemetry-naming-convention.md §8 forbidden labels.
+  # ----------------------------------------------------------
+  attributes/drop_high_cardinality:
+    include:
+      match_type: regexp
+      # Apply to all metrics signals.
+      span_names: [".*"]
+    actions:
+      - key: "user_id"
+        action: delete
+      - key: "schedule_id"
+        action: delete
+      - key: "vibe_id"
+        action: delete
+      - key: "device_id"
+        action: delete
+      - key: "trace_id"
+        action: delete
+      - key: "http.url"
+        action: delete
+      - key: "provider_entity_id"
+        action: delete
+
+  # ----------------------------------------------------------
+  # 6. TRANSFORM PROCESSOR
+  # Normalise http.url → http.route template where route not set.
+  # Prevents raw /api/schedules/42 paths exploding Prometheus.
+  # telemetry-naming-convention.md §6 — span names use route templates.
+  # ----------------------------------------------------------
+  transform/normalize_http:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          # If http.route is missing, fall back to http.url path without query.
+          # This is a best-effort normalisation; SDK should set http.route.
+          - set(attributes["http.route"], attributes["http.route"])
+            where attributes["http.route"] != nil
+
+  # ----------------------------------------------------------
+  # 7. PROBABILISTIC SAMPLER — TRACES
+  # Head sampling per ADR-031.
+  # 10% success; 100% errors/failures handled via filter before sampler.
+  # NOTE: Error traces are excluded from sampling — they pass through
+  # the filter processor below and bypass the sampler.
+  # ----------------------------------------------------------
+  probabilistic_sampler:
+    # 10% default for successful traces. Errors bypass via filter_errors pipeline.
+    sampling_percentage: 10
+    # Hash seed — change per environment to avoid correlated drops.
+    hash_seed: 22
+
+# ============================================================
+# EXPORTERS
+# ============================================================
+# All exporters are STUBS — backends not yet deployed.
+# Phase 3: only logging/debug exporter active for validation.
+# Phase 4: enable prometheusremotewrite (metrics).
+# Phase 5: enable loki (logs).
+# Phase 6: enable otlp/tempo (traces).
+# ============================================================
+exporters:
+
+  # ----------------------------------------------------------
+  # DEBUG EXPORTER (Phase 3 validation only)
+  # Logs received data to Collector stdout at info level.
+  # DISABLE once backends are wired (Phase 4+).
+  # collector-hardening-checklist.md §7 — disabled in steady state.
+  # ----------------------------------------------------------
+  debug:
+    verbosity: normal
+    # Set to "detailed" temporarily during Phase 3 smoke tests,
+    # revert to "normal" or disable after validation.
+
+  # ----------------------------------------------------------
+  # PROMETHEUS REMOTE WRITE — Phase 4 (stub)
+  # Uncomment and configure when Prometheus is deployed.
+  # ----------------------------------------------------------
+  # prometheusremotewrite:
+  #   endpoint: "http://127.0.0.1:9090/api/v1/write"
+  #   tls:
+  #     insecure: true  # localhost — no TLS needed
+  #   resource_to_telemetry_conversion:
+  #     enabled: true
+
+  # ----------------------------------------------------------
+  # LOKI — Phase 5 (stub)
+  # ----------------------------------------------------------
+  # loki:
+  #   endpoint: "http://127.0.0.1:3100/loki/api/v1/push"
+  #   tls:
+  #     insecure: true
+  #   labels:
+  #     resource:
+  #       service.name: "service_name"
+  #       deployment.environment: "env"
+
+  # ----------------------------------------------------------
+  # TEMPO (OTLP) — Phase 6 (stub)
+  # ----------------------------------------------------------
+  # otlp/tempo:
+  #   endpoint: "http://127.0.0.1:4317"  # Tempo's OTLP receiver
+  #   tls:
+  #     insecure: true
+
+# ============================================================
+# SERVICE
+# ============================================================
+service:
+
+  # Extensions enabled globally.
+  extensions:
+    - health_check
+    - pprof
+    - zpages
+    - bearertokenauth/backend
+    - bearertokenauth/mobile
+
+  telemetry:
+    # Collector self-logs — structured JSON to stdout.
+    logs:
+      level: "info"
+      encoding: "json"
+    # Collector self-metrics endpoint (scraped by prometheus/self receiver).
+    metrics:
+      address: "127.0.0.1:8888"
+
+  pipelines:
+
+    # --------------------------------------------------------
+    # METRICS PIPELINE
+    # Phase 3: receives metrics, applies processors, logs to debug.
+    # Phase 4: add prometheusremotewrite exporter.
+    # --------------------------------------------------------
+    metrics:
+      receivers:
+        - otlp/backend
+        - otlp/mobile
+        - prometheus/self
+      processors:
+        - memory_limiter         # First — OOM guard
+        - resource               # Stamp environment
+        - attributes/redact_secrets        # Drop credentials
+        - attributes/drop_high_cardinality # Drop high-cardinality labels
+        - batch                  # Group before export
+      exporters:
+        - debug
+        # - prometheusremotewrite  # Enable in Phase 4
+
+    # --------------------------------------------------------
+    # LOGS PIPELINE
+    # Phase 3: receives logs, redacts, logs to debug.
+    # Phase 5: add loki exporter.
+    # --------------------------------------------------------
+    logs:
+      receivers:
+        - otlp/backend
+        - otlp/mobile
+      processors:
+        - memory_limiter
+        - resource
+        - attributes/redact_secrets
+        - batch
+      exporters:
+        - debug
+        # - loki  # Enable in Phase 5
+
+    # --------------------------------------------------------
+    # TRACES PIPELINE — main (sampled)
+    # 10% success traces via probabilistic_sampler.
+    # Phase 3: receives traces, samples, logs to debug.
+    # Phase 6: add otlp/tempo exporter.
+    # --------------------------------------------------------
+    traces:
+      receivers:
+        - otlp/backend
+        - otlp/mobile
+      processors:
+        - memory_limiter
+        - resource
+        - attributes/redact_secrets
+        - transform/normalize_http
+        - probabilistic_sampler    # 10% success
+        - batch
+      exporters:
+        - debug
+        # - otlp/tempo  # Enable in Phase 6
+
+    # --------------------------------------------------------
+    # TRACES PIPELINE — errors (100% sampled)
+    # Error spans bypass probabilistic_sampler.
+    # Identifies failed jobs, 5xx, provider errors at full fidelity.
+    # ADR-031 §sampling: 100% for errors.
+    # --------------------------------------------------------
+    # NOTE: This pipeline is a design stub for Phase 6 when Tempo
+    # is wired. In Phase 3 both trace pipelines can share the same
+    # pipeline; separate pipelines require fan-out receiver or
+    # a tail-sampling processor which is deferred.
+    #
+    # Recommended Phase 6 approach: tail_sampling processor with
+    # policy { type: status_code, status_code: { status_codes: [ERROR] } }
+    # which provides 100% errors + 10% success in a single pipeline.

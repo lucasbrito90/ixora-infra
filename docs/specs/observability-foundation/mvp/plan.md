@@ -131,10 +131,22 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 **Goal:** Running OpenTelemetry Collector on DO VM accepting OTLP.
 
+### Deliverables (Phase 3 — config complete)
+
+| Item | Output |
+| --- | --- |
+| Collector configuration | [`collector/config.yaml`](../../../../collector/config.yaml) |
+| Docker Compose | [`collector/docker-compose.yml`](../../../../collector/docker-compose.yml) |
+| Environment template | [`collector/.env.example`](../../../../collector/.env.example) |
+| Collector README | [`collector/README.md`](../../../../collector/README.md) |
+| Deployment spec | [`collector-deployment.md`](collector-deployment.md) |
+
 ### Exit criteria
 
-- Collector health endpoint returns OK.
-- Test span from `telemetrygen` or curl reaches Collector (no backends required yet).
+- Collector health endpoint returns OK (`curl :13133/health`).
+- Test span from `telemetrygen` or curl reaches Collector (authenticated) — no backends required yet.
+- Unauthenticated OTLP returns 401.
+- Debug exporter shows received spans in `docker compose logs`.
 
 ---
 
