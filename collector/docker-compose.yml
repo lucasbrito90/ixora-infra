@@ -1,0 +1,215 @@
+# ============================================================
+# Ixora Observability Platform — Docker Compose
+# Phase 3 — Collector Deployment
+#
+# Scope: OpenTelemetry Collector ONLY.
+# Prometheus, Loki, Tempo, Grafana are NOT enabled in Phase 3.
+# Each backend service has a commented stub below — enable in
+# the respective phase:
+#   Phase 4: prometheus
+#   Phase 5: loki
+#   Phase 6: tempo
+#   Phase 9: grafana
+#
+# Usage:
+#   cp .env.example .env  && fill secrets
+#   docker compose up -d collector
+#   docker compose ps
+#   curl http://localhost:13133/health
+# ============================================================
+
+version: "3.9"
+
+# ============================================================
+# NETWORKS
+# Internal-only bridge for Collector → backends (localhost equiv).
+# All backend containers share this network in later phases.
+# ============================================================
+networks:
+  observability:
+    driver: bridge
+    internal: false   # Collector needs outbound for health checks
+    name: ixora-observability
+
+# ============================================================
+# VOLUMES
+# Named volumes for persistent backend data.
+# Only declared here so Phase 4–9 containers can reference them
+# without recreating this file.
+# ============================================================
+volumes:
+  prometheus_data:
+    driver: local
+  loki_data:
+    driver: local
+  tempo_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# ============================================================
+# SERVICES
+# ============================================================
+services:
+
+  # ----------------------------------------------------------
+  # OpenTelemetry Collector
+  # Phase 3 — the ONLY active service.
+  # ----------------------------------------------------------
+  collector:
+    # Pin to a specific release — never use :latest in infra.
+    # Update OTEL_COLLECTOR_VERSION in .env to upgrade.
+    image: "otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_VERSION:-0.115.0}"
+    container_name: ixora-otel-collector
+    restart: unless-stopped
+
+    command:
+      - "--config=/etc/otelcol/config.yaml"
+      # Validate config on startup — fail fast on YAML errors.
+      - "--feature-gates=-component.UseLocalHostAsDefaultHost"
+
+    # Environment variables injected from .env
+    environment:
+      # Deployment identity.
+      OTEL_DEPLOYMENT_ENVIRONMENT: "${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}"
+      # API keys for ingest auth — never hardcoded.
+      OTEL_INGEST_API_KEY_BACKEND: "${OTEL_INGEST_API_KEY_BACKEND}"
+      OTEL_INGEST_API_KEY_MOBILE: "${OTEL_INGEST_API_KEY_MOBILE}"
+      # Resource limits for memory_limiter processor.
+      OTEL_MEMORY_LIMIT_MIB: "${OTEL_MEMORY_LIMIT_MIB:-512}"
+      OTEL_MEMORY_SPIKE_LIMIT_MIB: "${OTEL_MEMORY_SPIKE_LIMIT_MIB:-128}"
+
+    volumes:
+      # Collector configuration — read-only bind mount.
+      - type: bind
+        source: ./config.yaml
+        target: /etc/otelcol/config.yaml
+        read_only: true
+      # TLS certificates (optional — only needed when Collector
+      # terminates TLS directly rather than via reverse proxy).
+      # Mount only when OTEL_TLS_CERT_FILE / OTEL_TLS_KEY_FILE are set.
+      # - type: bind
+      #   source: /etc/otel/tls
+      #   target: /etc/otel/tls
+      #   read_only: true
+
+    ports:
+      # ---- Public (exposed by firewall / reverse proxy) ----
+      # OTLP gRPC — backend clients (back_vibes-api, back_vibes-worker).
+      - "${OTEL_GRPC_PORT:-4317}:4317"
+      # OTLP HTTP — backend clients + mobile fallback.
+      - "${OTEL_HTTP_PORT:-4318}:4318"
+      # OTLP HTTP — mobile-dedicated port.
+      - "${OTEL_HTTP_MOBILE_PORT:-4319}:4319"
+
+      # ---- Internal / ops only (bind to 127.0.0.1) ----
+      # Collector self-metrics scrape endpoint.
+      - "127.0.0.1:${OTEL_SELF_METRICS_PORT:-8888}:8888"
+      # Health check extension.
+      - "127.0.0.1:${OTEL_HEALTH_PORT:-13133}:13133"
+      # pprof profiling (ops only).
+      - "127.0.0.1:${OTEL_PPROF_PORT:-1777}:1777"
+      # zPages diagnostics (ops only).
+      - "127.0.0.1:${OTEL_ZPAGES_PORT:-55679}:55679"
+
+    networks:
+      - observability
+
+    # Resource limits — Phase 3 baseline (4 vCPU / 8 GB VM).
+    # Tune per infrastructure-review.md §10 after load testing.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"    # Max 1 vCPU for Collector; leaves headroom for backends
+          memory: "768M" # memory_limiter hard limit (512 MiB) + headroom
+        reservations:
+          cpus: "0.25"
+          memory: "256M"
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:13133/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ============================================================
+  # PHASE 4 STUB — Prometheus
+  # Uncomment when Phase 4 begins.
+  # ============================================================
+  # prometheus:
+  #   image: "prom/prometheus:v2.54.1"
+  #   container_name: ixora-prometheus
+  #   restart: unless-stopped
+  #   command:
+  #     - "--config.file=/etc/prometheus/prometheus.yml"
+  #     - "--storage.tsdb.path=/prometheus"
+  #     - "--storage.tsdb.retention.time=30d"
+  #     - "--web.listen-address=127.0.0.1:9090"
+  #     - "--web.enable-lifecycle"
+  #   volumes:
+  #     - prometheus_data:/prometheus
+  #     - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #   networks:
+  #     - observability
+  #   ports:
+  #     - "127.0.0.1:9090:9090"
+
+  # ============================================================
+  # PHASE 5 STUB — Loki
+  # ============================================================
+  # loki:
+  #   image: "grafana/loki:3.2.0"
+  #   container_name: ixora-loki
+  #   restart: unless-stopped
+  #   command: "-config.file=/etc/loki/loki.yaml"
+  #   volumes:
+  #     - loki_data:/loki
+  #     - ./loki/loki.yaml:/etc/loki/loki.yaml:ro
+  #   networks:
+  #     - observability
+  #   ports:
+  #     - "127.0.0.1:3100:3100"
+
+  # ============================================================
+  # PHASE 6 STUB — Tempo
+  # ============================================================
+  # tempo:
+  #   image: "grafana/tempo:2.6.0"
+  #   container_name: ixora-tempo
+  #   restart: unless-stopped
+  #   command: "-config.file=/etc/tempo/tempo.yaml"
+  #   volumes:
+  #     - tempo_data:/var/tempo
+  #     - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+  #   networks:
+  #     - observability
+  #   ports:
+  #     - "127.0.0.1:3200:3200"   # Tempo query
+  #     - "127.0.0.1:9095:9095"   # Tempo gRPC
+
+  # ============================================================
+  # PHASE 9 STUB — Grafana
+  # ============================================================
+  # grafana:
+  #   image: "grafana/grafana-oss:11.3.0"
+  #   container_name: ixora-grafana
+  #   restart: unless-stopped
+  #   environment:
+  #     GF_SECURITY_ADMIN_USER: "${GF_ADMIN_USER:-admin}"
+  #     GF_SECURITY_ADMIN_PASSWORD: "${GF_ADMIN_PASSWORD}"
+  #     GF_AUTH_ANONYMOUS_ENABLED: "false"
+  #     GF_SERVER_ROOT_URL: "https://grafana-staging.ixora-app.app"
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #     - ./grafana/provisioning:/etc/grafana/provisioning:ro
+  #   networks:
+  #     - observability
+  #   ports:
+  #     - "127.0.0.1:3000:3000"
