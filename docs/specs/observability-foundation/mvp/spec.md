@@ -210,5 +210,6 @@ Before marking any implementation phase **Done**:
 | [telemetry-availability-policy.md](../../../architecture/telemetry-availability-policy.md) | Non-blocking telemetry export policy |
 | [observability-operational-limits.md](../../../architecture/observability-operational-limits.md) | Architectural limits for Collector and backends |
 | [collector-hardening-checklist.md](../../../operations/collector-hardening-checklist.md) | Phase 3 Collector deploy checklist |
+| [collector-deployment.md](collector-deployment.md) | Phase 3 — Collector configuration, Docker Compose, security, validation |
 | [mobile-e2e-testing.md](../../../testing/mobile-e2e-testing.md) | Phase 11.5 mobile validation |
 | [plan.md](plan.md) · [tasks.md](tasks.md) | Implementation tracking |

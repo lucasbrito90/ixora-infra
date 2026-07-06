@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 complete — ADRs + Spec + Infra + Security + Guides  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 (config) complete — ADRs + Spec + Infra + Security + Guides + Collector Infrastructure  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -24,7 +24,7 @@
 | 1.5 — Naming Convention | 0 | 0 | 1 | 0 |
 | 2 — Infrastructure review | 0 | 0 | 5 | 0 |
 | 2.5 — Security review | 0 | 0 | 5 | 0 |
-| 3 — Collector deployment | 4 | 0 | 0 | 0 |
+| 3 — Collector deployment | 1 | 0 | 8 | 0 |
 | 4 — Prometheus | 3 | 0 | 0 | 0 |
 | 5 — Loki | 3 | 0 | 0 | 0 |
 | 6 — Tempo | 3 | 0 | 0 | 0 |
@@ -127,10 +127,27 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P3-1 | Deploy OpenTelemetry Collector on DO VM | **Pending** | [`ADR-028`](../../../decisions/ADR-028-observability-platform.md) |
-| P3-2 | Configure OTLP receivers (HTTP + gRPC) | **Pending** | |
-| P3-3 | Configure redaction + sampling processors | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) · [`ADR-031`](../../../decisions/ADR-031-retention-storage-and-cost-control.md) |
-| P3-4 | Verify health endpoint + test OTLP ingest | **Pending** | |
+| P3-1 | Create `collector/config.yaml` — OTLP receivers, processors, extensions, pipelines | **Done** | [`collector-deployment.md`](collector-deployment.md) |
+| P3-2 | Configure OTLP receivers: gRPC `:4317`, HTTP `:4318`, mobile `:4319` | **Done** | [`ADR-028`](../../../decisions/ADR-028-observability-platform.md) |
+| P3-3 | Configure processors: memory_limiter, batch, resource, redact_secrets, drop_high_cardinality, transform, probabilistic_sampler | **Done** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) · [`ADR-031`](../../../decisions/ADR-031-retention-storage-and-cost-control.md) |
+| P3-4 | Configure extensions: health_check, pprof, zpages, bearertokenauth (backend + mobile) | **Done** | [`security-review.md`](security-review.md) |
+| P3-5 | Create `collector/docker-compose.yml` — Collector active; Phase 4–9 backends stubbed | **Done** | [`infrastructure-review.md`](infrastructure-review.md) |
+| P3-6 | Create `collector/.env.example` — all secrets via env vars | **Done** | [`security-review.md §6`](security-review.md) |
+| P3-7 | Create `collector/README.md` — quick start, validation checklist, upgrade strategy | **Done** | |
+| P3-8 | Create `collector-deployment.md` — full deployment spec with security, limits, phase stubs | **Done** | |
+| P3-9 | Deploy Collector on DO VM and verify health endpoint (runtime step) | **Pending — VM provisioning** | [`collector-hardening-checklist.md`](../../../operations/collector-hardening-checklist.md) |
+
+**Phase 3 implementation notes:**
+
+- Collector is the ONLY active Docker Compose service; all backends are documented stubs.
+- API key authentication via `bearertokenauth` extension — separate keys for backend and mobile.
+- Redaction processor drops 18 forbidden credential + PII keys per ADR-030.
+- Cardinality control processor drops 7 high-cardinality metric labels per ADR-031.
+- Memory limiter (512 MiB) and batch processor protect VM per observability-operational-limits.md.
+- All exporter sections commented — debug exporter only for Phase 3 validation.
+- TLS-ready: `tls:` block in receivers commented; activate when cert paths confirmed.
+- No application repositories modified. No back_vibes. No front_vibes. No other infra changes.
+- **P3-9 (runtime deploy) pending VM provisioning — outside ixora-infra scope until VM is created.**
 
 **Branch:** `feature/observability-collector-deploy`
 
