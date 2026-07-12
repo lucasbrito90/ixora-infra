@@ -1,24 +1,23 @@
 # ============================================================
 # Ixora Observability Platform — Docker Compose
-# Phase 3 — Collector Deployment
+# Phase 4 — Prometheus Metrics Backend
 #
-# Scope: OpenTelemetry Collector ONLY.
-# Prometheus, Loki, Tempo, Grafana are NOT enabled in Phase 3.
-# Each backend service has a commented stub below — enable in
-# the respective phase:
-#   Phase 4: prometheus
-#   Phase 5: loki
-#   Phase 6: tempo
-#   Phase 9: grafana
+# Active services:
+#   collector   — OpenTelemetry Collector (Phase 3)
+#   prometheus  — Prometheus TSDB, 30-day retention (Phase 4)
+#
+# Stubbed for later phases:
+#   loki        — Phase 5
+#   tempo       — Phase 6
+#   grafana     — Phase 9
 #
 # Usage:
 #   cp .env.example .env  && fill secrets
-#   docker compose up -d collector
+#   docker compose up -d collector prometheus
 #   docker compose ps
 #   curl http://localhost:13133/health
+#   curl http://localhost:9090/-/healthy
 # ============================================================
-
-version: "3.9"
 
 # ============================================================
 # NETWORKS
@@ -59,14 +58,12 @@ services:
   collector:
     # Pin to a specific release — never use :latest in infra.
     # Update OTEL_COLLECTOR_VERSION in .env to upgrade.
-    image: "otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_VERSION:-0.115.0}"
+    image: "otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_VERSION:-0.115.1}"
     container_name: ixora-otel-collector
     restart: unless-stopped
 
     command:
       - "--config=/etc/otelcol/config.yaml"
-      # Validate config on startup — fail fast on YAML errors.
-      - "--feature-gates=-component.UseLocalHostAsDefaultHost"
 
     # Environment variables injected from .env
     environment:
@@ -126,12 +123,10 @@ services:
           cpus: "0.25"
           memory: "256M"
 
+    # Distroless image has no shell/wget — health is verified from the host
+    # (curl http://127.0.0.1:13133/health). See collector/README.md §Validation.
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:13133/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+      disable: true
 
     logging:
       driver: "json-file"
@@ -140,26 +135,104 @@ services:
         max-file: "3"
 
   # ============================================================
-  # PHASE 4 STUB — Prometheus
-  # Uncomment when Phase 4 begins.
+  # PHASE 4 — Prometheus Metrics Backend
+  # ADR-028: internal only; never publicly reachable.
+  # ADR-031: 30-day TSDB retention.
+  # Security: bound to 127.0.0.1 on the host; accessible to
+  #           Collector via Docker network (service name: prometheus).
   # ============================================================
-  # prometheus:
-  #   image: "prom/prometheus:v2.54.1"
-  #   container_name: ixora-prometheus
-  #   restart: unless-stopped
-  #   command:
-  #     - "--config.file=/etc/prometheus/prometheus.yml"
-  #     - "--storage.tsdb.path=/prometheus"
-  #     - "--storage.tsdb.retention.time=30d"
-  #     - "--web.listen-address=127.0.0.1:9090"
-  #     - "--web.enable-lifecycle"
-  #   volumes:
-  #     - prometheus_data:/prometheus
-  #     - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-  #   networks:
-  #     - observability
-  #   ports:
-  #     - "127.0.0.1:9090:9090"
+  prometheus:
+    # Pin to a specific release — never use :latest.
+    # Update PROMETHEUS_VERSION in .env to upgrade.
+    image: "prom/prometheus:${PROMETHEUS_VERSION:-v2.54.1}"
+    container_name: ixora-prometheus
+    restart: unless-stopped
+
+    command:
+      # Configuration file (read-only bind mount below).
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+      # TSDB storage path (named volume — persists across restarts).
+      - "--storage.tsdb.path=/prometheus"
+
+      # Retention: 30 days per ADR-031 §MVP retention.
+      # Prometheus enforces this by deleting blocks older than the limit.
+      - "--storage.tsdb.retention.time=30d"
+
+      # Bind inside container to all interfaces so Docker network
+      # allows Collector (on same bridge) to reach :9090.
+      # Host-side exposure restricted to 127.0.0.1 via ports mapping.
+      - "--web.listen-address=0.0.0.0:9090"
+
+      # Enable the remote write receiver so the Collector can push
+      # metrics via prometheusremotewrite exporter.
+      # Endpoint: POST /api/v1/write
+      - "--web.enable-remote-write-receiver"
+
+      # Enable lifecycle API (POST /-/reload) for hot config reload.
+      # Used after rule file changes (Phase 10+).
+      # Bound to internal network only — no public exposure.
+      - "--web.enable-lifecycle"
+
+      # WAL compression reduces disk I/O on spinning-disk VMs.
+      # Enabled by default in Prometheus 2.54+; explicit for clarity.
+      - "--storage.tsdb.wal-compression"
+
+      # TSDB block duration — default 2h, sufficient for MVP.
+      # Increasing reduces compaction CPU at cost of query granularity.
+      # Leave default unless Phase 10 profiling reveals compaction pressure.
+      # - "--storage.tsdb.min-block-duration=2h"
+
+    volumes:
+      # TSDB data — named volume; persists across container restarts
+      # and upgrades (docker compose up --no-deps prometheus).
+      - prometheus_data:/prometheus
+
+      # Prometheus configuration — read-only bind mount.
+      # Edit prometheus/prometheus.yml and reload: POST /-/reload
+      - type: bind
+        source: ./prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+
+    ports:
+      # Internal only — accessible from host for Grafana (Phase 9)
+      # and ops debugging. Firewall MUST block port 9090 from internet.
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+
+    networks:
+      # Same bridge as Collector — enables service-name DNS resolution.
+      # Collector reaches Prometheus at http://prometheus:9090
+      - observability
+
+    # Resource limits — tuned for single VM alongside Collector.
+    # infrastructure-review.md §10: Prometheus ~1 GB steady state
+    # with ≤10 000 series and 30d retention.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+        reservations:
+          cpus: "0.25"
+          memory: "256M"
+
+    # Healthcheck using Prometheus built-in ready endpoint.
+    # /-/healthy returns 200 when Prometheus is ready to serve.
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   # ============================================================
   # PHASE 5 STUB — Loki
