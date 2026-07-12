@@ -555,4 +555,5 @@ Before merging instrumentation PRs:
 | [ADR-030](../decisions/ADR-030-observability-security-and-privacy.md) | Forbidden fields |
 | [ADR-031](../decisions/ADR-031-retention-storage-and-cost-control.md) | Cardinality limits |
 | [observability-foundation/mvp/spec.md](../specs/observability-foundation/mvp/spec.md) | Feature spec |
+| [metrics-philosophy.md](metrics-philosophy.md) | How engineers think about metrics — Phases 7A/7B |
 | [notification-architecture.md](notification-architecture.md) | Event type alignment |

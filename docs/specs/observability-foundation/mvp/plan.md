@@ -25,6 +25,8 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 
 > **Naming mandate:** All implementation phases (2–11.5) **must** follow [`telemetry-naming-convention.md`](../../../architecture/telemetry-naming-convention.md) for services, metrics, spans, logs, events, labels, dashboards, and alerts. No ad-hoc names in SDK instrumentation, Collector configs, or Grafana artifacts.
 
+> **Metrics mandate:** Phases **7A** and **7B** (backend instrumentation) **must** follow [`metrics-philosophy.md`](../../../architecture/metrics-philosophy.md) before adding or changing product metrics.
+
 ---
 
 ## Current state
@@ -50,6 +52,8 @@ Phase 1.5  ──► Telemetry Naming Convention (complete)
 Phase 2    ──► Infrastructure review
 Phase 2.5  ──► Security review
 Phase 3    ──► Collector deployment
+Phase 3.5  ──► Collector validation & hardening
+Phase 3.75 ──► Metrics Philosophy (complete)
 Phase 4    ──► Prometheus
 Phase 5    ──► Loki
 Phase 6    ──► Tempo
@@ -150,6 +154,63 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 ---
 
+## Phase 3.5 — Collector validation & hardening
+
+**Goal:** Validate every operational and security aspect of the running Collector before backends are introduced.
+
+### Deliverables (Phase 3.5 — complete)
+
+| Item | Output |
+| --- | --- |
+| Validation report | [`collector-validation-report.md`](collector-validation-report.md) |
+| Hardening sign-off | [`collector-hardening-checklist.md §13`](../../../operations/collector-hardening-checklist.md) |
+| Config fixes | `collector/config.yaml`, `docker-compose.yml`, `.env.example` |
+
+### Validation scope
+
+- Configuration syntax, startup, restart, health endpoint
+- Authentication matrix (401/200), failure tests (malformed, oversized, missing env)
+- Processor audit (memory_limiter, batch, redaction, sampling)
+- Security (secrets, ports, debug exporter exception)
+- Performance baseline (startup time, memory, health latency)
+
+### Exit criteria
+
+- All testable hardening checklist items pass.
+- Six config defects found during validation are fixed.
+- Collector survives restart and rejects invalid requests.
+- Only expected ports exposed (4317–4319 public; ops on `127.0.0.1`).
+- **Ready for Phase 4** after removing `debug` exporter.
+
+### Deferred to VM deploy
+
+- Firewall rules, TLS termination, flood test, app isolation test (11.4)
+
+---
+
+## Phase 3.75 — Metrics Philosophy
+
+**Goal:** Define **how engineers think about metrics** — a platform-wide architectural guide required before backend instrumentation (Phases 7A and 7B).
+
+**Complete (documentation only).**
+
+### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Metrics philosophy guide | [`metrics-philosophy.md`](../../../architecture/metrics-philosophy.md) |
+
+### Exit criteria
+
+- Document published with all 12 sections (purpose, principles, when/when-not, types, labels, signal relationships, lifecycle, checklist, anti-patterns, Ixora examples, cross-references).
+- README, plan, tasks, and spec updated.
+- Consistent with ADRs 028–031, naming convention, decision guide, security review, and collector validation.
+- **No runtime code**, SDK, Collector, Prometheus, Grafana, or infrastructure changes.
+
+> Backend instrumentation PRs (Phases 7A/7B) must follow [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) for metric design and [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) for names.
+
+---
+
 ## Phase 4 — Prometheus
 
 **Goal:** Metrics backend with 30-day retention.
@@ -186,6 +247,8 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 ## Phase 7 — Backend SDK
 
 **Goal:** `back_vibes` emits OTLP to Collector.
+
+**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) — mandatory for Phases **7A** and **7B**.
 
 ### Scope
 

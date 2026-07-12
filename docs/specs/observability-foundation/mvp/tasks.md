@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 (config) complete — ADRs + Spec + Infra + Security + Guides + Collector Infrastructure  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 complete — ADRs + Spec + Infra + Security + Guides + Collector Infrastructure + Validation + Metrics Philosophy  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -24,7 +24,9 @@
 | 1.5 — Naming Convention | 0 | 0 | 1 | 0 |
 | 2 — Infrastructure review | 0 | 0 | 5 | 0 |
 | 2.5 — Security review | 0 | 0 | 5 | 0 |
-| 3 — Collector deployment | 1 | 0 | 8 | 0 |
+| 3 — Collector deployment | 0 | 0 | 9 | 0 |
+| 3.5 — Validation & hardening | 2 | 0 | 8 | 0 |
+| 3.75 — Metrics Philosophy | 0 | 0 | 1 | 0 |
 | 4 — Prometheus | 3 | 0 | 0 | 0 |
 | 5 — Loki | 3 | 0 | 0 | 0 |
 | 6 — Tempo | 3 | 0 | 0 | 0 |
@@ -135,7 +137,7 @@
 | P3-6 | Create `collector/.env.example` — all secrets via env vars | **Done** | [`security-review.md §6`](security-review.md) |
 | P3-7 | Create `collector/README.md` — quick start, validation checklist, upgrade strategy | **Done** | |
 | P3-8 | Create `collector-deployment.md` — full deployment spec with security, limits, phase stubs | **Done** | |
-| P3-9 | Deploy Collector on DO VM and verify health endpoint (runtime step) | **Pending — VM provisioning** | [`collector-hardening-checklist.md`](../../../operations/collector-hardening-checklist.md) |
+| P3-9 | Deploy Collector on DO VM and verify health endpoint (runtime step) | **Done** (local Docker validation; VM deploy deferred) | [`collector-hardening-checklist.md`](../../../operations/collector-hardening-checklist.md) |
 
 **Phase 3 implementation notes:**
 
@@ -147,9 +149,55 @@
 - All exporter sections commented — debug exporter only for Phase 3 validation.
 - TLS-ready: `tls:` block in receivers commented; activate when cert paths confirmed.
 - No application repositories modified. No back_vibes. No front_vibes. No other infra changes.
-- **P3-9 (runtime deploy) pending VM provisioning — outside ixora-infra scope until VM is created.**
+- **P3-9 validated locally via Docker; DO VM firewall/TLS deferred to VM provisioning.**
 
 **Branch:** `feature/observability-collector-deploy`
+
+---
+
+## Phase 3.5 — Collector validation & hardening
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P3.5-1 | Validate config syntax (`otelcol-contrib validate`) | **Done** | [`collector-validation-report.md`](collector-validation-report.md) |
+| P3.5-2 | Validate startup, restart, health endpoint | **Done** | Cold start 1163 ms; restart 5866 ms |
+| P3.5-3 | Validate authentication (401/200 matrix) | **Done** | Backend + mobile keys; cross-port rejection |
+| P3.5-4 | Validate processors (redaction, sampling, batch, memory) | **Done** | Spot check + config audit |
+| P3.5-5 | Run failure tests (malformed, oversized, missing env) | **Done** | Collector survives all failure cases |
+| P3.5-6 | Security validation (secrets, ports, debug exporter) | **Done** | [`collector-hardening-checklist.md §13`](../../../operations/collector-hardening-checklist.md) |
+| P3.5-7 | Performance baseline (CPU, memory, latency) | **Done** | ~30 MiB idle; ~1 ms health latency |
+| P3.5-8 | Fix defects found during validation (auth, image, healthcheck, bind) | **Done** | 6 defects fixed — see validation report |
+| P3.5-9 | Publish `collector-validation-report.md` | **Done** | |
+| P3.5-10 | VM firewall + TLS termination on DO Droplet | **Pending** | [`security-review.md`](security-review.md) |
+| P3.5-11 | Flood test on observability VM | **Pending** | VM deploy |
+
+**Phase 3.5 implementation notes:**
+
+- Six configuration defects found and fixed during validation (auth placement, image tag, feature gate, healthcheck, internal bind addresses, compose version).
+- All testable hardening checklist items pass; VM-dependent items (firewall, TLS, flood) deferred.
+- `debug` exporter remains active until Phase 4 — documented exception.
+- Collector ready for Phase 4 (Prometheus) after removing debug exporter.
+- No application repositories modified.
+
+**Branch:** `feature/observability-collector-validation`
+
+---
+
+## Phase 3.75 — Metrics Philosophy
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P3.75-1 | Publish **`metrics-philosophy.md`** | **Done** | [`metrics-philosophy.md`](../../../architecture/metrics-philosophy.md) |
+
+**Phase 3.75 implementation notes:**
+
+- Platform-wide guide for how engineers think about metrics — not a Prometheus manual or OTel tutorial.
+- Mandatory reading before Phases 7A and 7B (backend instrumentation).
+- Complements naming convention (names) and decision guide (signal choice).
+- Documentation only — no runtime code, SDK, Collector, Prometheus, Grafana, or infrastructure changes.
+- Validated against ADRs 028–031, security review, and collector validation report.
+
+**Branch:** `feature/observability-metrics-philosophy`
 
 ---
 
@@ -190,6 +238,8 @@
 ---
 
 ## Phase 7 — Backend SDK
+
+**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75).
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
