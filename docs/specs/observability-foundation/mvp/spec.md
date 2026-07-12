@@ -144,10 +144,12 @@ See [`plan.md`](plan.md). Phases intentionally small:
 | **2** | Infrastructure review (VM sizing, networking, firewall) |
 | **2.5** | Security review (redaction, access control, secrets) |
 | **3** | Collector deployment |
+| **3.5** | Collector validation & hardening |
+| **3.75** | Metrics Philosophy (architecture guide — before backend instrumentation) |
 | **4** | Prometheus |
 | **5** | Loki |
 | **6** | Tempo |
-| **7** | Backend SDK (`back_vibes`) |
+| **7** | Backend SDK (`back_vibes`) — Phases **7A** and **7B** must follow [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) |
 | **8** | Frontend SDK (`front_vibes`) |
 | **9** | Grafana dashboards |
 | **10** | Operational readiness runbook |
@@ -205,11 +207,14 @@ Before marking any implementation phase **Done**:
 | [ADR-021](../../../decisions/ADR-021-notification-security-and-privacy.md) | Notification privacy alignment |
 | [ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md) | Product observability today |
 | [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) | Official naming — services, metrics, spans, logs, events, labels |
+| [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) | **Phase 3.75** — how engineers think about metrics; mandatory before Phases 7A/7B |
+| [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md) | Signal choice — metric vs trace vs log vs event |
 | [infrastructure-review.md](infrastructure-review.md) | Phase 2 — deployment topology, ports, storage, failure analysis |
 | [security-review.md](security-review.md) | Phase 2.5 — threat model, auth, TLS, PII, redaction |
 | [telemetry-availability-policy.md](../../../architecture/telemetry-availability-policy.md) | Non-blocking telemetry export policy |
 | [observability-operational-limits.md](../../../architecture/observability-operational-limits.md) | Architectural limits for Collector and backends |
 | [collector-hardening-checklist.md](../../../operations/collector-hardening-checklist.md) | Phase 3 Collector deploy checklist |
 | [collector-deployment.md](collector-deployment.md) | Phase 3 — Collector configuration, Docker Compose, security, validation |
+| [collector-validation-report.md](collector-validation-report.md) | Phase 3.5 — validation results, hardening sign-off, performance baseline |
 | [mobile-e2e-testing.md](../../../testing/mobile-e2e-testing.md) | Phase 11.5 mobile validation |
 | [plan.md](plan.md) · [tasks.md](tasks.md) | Implementation tracking |

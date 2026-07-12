@@ -425,5 +425,7 @@ Same git deploy updates **both** API and worker. Detail: [staging-digitalocean �
 | **Storage & CDN policy** | [storage/storage-strategy.md](storage/storage-strategy.md) · [storage/spaces-cdn-policy.md](storage/spaces-cdn-policy.md) |
 | **Mobile asset QA** | [storage/mobile-cdn-validation.md](storage/mobile-cdn-validation.md) |
 | **All ADRs** | [../decisions/](../README.md#4-architecture-decision-records-adrs) |
+| **Observability — metrics philosophy** | [metrics-philosophy.md](metrics-philosophy.md) |
+| **Observability — telemetry guides** | [telemetry-naming-convention.md](telemetry-naming-convention.md) · [telemetry-decision-guide.md](telemetry-decision-guide.md) · [observability-playbook.md](../operations/observability-playbook.md) |
 
 When platform boundaries change, update **this map first**, then sync [../README.md](../README.md) and affected ADRs.

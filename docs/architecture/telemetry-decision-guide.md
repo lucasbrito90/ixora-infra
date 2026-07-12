@@ -377,6 +377,7 @@ Is it needed to GROUP metrics on a dashboard?
 | [ADR-030](../decisions/ADR-030-observability-security-and-privacy.md) | **What not to emit** — informs §6–§7 forbidden fields |
 | [ADR-031](../decisions/ADR-031-retention-storage-and-cost-control.md) | **How much** — sampling, cardinality caps; prefer metrics over verbose traces |
 | [telemetry-naming-convention.md](telemetry-naming-convention.md) | **Names** — apply after choosing signal type here |
+| [metrics-philosophy.md](metrics-philosophy.md) | **Metrics thinking** — when adding product metrics (Phases 7A/7B) |
 | [asynchronous-orchestration.md](asynchronous-orchestration.md) | **Span layering** — where traces attach in async flows |
 | [observability-playbook.md](../operations/observability-playbook.md) | **Operations** — how to investigate using signals chosen here |
 
