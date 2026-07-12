@@ -152,7 +152,7 @@ docs/architecture/
 | **Smart Home MVP** | Shipped — provider connections, devices, vibe actions, async HA execution ([smart-home/mvp/spec](specs/smart-home/mvp/spec.md)) |
 | **Push Notifications Foundation** | Spec + ADRs 017–021 accepted — **not implemented** ([push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md)) |
 | **Scheduler + Smart Home Automations** | Shipped — v1.2.0 ([release notes](releases/v1.2.0-scheduler-smart-home-automations.md)) |
-| **Observability Foundation** | Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + **3.5** + **3.75** — Collector validated and hardened; Metrics Philosophy published; ready for Phase 4 ([collector-validation-report](specs/observability-foundation/mvp/collector-validation-report.md); ADRs 028–031) |
+| **Observability Foundation** | Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + **4** — Prometheus metrics backend active; Collector wired; ready for Phase 5 ([prometheus-deployment](specs/observability-foundation/mvp/prometheus-deployment.md); ADRs 028–031) |
 | **Staging environment** | Shipped — DO App Platform + OpenTofu ([staging-digitalocean](architecture/backend/staging-digitalocean.md)) |
 | **Safe delete (sounds, cover bundles)** | Shipped — reference-checked Spaces cleanup |
 | **Legacy Firebase asset URLs** | May coexist on rows until migration |
@@ -194,7 +194,7 @@ Cross-cutting capabilities in delivery order. **Bold** = active spec work; *ital
 | ---: | --- | --- | --- |
 | 1 | Push Notifications Foundation | *Shipped* | [v1.1.0](releases/v1.1.0-push-notifications.md) |
 | 2 | Scheduler + Smart Home Automations | *Shipped* | [v1.2.0](releases/v1.2.0-scheduler-smart-home-automations.md) |
-| 3 | **Observability Foundation** | **Phase 3.75 complete — Metrics Philosophy; Phase 4 next** | [metrics-philosophy](architecture/metrics-philosophy.md) · [collector-validation-report](specs/observability-foundation/mvp/collector-validation-report.md) |
+| 3 | **Observability Foundation** | **Phase 4 complete — Prometheus active; Phase 5 next** | [prometheus-deployment](specs/observability-foundation/mvp/prometheus-deployment.md) · [metrics-philosophy](architecture/metrics-philosophy.md) |
 | 4 | Smart Home Scenes | Planned | — (Phase 1 ADRs + Spec next) |
 | 5 | Multi-provider Smart Home | Planned | — |
 | 6 | Analytics | Planned | — |
@@ -300,18 +300,19 @@ Cross-cutting capabilities in delivery order. **Bold** = active spec work; *ital
 4. [collector-deployment](specs/observability-foundation/mvp/collector-deployment.md) — **Phase 3** config, Docker Compose, security, validation  
 5. [collector-validation-report](specs/observability-foundation/mvp/collector-validation-report.md) — **Phase 3.5** hardening sign-off, failure tests, performance  
 6. [collector/README.md](../collector/README.md) — quick start + validation checklist  
-7. [telemetry-availability-policy](architecture/telemetry-availability-policy.md) — non-blocking export rules  
-8. [observability-operational-limits](architecture/observability-operational-limits.md) — architectural caps  
-9. [metrics-philosophy](architecture/metrics-philosophy.md) — **how to think about metrics** (required before Phases 7A/7B)  
-10. [telemetry-naming-convention](architecture/telemetry-naming-convention.md) — official naming  
-11. [telemetry-decision-guide](architecture/telemetry-decision-guide.md) — which signal to emit  
-12. [observability-playbook](operations/observability-playbook.md) — investigation runbook  
-13. [collector-hardening-checklist](operations/collector-hardening-checklist.md) — deploy hardening checklist  
-14. [ADR-028](decisions/ADR-028-observability-platform.md) — Collector-only ingestion  
-15. [ADR-029](decisions/ADR-029-telemetry-data-model.md) — metrics, logs, traces, events  
-16. [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) — redaction and PII  
-17. [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) — retention and cost  
-18. [asynchronous-orchestration](architecture/asynchronous-orchestration.md) — trace spans for async layers  
+7. [prometheus-deployment](specs/observability-foundation/mvp/prometheus-deployment.md) — **Phase 4** Prometheus backend, Collector wiring, validation  
+8. [telemetry-availability-policy](architecture/telemetry-availability-policy.md) — non-blocking export rules  
+9. [observability-operational-limits](architecture/observability-operational-limits.md) — architectural caps  
+10. [metrics-philosophy](architecture/metrics-philosophy.md) — **how to think about metrics** (required before Phases 7A/7B)  
+11. [telemetry-naming-convention](architecture/telemetry-naming-convention.md) — official naming  
+12. [telemetry-decision-guide](architecture/telemetry-decision-guide.md) — which signal to emit  
+13. [observability-playbook](operations/observability-playbook.md) — investigation runbook  
+14. [collector-hardening-checklist](operations/collector-hardening-checklist.md) — deploy hardening checklist  
+15. [ADR-028](decisions/ADR-028-observability-platform.md) — Collector-only ingestion  
+16. [ADR-029](decisions/ADR-029-telemetry-data-model.md) — metrics, logs, traces, events  
+17. [ADR-030](decisions/ADR-030-observability-security-and-privacy.md) — redaction and PII  
+18. [ADR-031](decisions/ADR-031-retention-storage-and-cost-control.md) — retention and cost  
+19. [asynchronous-orchestration](architecture/asynchronous-orchestration.md) — trace spans for async layers  
 
 **Mobile UX or presentation polish**
 
@@ -400,7 +401,7 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 
 **ADRs:** [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md)
 
-## Observability Foundation (Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75)
+## Observability Foundation (Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4)
 
 | Document | Description |
 | --- | --- |
@@ -412,6 +413,7 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 | [telemetry-availability-policy.md](architecture/telemetry-availability-policy.md) | Telemetry must never block business logic — best-effort export |
 | [observability-operational-limits.md](architecture/observability-operational-limits.md) | Architectural limits — Collector, Prometheus, Loki, Tempo, Grafana |
 | [metrics-philosophy.md](architecture/metrics-philosophy.md) | **Phase 3.75** — how engineers think about metrics; mandatory before Phases 7A/7B |
+| [prometheus-deployment.md](specs/observability-foundation/mvp/prometheus-deployment.md) | **Phase 4** — Prometheus container, config, Collector wiring, validation |
 | [telemetry-naming-convention.md](architecture/telemetry-naming-convention.md) | Platform-wide naming — services, metrics, spans, logs, events |
 | [telemetry-decision-guide.md](architecture/telemetry-decision-guide.md) | Signal choice — when to use metric, trace, span, event, log |
 | [observability-playbook.md](operations/observability-playbook.md) | Investigation runbook — dashboards, traces, logs, incidents |
@@ -645,4 +647,4 @@ App repos maintain **copies** of some docs for local discovery — sync from her
 
 ---
 
-*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-12 (observability-foundation Phase 3.75 — Metrics Philosophy).*
+*Last indexed: documentation tree under `ixora-infra/docs/`. Last updated: 2026-07-12 (observability-foundation Phase 4 — Prometheus).*

@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 complete — ADRs + Spec + Infra + Security + Guides + Collector Infrastructure + Validation + Metrics Philosophy  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -27,7 +27,7 @@
 | 3 — Collector deployment | 0 | 0 | 9 | 0 |
 | 3.5 — Validation & hardening | 2 | 0 | 8 | 0 |
 | 3.75 — Metrics Philosophy | 0 | 0 | 1 | 0 |
-| 4 — Prometheus | 3 | 0 | 0 | 0 |
+| 4 — Prometheus | 0 | 0 | 3 | 0 |
 | 5 — Loki | 3 | 0 | 0 | 0 |
 | 6 — Tempo | 3 | 0 | 0 | 0 |
 | 7 — Backend SDK | 6 | 0 | 0 | 0 |
@@ -205,11 +205,22 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P4-1 | Deploy Prometheus with 30-day retention | **Pending** | [`ADR-031`](../../../decisions/ADR-031-retention-storage-and-cost-control.md) |
-| P4-2 | Wire Collector → Prometheus exporter | **Pending** | [`ADR-028`](../../../decisions/ADR-028-observability-platform.md) |
-| P4-3 | Verify `up` metric and retention flag | **Pending** | |
+| P4-1 | Deploy Prometheus with 30-day retention | **Done** | [`ADR-031`](../../../decisions/ADR-031-retention-storage-and-cost-control.md) · [`prometheus-deployment.md`](prometheus-deployment.md) |
+| P4-2 | Wire Collector → Prometheus exporter | **Done** | [`ADR-028`](../../../decisions/ADR-028-observability-platform.md) · [`collector/config.yaml`](../../../../collector/config.yaml) |
+| P4-3 | Verify `up` metric and retention flag | **Done** | [`prometheus-deployment.md §9`](prometheus-deployment.md) |
 
 **Branch:** `feature/observability-prometheus`
+
+**Phase 4 implementation notes:**
+
+- `collector/prometheus/prometheus.yml` created — self-scrape only; no application targets.
+- `prometheusremotewrite` exporter enabled in `collector/config.yaml`; endpoint via Docker service name `http://prometheus:9090/api/v1/write`.
+- `debug` exporter removed from metrics pipeline; retained in logs and traces pipelines until Phase 5/6.
+- Prometheus service enabled in `collector/docker-compose.yml`: `127.0.0.1:9090` host binding (internal only), 30-day retention, WAL compression, remote write receiver, lifecycle API.
+- `collector/.env.example` updated: `PROMETHEUS_VERSION`, `PROMETHEUS_REMOTE_WRITE_ENDPOINT`, `PROMETHEUS_PORT`.
+- `collector/README.md` updated: Phase 4 quick start, validation checklist, ports table, upgrade strategy.
+- `prometheus-deployment.md` published: architecture, container spec, volumes, retention, security, Collector changes, validation steps, upgrade strategy.
+- No application repositories modified. No back_vibes. No front_vibes. No Grafana. No Loki. No Tempo.
 
 ---
 

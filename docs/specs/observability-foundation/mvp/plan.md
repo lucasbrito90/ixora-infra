@@ -215,10 +215,29 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 **Goal:** Metrics backend with 30-day retention.
 
+**Complete.**
+
+### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Prometheus configuration | [`collector/prometheus/prometheus.yml`](../../../../collector/prometheus/prometheus.yml) |
+| Prometheus service (docker-compose) | [`collector/docker-compose.yml`](../../../../collector/docker-compose.yml) |
+| Collector config updated | [`collector/config.yaml`](../../../../collector/config.yaml) — `prometheusremotewrite` active, `debug` removed from metrics |
+| Environment template updated | [`collector/.env.example`](../../../../collector/.env.example) |
+| Deployment spec | [`prometheus-deployment.md`](prometheus-deployment.md) |
+
 ### Exit criteria
 
-- Collector exports metrics to Prometheus.
-- `up` metric visible; retention flag set per ADR-031.
+- ✅ Collector exports metrics to Prometheus via `prometheusremotewrite`.
+- ✅ Prometheus stores `otelcol_*` series (Collector self-metrics via `prometheus/self` receiver → remote write).
+- ✅ Prometheus self-metrics (`prometheus_tsdb_head_series` etc.) visible.
+- ✅ Retention flag `30d` confirmed via API.
+- ✅ `debug` exporter removed from metrics pipeline.
+- ✅ Prometheus bound to `127.0.0.1:9090` only — not publicly accessible.
+- ✅ No application scrape targets in `prometheus.yml`.
+- ✅ Persistence validated: data survives container restart (named volume).
+- ✅ No application instrumentation, no Grafana, no Loki, no Tempo, no SDK changes.
 
 ---
 
