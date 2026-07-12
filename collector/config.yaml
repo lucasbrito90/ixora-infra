@@ -1,15 +1,16 @@
-# ============================================================
+  # ============================================================
 # Ixora Observability Platform — OpenTelemetry Collector Config
-# Phase 3 — Collector Deployment
+# Phase 4 — Prometheus Metrics Backend active
 #
 # Naming: telemetry-naming-convention.md
 # Security: security-review.md + collector-hardening-checklist.md
 # Limits: observability-operational-limits.md (ADR-031)
 # Availability: telemetry-availability-policy.md (ADR-028/029)
 #
-# ⚠️  Backends (Prometheus, Loki, Tempo) are NOT configured here.
-#     They are enabled in Phase 4, 5, 6 respectively.
-#     All exporter sections below are stubs — intentionally disabled.
+# Backend status:
+#   Phase 4 ✅  Prometheus — prometheusremotewrite exporter active
+#   Phase 5 ⬜  Loki       — loki exporter stub below
+#   Phase 6 ⬜  Tempo      — otlp/tempo exporter stub below
 # ============================================================
 
 # ============================================================
@@ -26,11 +27,11 @@ extensions:
   # Performance profiling — internal only; not exposed publicly.
   # Disable in production steady state unless debugging.
   pprof:
-    endpoint: "127.0.0.1:1777"
+    endpoint: "0.0.0.0:1777"
 
-  # zPages live diagnostics — internal only.
+  # zPages live diagnostics — internal only (host exposure via compose 127.0.0.1).
   zpages:
-    endpoint: "127.0.0.1:55679"
+    endpoint: "0.0.0.0:55679"
 
   # Bearer token auth for OTLP ingest.
   # Shared secret supplied via OTEL_INGEST_API_KEY env var.
@@ -53,6 +54,8 @@ receivers:
     protocols:
       grpc:
         endpoint: "0.0.0.0:4317"
+        auth:
+          authenticator: bearertokenauth/backend
         # TLS is terminated by the reverse proxy (Caddy/nginx).
         # For end-to-end TLS, set tls block here with cert_file/key_file.
         # Uncomment when cert paths are confirmed in Phase 3 deployment:
@@ -62,9 +65,9 @@ receivers:
         #   min_version: "1.2"
       http:
         endpoint: "0.0.0.0:4318"
+        auth:
+          authenticator: bearertokenauth/backend
         # tls: (same as above)
-    auth:
-      authenticator: bearertokenauth/backend
 
   # OTLP HTTP — primary for front_vibes-android (mobile).
   # Mobile uses HTTP/JSON over HTTPS; gRPC impractical on Capacitor.
@@ -73,12 +76,12 @@ receivers:
     protocols:
       http:
         endpoint: "0.0.0.0:4319"
+        auth:
+          authenticator: bearertokenauth/mobile
         # Port 4319 differentiates mobile auth from backend.
         # A single port + auth extension per-key is acceptable
         # alternative; kept separate for clarity and blast radius.
         # tls: (same as backend when certs are provisioned)
-    auth:
-      authenticator: bearertokenauth/mobile
 
   # Self-monitoring: Collector exports its own metrics.
   # Consumed by the metrics pipeline below.
@@ -89,6 +92,7 @@ receivers:
           scrape_interval: 30s
           static_configs:
             - targets: ["127.0.0.1:8888"]
+              # Scrapes from inside the container network namespace.
 
 # ============================================================
 # PROCESSORS
@@ -247,54 +251,71 @@ processors:
 
 # ============================================================
 # EXPORTERS
-# ============================================================
-# All exporters are STUBS — backends not yet deployed.
-# Phase 3: only logging/debug exporter active for validation.
-# Phase 4: enable prometheusremotewrite (metrics).
-# Phase 5: enable loki (logs).
-# Phase 6: enable otlp/tempo (traces).
+# Phase 4: prometheusremotewrite active (metrics).
+# Phase 5: loki exporter will replace debug in logs pipeline.
+# Phase 6: otlp/tempo exporter will replace debug in traces pipeline.
 # ============================================================
 exporters:
 
   # ----------------------------------------------------------
-  # DEBUG EXPORTER (Phase 3 validation only)
-  # Logs received data to Collector stdout at info level.
-  # DISABLE once backends are wired (Phase 4+).
-  # collector-hardening-checklist.md §7 — disabled in steady state.
+  # DEBUG EXPORTER
+  # Retained for logs and traces pipelines until Phase 5/6
+  # deploy the respective backends.
+  # REMOVED from metrics pipeline — Prometheus is now live.
+  # collector-hardening-checklist.md §7: remove when all
+  # backends are wired (Phase 6 completes the metrics pipeline).
   # ----------------------------------------------------------
   debug:
     verbosity: normal
-    # Set to "detailed" temporarily during Phase 3 smoke tests,
-    # revert to "normal" or disable after validation.
 
   # ----------------------------------------------------------
-  # PROMETHEUS REMOTE WRITE — Phase 4 (stub)
-  # Uncomment and configure when Prometheus is deployed.
+  # PROMETHEUS REMOTE WRITE — Phase 4 (active)
+  # Pushes metrics from Collector to Prometheus via remote write.
+  # Prometheus must have --web.enable-remote-write-receiver flag.
+  # Endpoint: Prometheus container on the ixora-observability
+  # Docker network (referenced by service name, not 127.0.0.1).
+  # ADR-028: Collector is sole ingestion point; apps never write
+  # Prometheus directly.
+  # ADR-031: resource_to_telemetry_conversion promotes
+  # service.name, deployment.environment to Prometheus labels.
   # ----------------------------------------------------------
-  # prometheusremotewrite:
-  #   endpoint: "http://127.0.0.1:9090/api/v1/write"
-  #   tls:
-  #     insecure: true  # localhost — no TLS needed
-  #   resource_to_telemetry_conversion:
-  #     enabled: true
+  prometheusremotewrite:
+    endpoint: "${env:PROMETHEUS_REMOTE_WRITE_ENDPOINT}"
+    tls:
+      # Same Docker network — TLS between containers not required.
+      # TLS is enforced at the public edge (Collector OTLP ports).
+      insecure: true
+    resource_to_telemetry_conversion:
+      # Promotes OTel resource attributes to Prometheus labels:
+      #   service.name        → service_name
+      #   deployment.environment → deployment_environment
+      #   service.version     → service_version
+      # Required for Grafana dashboard filtering by service.
+      # Cardinality impact: bounded — service set is small.
+      enabled: true
+    # Remote write queue configuration.
+    # Defaults are sufficient for MVP; tune if remote_write_pending_samples
+    # grows in Prometheus self-metrics.
+    remote_write_queue:
+      enabled: true
 
   # ----------------------------------------------------------
   # LOKI — Phase 5 (stub)
   # ----------------------------------------------------------
   # loki:
-  #   endpoint: "http://127.0.0.1:3100/loki/api/v1/push"
+  #   endpoint: "http://loki:3100/loki/api/v1/push"
   #   tls:
   #     insecure: true
   #   labels:
   #     resource:
   #       service.name: "service_name"
-  #       deployment.environment: "env"
+  #       deployment.environment: "deployment_environment"
 
   # ----------------------------------------------------------
   # TEMPO (OTLP) — Phase 6 (stub)
   # ----------------------------------------------------------
   # otlp/tempo:
-  #   endpoint: "http://127.0.0.1:4317"  # Tempo's OTLP receiver
+  #   endpoint: "http://tempo:4317"  # Tempo's OTLP gRPC receiver
   #   tls:
   #     insecure: true
 
@@ -317,35 +338,36 @@ service:
       level: "info"
       encoding: "json"
     # Collector self-metrics endpoint (scraped by prometheus/self receiver).
+    # Bind 0.0.0.0 inside container; host exposure restricted to 127.0.0.1 in compose.
     metrics:
-      address: "127.0.0.1:8888"
+      address: "0.0.0.0:8888"
 
   pipelines:
 
     # --------------------------------------------------------
     # METRICS PIPELINE
-    # Phase 3: receives metrics, applies processors, logs to debug.
-    # Phase 4: add prometheusremotewrite exporter.
+    # Phase 4: prometheusremotewrite active; debug removed.
+    # Phase 5: Loki exporter added (logs pipeline).
+    # Phase 6: Tempo exporter added (traces pipeline).
     # --------------------------------------------------------
     metrics:
       receivers:
         - otlp/backend
         - otlp/mobile
-        - prometheus/self
+        - prometheus/self        # Collector self-metrics → Prometheus
       processors:
         - memory_limiter         # First — OOM guard
-        - resource               # Stamp environment
-        - attributes/redact_secrets        # Drop credentials
-        - attributes/drop_high_cardinality # Drop high-cardinality labels
-        - batch                  # Group before export
+        - resource               # Stamp deployment.environment
+        - attributes/redact_secrets        # Drop credentials (ADR-030)
+        - attributes/drop_high_cardinality # Drop high-cardinality labels (ADR-031)
+        - batch                  # Group before remote write
       exporters:
-        - debug
-        # - prometheusremotewrite  # Enable in Phase 4
+        - prometheusremotewrite  # Phase 4: Prometheus active
 
     # --------------------------------------------------------
     # LOGS PIPELINE
-    # Phase 3: receives logs, redacts, logs to debug.
-    # Phase 5: add loki exporter.
+    # Phase 4: debug remains — Loki not yet deployed.
+    # Phase 5: replace debug with loki exporter.
     # --------------------------------------------------------
     logs:
       receivers:
@@ -363,8 +385,8 @@ service:
     # --------------------------------------------------------
     # TRACES PIPELINE — main (sampled)
     # 10% success traces via probabilistic_sampler.
-    # Phase 3: receives traces, samples, logs to debug.
-    # Phase 6: add otlp/tempo exporter.
+    # Phase 4: debug remains — Tempo not yet deployed.
+    # Phase 6: replace debug with otlp/tempo exporter.
     # --------------------------------------------------------
     traces:
       receivers:

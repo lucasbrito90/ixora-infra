@@ -1,0 +1,95 @@
+# ============================================================
+# Ixora Observability Platform — Prometheus Configuration
+# Phase 4 — Prometheus Metrics Backend
+#
+# ADRs:
+#   ADR-028 — Collector-only ingestion; no direct app scraping
+#   ADR-030 — No PII or secrets in telemetry
+#   ADR-031 — 30-day retention; cardinality < 10 000 series/service
+#
+# References:
+#   prometheus-deployment.md  — full deployment spec
+#   security-review.md        — security boundaries
+#   telemetry-naming-convention.md §5 — ixora.* metric format
+#
+# KEY CONSTRAINTS:
+#   - Prometheus binds to 0.0.0.0:9090 inside the container.
+#     The Docker Compose port binding restricts host exposure to
+#     127.0.0.1:9090 — never publicly reachable.
+#   - All Ixora application metrics arrive via Collector remote write.
+#     Applications MUST NOT be added as scrape_configs targets.
+#   - Only Prometheus self-metrics are scraped directly (this file).
+#   - Retention: 30 days (CLI flag --storage.tsdb.retention.time=30d).
+#   - Remote write receiver: enabled via CLI flag in docker-compose.yml.
+# ============================================================
+
+# ============================================================
+# GLOBAL SETTINGS
+# ============================================================
+global:
+  # How often Prometheus scrapes each target.
+  # 30 s gives sufficient resolution for operational dashboards
+  # without generating excessive TSDB write pressure on a single VM.
+  scrape_interval: 30s
+
+  # How often alert rules are evaluated.
+  # Alerting is out of Phase 4 scope (Phase 10+); set to match
+  # scrape_interval for consistency when rules are added later.
+  evaluation_interval: 30s
+
+  # External labels are attached to ALL time series and alerts
+  # produced by this Prometheus instance. They are added AFTER
+  # ingestion, so they do not conflict with labels arriving via
+  # remote write from the Collector.
+  #
+  # cluster: identifies the observability stack instance in
+  # future Grafana datasource configuration and federation.
+  external_labels:
+    cluster: ixora-observability-staging
+
+# ============================================================
+# ALERTING (Phase 10+ — reserved; do not enable until Phase 10)
+# ============================================================
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: []
+#
+# rule_files: []
+
+# ============================================================
+# SCRAPE CONFIGS
+#
+# MANDATORY (ADR-028): Applications MUST NOT be scrape targets.
+# All product metrics arrive via Collector → remote write.
+# Bypassing the Collector pipeline removes redaction, cardinality
+# enforcement, and environment stamping (ADR-030, ADR-031).
+#
+# Only one scrape target is permitted in Phase 4:
+#   prometheus   — Prometheus self-monitoring (/metrics endpoint)
+#
+# Collector self-metrics (otelcol_* series) are already collected
+# by the Collector's own prometheus/self receiver and flow through
+# the metrics pipeline → prometheusremotewrite → here.
+# Do NOT add otel-collector as a scrape target.
+# ============================================================
+scrape_configs:
+
+  # ----------------------------------------------------------
+  # Prometheus self-monitoring
+  # Standard Prometheus practice: scrape its own /metrics to
+  # observe TSDB health, remote write queue depth, query
+  # duration, and series count.
+  #
+  # Key metrics exposed:
+  #   prometheus_tsdb_head_series          — current series count
+  #   prometheus_remote_storage_*          — remote write queue health
+  #   prometheus_tsdb_compactions_total    — compaction activity
+  #   prometheus_engine_query_duration_*   — query performance
+  # ----------------------------------------------------------
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    # metric_relabel_configs may be added in Phase 10 to drop
+    # high-volume prometheus_* series if disk pressure arises.
