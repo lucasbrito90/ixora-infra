@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -28,7 +28,7 @@
 | 3.5 — Validation & hardening | 2 | 0 | 8 | 0 |
 | 3.75 — Metrics Philosophy | 0 | 0 | 1 | 0 |
 | 4 — Prometheus | 0 | 0 | 3 | 0 |
-| 5 — Loki | 3 | 0 | 0 | 0 |
+| 5 — Loki | 0 | 0 | 3 | 0 |
 | 6 — Tempo | 3 | 0 | 0 | 0 |
 | 7 — Backend SDK | 6 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -228,9 +228,9 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P5-1 | Deploy Loki with 14-day retention | **Pending** | [`ADR-031`](../../../decisions/ADR-031-retention-storage-and-cost-control.md) |
-| P5-2 | Wire Collector → Loki exporter | **Pending** | |
-| P5-3 | Verify log ingest + query | **Pending** | |
+| P5-1 | Deploy Loki with 14-day retention | **Done** | [`loki-deployment.md`](loki-deployment.md) · [`ADR-031`](../../../decisions/ADR-031-retention-storage-and-cost-control.md) |
+| P5-2 | Wire Collector → Loki exporter | **Done** | [`collector/config.yaml`](../../../../collector/config.yaml) |
+| P5-3 | Verify log ingest + query | **Done** | [`loki-deployment.md §9`](loki-deployment.md) |
 
 **Branch:** `feature/observability-loki`
 

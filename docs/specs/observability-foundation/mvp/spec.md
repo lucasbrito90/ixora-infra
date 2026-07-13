@@ -147,7 +147,7 @@ See [`plan.md`](plan.md). Phases intentionally small:
 | **3.5** | Collector validation & hardening |
 | **3.75** | Metrics Philosophy (architecture guide — before backend instrumentation) |
 | **4** | Prometheus — `prometheusremotewrite` active; 30-day retention; internal only |
-| **5** | Loki |
+| **5** | Loki — `loki` exporter active; 14-day retention; Collector sole writer |
 | **6** | Tempo |
 | **7** | Backend SDK (`back_vibes`) — Phases **7A** and **7B** must follow [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) |
 | **8** | Frontend SDK (`front_vibes`) |
@@ -208,6 +208,7 @@ Before marking any implementation phase **Done**:
 | [ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md) | Product observability today |
 | [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) | Official naming — services, metrics, spans, logs, events, labels |
 | [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) | **Phase 3.75** — how engineers think about metrics; mandatory before Phases 7A/7B |
+| [loki-deployment.md](loki-deployment.md) | **Phase 5** — Loki container, config, Collector wiring, validation, retention |
 | [prometheus-deployment.md](prometheus-deployment.md) | **Phase 4** — Prometheus container, config, Collector wiring, validation |
 | [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md) | Signal choice — metric vs trace vs log vs event |
 | [infrastructure-review.md](infrastructure-review.md) | Phase 2 — deployment topology, ports, storage, failure analysis |

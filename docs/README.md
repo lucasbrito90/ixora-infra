@@ -152,7 +152,7 @@ docs/architecture/
 | **Smart Home MVP** | Shipped — provider connections, devices, vibe actions, async HA execution ([smart-home/mvp/spec](specs/smart-home/mvp/spec.md)) |
 | **Push Notifications Foundation** | Spec + ADRs 017–021 accepted — **not implemented** ([push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md)) |
 | **Scheduler + Smart Home Automations** | Shipped — v1.2.0 ([release notes](releases/v1.2.0-scheduler-smart-home-automations.md)) |
-| **Observability Foundation** | Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + **4** — Prometheus metrics backend active; Collector wired; ready for Phase 5 ([prometheus-deployment](specs/observability-foundation/mvp/prometheus-deployment.md); ADRs 028–031) |
+| **Observability Foundation** | Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + **5** — Loki log backend active; Prometheus + Collector unchanged; ready for Phase 6 ([loki-deployment](specs/observability-foundation/mvp/loki-deployment.md); ADRs 028–031) |
 | **Staging environment** | Shipped — DO App Platform + OpenTofu ([staging-digitalocean](architecture/backend/staging-digitalocean.md)) |
 | **Safe delete (sounds, cover bundles)** | Shipped — reference-checked Spaces cleanup |
 | **Legacy Firebase asset URLs** | May coexist on rows until migration |
@@ -194,7 +194,7 @@ Cross-cutting capabilities in delivery order. **Bold** = active spec work; *ital
 | ---: | --- | --- | --- |
 | 1 | Push Notifications Foundation | *Shipped* | [v1.1.0](releases/v1.1.0-push-notifications.md) |
 | 2 | Scheduler + Smart Home Automations | *Shipped* | [v1.2.0](releases/v1.2.0-scheduler-smart-home-automations.md) |
-| 3 | **Observability Foundation** | **Phase 4 complete — Prometheus active; Phase 5 next** | [prometheus-deployment](specs/observability-foundation/mvp/prometheus-deployment.md) · [metrics-philosophy](architecture/metrics-philosophy.md) |
+| 3 | **Observability Foundation** | **Phase 5 complete — Loki active; Phase 6 next** | [loki-deployment](specs/observability-foundation/mvp/loki-deployment.md) · [prometheus-deployment](specs/observability-foundation/mvp/prometheus-deployment.md) · [metrics-philosophy](architecture/metrics-philosophy.md) |
 | 4 | Smart Home Scenes | Planned | — (Phase 1 ADRs + Spec next) |
 | 5 | Multi-provider Smart Home | Planned | — |
 | 6 | Analytics | Planned | — |
@@ -301,7 +301,8 @@ Cross-cutting capabilities in delivery order. **Bold** = active spec work; *ital
 5. [collector-validation-report](specs/observability-foundation/mvp/collector-validation-report.md) — **Phase 3.5** hardening sign-off, failure tests, performance  
 6. [collector/README.md](../collector/README.md) — quick start + validation checklist  
 7. [prometheus-deployment](specs/observability-foundation/mvp/prometheus-deployment.md) — **Phase 4** Prometheus backend, Collector wiring, validation  
-8. [telemetry-availability-policy](architecture/telemetry-availability-policy.md) — non-blocking export rules  
+8. [loki-deployment](specs/observability-foundation/mvp/loki-deployment.md) — **Phase 5** Loki log backend, Collector wiring, retention, validation  
+9. [telemetry-availability-policy](architecture/telemetry-availability-policy.md) — non-blocking export rules  
 9. [observability-operational-limits](architecture/observability-operational-limits.md) — architectural caps  
 10. [metrics-philosophy](architecture/metrics-philosophy.md) — **how to think about metrics** (required before Phases 7A/7B)  
 11. [telemetry-naming-convention](architecture/telemetry-naming-convention.md) — official naming  
@@ -413,6 +414,7 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 | [telemetry-availability-policy.md](architecture/telemetry-availability-policy.md) | Telemetry must never block business logic — best-effort export |
 | [observability-operational-limits.md](architecture/observability-operational-limits.md) | Architectural limits — Collector, Prometheus, Loki, Tempo, Grafana |
 | [metrics-philosophy.md](architecture/metrics-philosophy.md) | **Phase 3.75** — how engineers think about metrics; mandatory before Phases 7A/7B |
+| [loki-deployment.md](specs/observability-foundation/mvp/loki-deployment.md) | **Phase 5** — Loki container, config, Collector wiring, retention (14d), validation |
 | [prometheus-deployment.md](specs/observability-foundation/mvp/prometheus-deployment.md) | **Phase 4** — Prometheus container, config, Collector wiring, validation |
 | [telemetry-naming-convention.md](architecture/telemetry-naming-convention.md) | Platform-wide naming — services, metrics, spans, logs, events |
 | [telemetry-decision-guide.md](architecture/telemetry-decision-guide.md) | Signal choice — when to use metric, trace, span, event, log |

@@ -1,22 +1,23 @@
 # ============================================================
 # Ixora Observability Platform — Docker Compose
-# Phase 4 — Prometheus Metrics Backend
+# Phase 5 — Loki Log Backend
 #
 # Active services:
 #   collector   — OpenTelemetry Collector (Phase 3)
 #   prometheus  — Prometheus TSDB, 30-day retention (Phase 4)
+#   loki        — Loki log aggregation, 14-day retention (Phase 5)
 #
 # Stubbed for later phases:
-#   loki        — Phase 5
 #   tempo       — Phase 6
 #   grafana     — Phase 9
 #
 # Usage:
 #   cp .env.example .env  && fill secrets
-#   docker compose up -d collector prometheus
+#   docker compose up -d collector prometheus loki
 #   docker compose ps
-#   curl http://localhost:13133/health
-#   curl http://localhost:9090/-/healthy
+#   curl http://localhost:13133/health        # Collector
+#   curl http://localhost:9090/-/healthy      # Prometheus
+#   curl http://localhost:3100/ready          # Loki
 # ============================================================
 
 # ============================================================
@@ -235,20 +236,75 @@ services:
         max-file: "3"
 
   # ============================================================
-  # PHASE 5 STUB — Loki
+  # PHASE 5 — Loki Log Aggregation Backend
+  # ADR-028: internal only; never publicly reachable.
+  # ADR-030: Collector redacts all PII/credentials before write.
+  # ADR-031: 14-day log retention enforced by compactor.
+  # Security: bound to 127.0.0.1 on the host; accessible to
+  #           Collector via Docker network (service name: loki).
+  #           No application writes to Loki directly.
   # ============================================================
-  # loki:
-  #   image: "grafana/loki:3.2.0"
-  #   container_name: ixora-loki
-  #   restart: unless-stopped
-  #   command: "-config.file=/etc/loki/loki.yaml"
-  #   volumes:
-  #     - loki_data:/loki
-  #     - ./loki/loki.yaml:/etc/loki/loki.yaml:ro
-  #   networks:
-  #     - observability
-  #   ports:
-  #     - "127.0.0.1:3100:3100"
+  loki:
+    # Pin to a specific release — never use :latest in infra.
+    # Update LOKI_VERSION in .env to upgrade.
+    image: "grafana/loki:${LOKI_VERSION:-3.2.0}"
+    container_name: ixora-loki
+    restart: unless-stopped
+
+    command:
+      - "-config.file=/etc/loki/loki.yaml"
+
+    volumes:
+      # Persistent log chunk storage — named volume survives restarts.
+      - loki_data:/loki
+
+      # Loki configuration — read-only bind mount.
+      # Edit loki/loki.yaml and restart: docker compose restart loki
+      - type: bind
+        source: ./loki/loki.yaml
+        target: /etc/loki/loki.yaml
+        read_only: true
+
+    ports:
+      # Internal only — 127.0.0.1 prevents direct external access.
+      # Grafana (Phase 9) reaches Loki via the Docker network (no port
+      # binding needed for inter-container communication).
+      # Ops debugging and LogQL queries from the host use this binding.
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
+
+    networks:
+      # Same bridge as Collector — enables service-name DNS resolution.
+      # Collector reaches Loki at http://loki:3100/loki/api/v1/push
+      - observability
+
+    # Resource limits — tuned for single VM alongside Collector + Prometheus.
+    # Loki in all-in-one mode has modest CPU needs; memory scales with
+    # active streams and chunk cache size.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+
+    # Healthcheck using Loki built-in /ready endpoint.
+    # Returns 200 when Loki has finished initialising and is ready to serve.
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   # ============================================================
   # PHASE 6 STUB — Tempo
