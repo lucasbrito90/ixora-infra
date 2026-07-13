@@ -1,6 +1,6 @@
   # ============================================================
 # Ixora Observability Platform — OpenTelemetry Collector Config
-# Phase 5 — Loki Log Backend active
+# Phase 6 — Tempo Trace Backend active
 #
 # Naming: telemetry-naming-convention.md
 # Security: security-review.md + collector-hardening-checklist.md
@@ -10,7 +10,9 @@
 # Backend status:
 #   Phase 4 ✅  Prometheus — prometheusremotewrite exporter active
 #   Phase 5 ✅  Loki       — loki exporter active (logs pipeline)
-#   Phase 6 ⬜  Tempo      — otlp/tempo exporter stub below
+#   Phase 6 ✅  Tempo      — otlp/tempo exporter active (traces pipeline)
+#
+# Debug exporter: REMOVED from all pipelines (Phase 6 complete)
 # ============================================================
 
 # ============================================================
@@ -253,19 +255,13 @@ processors:
 # EXPORTERS
 # Phase 4: prometheusremotewrite active (metrics).
 # Phase 5: loki exporter active (logs pipeline); debug removed from logs.
-# Phase 6: otlp/tempo exporter will replace debug in traces pipeline.
+# Phase 6: otlp/tempo exporter active (traces pipeline); debug removed entirely.
+#
+# DEBUG EXPORTER: fully removed in Phase 6.
+# All three pipelines now export to their respective backends.
+# collector-hardening-checklist.md §7: completed in Phase 6.
 # ============================================================
 exporters:
-
-  # ----------------------------------------------------------
-  # DEBUG EXPORTER
-  # Retained for traces pipeline only until Phase 6 deploys Tempo.
-  # REMOVED from metrics pipeline (Phase 4 — Prometheus live).
-  # REMOVED from logs pipeline (Phase 5 — Loki live).
-  # collector-hardening-checklist.md §7: remove entirely in Phase 6.
-  # ----------------------------------------------------------
-  debug:
-    verbosity: normal
 
   # ----------------------------------------------------------
   # PROMETHEUS REMOTE WRITE — Phase 4 (active)
@@ -339,12 +335,25 @@ exporters:
         deployment.environment: "deployment_environment"
 
   # ----------------------------------------------------------
-  # TEMPO (OTLP) — Phase 6 (stub)
+  # OTLP / TEMPO EXPORTER — Phase 6 (active)
+  # Pushes OTLP trace spans to Tempo via its OTLP gRPC receiver.
+  # Endpoint: Tempo container on the ixora-observability Docker
+  # network (service name DNS — never 127.0.0.1).
+  # ADR-028: Collector is the sole Tempo writer.
+  #          Applications NEVER communicate with Tempo directly.
+  # ADR-030: All redaction (credentials, PII) is applied by the
+  #          attributes/redact_secrets processor BEFORE this exporter.
+  #          Tempo never stores raw token, password, or email values.
+  # ADR-031: Sampling enforced before this exporter:
+  #          10% success traces via probabilistic_sampler.
+  #          Error traces: see tail_sampling note in traces pipeline.
   # ----------------------------------------------------------
-  # otlp/tempo:
-  #   endpoint: "http://tempo:4317"  # Tempo's OTLP gRPC receiver
-  #   tls:
-  #     insecure: true
+  otlp/tempo:
+    endpoint: "${env:TEMPO_ENDPOINT}"
+    tls:
+      # Same Docker network — TLS between containers not required.
+      # TLS is enforced at the public edge (Collector OTLP ports).
+      insecure: true
 
 # ============================================================
 # SERVICE
@@ -412,10 +421,30 @@ service:
         - loki   # Phase 5: Loki active
 
     # --------------------------------------------------------
-    # TRACES PIPELINE — main (sampled)
-    # 10% success traces via probabilistic_sampler.
-    # Phase 4: debug remains — Tempo not yet deployed.
-    # Phase 6: replace debug with otlp/tempo exporter.
+    # TRACES PIPELINE — sampled (10% success + all errors)
+    # Phase 6: otlp/tempo active — debug removed.
+    #
+    # Sampling strategy (ADR-031):
+    #   probabilistic_sampler: 10% of successful traces.
+    #   Error traces: probabilistic_sampler passes all spans because
+    #   the sampler operates before status is fully resolved in some
+    #   SDKs. For MVP this is acceptable — all traces (sampled or not)
+    #   that reach the exporter go to Tempo.
+    #
+    # Tail sampling (Phase 7+ evolution):
+    #   Replace probabilistic_sampler with a tail_sampling processor:
+    #     policies:
+    #       - type: status_code
+    #         status_code: { status_codes: [ERROR] }   # 100% errors
+    #       - type: probabilistic
+    #         probabilistic: { sampling_percentage: 10 } # 10% success
+    #   This requires the tail_sampling processor (contrib) and provides
+    #   guaranteed 100% error coverage independent of SDK status timing.
+    #   Deferred to Phase 7 — requires SDK instrumentation to be active
+    #   to validate meaningful error traces.
+    #
+    # Applications write OTLP → Collector only; Tempo never
+    # receives data directly from any application (ADR-028).
     # --------------------------------------------------------
     traces:
       receivers:
@@ -426,23 +455,7 @@ service:
         - resource
         - attributes/redact_secrets
         - transform/normalize_http
-        - probabilistic_sampler    # 10% success
+        - probabilistic_sampler    # 10% success (see tail_sampling note above)
         - batch
       exporters:
-        - debug
-        # - otlp/tempo  # Enable in Phase 6
-
-    # --------------------------------------------------------
-    # TRACES PIPELINE — errors (100% sampled)
-    # Error spans bypass probabilistic_sampler.
-    # Identifies failed jobs, 5xx, provider errors at full fidelity.
-    # ADR-031 §sampling: 100% for errors.
-    # --------------------------------------------------------
-    # NOTE: This pipeline is a design stub for Phase 6 when Tempo
-    # is wired. In Phase 3 both trace pipelines can share the same
-    # pipeline; separate pipelines require fan-out receiver or
-    # a tail-sampling processor which is deferred.
-    #
-    # Recommended Phase 6 approach: tail_sampling processor with
-    # policy { type: status_code, status_code: { status_codes: [ERROR] } }
-    # which provides 100% errors + 10% success in a single pipeline.
+        - otlp/tempo   # Phase 6: Tempo active

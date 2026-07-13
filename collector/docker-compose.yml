@@ -1,23 +1,24 @@
 # ============================================================
 # Ixora Observability Platform — Docker Compose
-# Phase 5 — Loki Log Backend
+# Phase 6 — Tempo Trace Backend
 #
 # Active services:
 #   collector   — OpenTelemetry Collector (Phase 3)
 #   prometheus  — Prometheus TSDB, 30-day retention (Phase 4)
 #   loki        — Loki log aggregation, 14-day retention (Phase 5)
+#   tempo       — Tempo distributed tracing, 7-day retention (Phase 6)
 #
 # Stubbed for later phases:
-#   tempo       — Phase 6
 #   grafana     — Phase 9
 #
 # Usage:
 #   cp .env.example .env  && fill secrets
-#   docker compose up -d collector prometheus loki
+#   docker compose up -d collector prometheus loki tempo
 #   docker compose ps
 #   curl http://localhost:13133/health        # Collector
 #   curl http://localhost:9090/-/healthy      # Prometheus
 #   curl http://localhost:3100/ready          # Loki
+#   curl http://localhost:3200/ready          # Tempo
 # ============================================================
 
 # ============================================================
@@ -307,21 +308,80 @@ services:
         max-file: "3"
 
   # ============================================================
-  # PHASE 6 STUB — Tempo
+  # PHASE 6 — Tempo Distributed Tracing Backend
+  # ADR-028: internal only; never publicly reachable.
+  # ADR-030: Collector redacts all PII/credentials before write.
+  # ADR-031: 7-day trace retention enforced by compactor.
+  # Security: bound to 127.0.0.1 on the host; accessible to
+  #           Collector via Docker network (service name: tempo).
+  #           No application writes to Tempo directly.
   # ============================================================
-  # tempo:
-  #   image: "grafana/tempo:2.6.0"
-  #   container_name: ixora-tempo
-  #   restart: unless-stopped
-  #   command: "-config.file=/etc/tempo/tempo.yaml"
-  #   volumes:
-  #     - tempo_data:/var/tempo
-  #     - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
-  #   networks:
-  #     - observability
-  #   ports:
-  #     - "127.0.0.1:3200:3200"   # Tempo query
-  #     - "127.0.0.1:9095:9095"   # Tempo gRPC
+  tempo:
+    # Pin to a specific release — never use :latest in infra.
+    # Update TEMPO_VERSION in .env to upgrade.
+    image: "grafana/tempo:${TEMPO_VERSION:-2.6.0}"
+    container_name: ixora-tempo
+    restart: unless-stopped
+
+    command:
+      - "-config.file=/etc/tempo/tempo.yaml"
+
+    volumes:
+      # Persistent trace block storage — named volume survives restarts.
+      - tempo_data:/var/tempo
+
+      # Tempo configuration — read-only bind mount.
+      # Edit tempo/tempo.yaml and restart: docker compose restart tempo
+      - type: bind
+        source: ./tempo/tempo.yaml
+        target: /etc/tempo/tempo.yaml
+        read_only: true
+
+    ports:
+      # HTTP query / UI — 127.0.0.1 only; Grafana (Phase 9) queries this.
+      # TraceQL and trace-by-ID lookups use this port.
+      - "127.0.0.1:${TEMPO_PORT:-3200}:3200"
+
+      # OTLP gRPC receiver — Collector writes traces to this port.
+      # Bound to 127.0.0.1 only; not accessible from the internet.
+      # The Collector reaches Tempo via Docker network DNS (tempo:4317).
+      # Note: this port binding is for host-level ops debugging only;
+      # container-to-container communication uses the Docker network.
+      - "127.0.0.1:${TEMPO_OTLP_GRPC_PORT:-4317}:4317"
+
+    networks:
+      # Same bridge as Collector — enables service-name DNS resolution.
+      # Collector reaches Tempo at http://tempo:4317 (OTLP gRPC)
+      # Grafana reaches Tempo at http://tempo:3200 (HTTP query)
+      - observability
+
+    # Resource limits — tuned for single VM alongside Collector + Prometheus + Loki.
+    # Tempo in all-in-one mode; memory scales with ingester buffer and block cache.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+
+    # Healthcheck using Tempo built-in /ready endpoint.
+    # Returns 200 when Tempo has finished initialising and is ready to serve.
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://localhost:3200/ready || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   # ============================================================
   # PHASE 9 STUB — Grafana

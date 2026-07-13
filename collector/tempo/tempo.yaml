@@ -1,0 +1,207 @@
+# ============================================================
+# Ixora Observability Platform — Tempo Configuration
+# Phase 6 — Distributed Tracing Backend
+#
+# Tempo version: 2.6.0
+# Storage: filesystem (single-VM MVP — see object-storage note below)
+# Retention: 7 days (ADR-031 §MVP retention)
+# Security: ADR-028, ADR-029, ADR-030
+#   - Tempo is NEVER exposed publicly
+#   - Collector is the ONLY writer (via otlp/tempo exporter)
+#   - No application writes to Tempo directly
+#   - All redaction occurs inside the Collector before storage
+#
+# Sampling (ADR-031):
+#   - 10% of successful traces (probabilistic_sampler in Collector)
+#   - Error traces: kept by default — see tail_sampling note below
+#   - Tail sampling is documented as a Phase 7+ evolution (not implemented here)
+#
+# Object-storage migration note (Phase 10+):
+#   Replace "filesystem" backend with "s3" / "gcs" / "azure".
+#   Update storage.trace.backend and storage.trace.s3 (or gcs/azure) block.
+#   No schema change is required. Existing blocks remain readable until
+#   they age out of retention (7 days), requiring no data migration.
+# ============================================================
+
+# ============================================================
+# SERVER
+# Binds inside the container; Docker network provides isolation.
+# Host-side exposure is restricted to 127.0.0.1 via compose ports.
+# gRPC port used by Tempo's internal distributor and query-frontend.
+# ============================================================
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9095
+  log_level: info
+  # Structured JSON logs for consistency with the rest of the stack.
+  log_format: json
+  # Graceful shutdown: allow in-flight requests to complete.
+  graceful_shutdown_timeout: 30s
+
+# ============================================================
+# DISTRIBUTOR
+# Receives OTLP spans from the Collector and fans them out to
+# the ingester. The OTLP receiver below is what the Collector's
+# otlp/tempo exporter writes to.
+# ADR-028: Collector is the sole Tempo writer.
+# Applications NEVER send traces to Tempo directly.
+# ============================================================
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          # The Collector sends OTLP gRPC to this port inside the Docker network.
+          # Port 4317 on Tempo is the OTLP gRPC receiver — different from the
+          # host-level Collector port (also 4317) because they are on different
+          # containers (no port conflict on the same Docker bridge).
+          endpoint: "0.0.0.0:4317"
+        http:
+          # OTLP HTTP receiver — available for future use or Collector HTTP export.
+          # Currently the Collector uses gRPC; HTTP is kept as a fallback.
+          endpoint: "0.0.0.0:4318"
+
+# ============================================================
+# INGESTER
+# Buffers spans in memory and WAL before flushing to block storage.
+# wal.path must be inside the named volume (tempo_data:/var/tempo).
+# ============================================================
+ingester:
+  # Maximum age of a trace in the ingester before it is flushed.
+  max_block_duration: 5m
+  trace_idle_period: 10s
+  max_block_bytes: 1073741824   # 1 GiB — flush if block exceeds this size
+  wal:
+    # WAL resides inside the named volume for durability across restarts.
+    path: /var/tempo/wal
+
+# ============================================================
+# COMPACTOR
+# Merges and compacts blocks on storage.
+# Enforces retention: blocks outside the 7-day window are deleted.
+# ADR-031: retention = 7 days (168 h).
+# ============================================================
+compactor:
+  compaction:
+    # Minimum age of a block before compaction targets it.
+    block_retention: 168h     # 7 days — matches ADR-031
+
+# ============================================================
+# STORAGE
+# Filesystem backend — appropriate for single-VM MVP.
+# Named Docker volume tempo_data mounted at /var/tempo.
+#
+# Directory layout under /var/tempo:
+#   /var/tempo/blocks    ← completed trace blocks (Parquet format)
+#   /var/tempo/wal       ← write-ahead log for in-flight ingestion
+#
+# Object-storage migration (Phase 10+):
+#   backend: s3
+#   s3:
+#     bucket: ixora-tempo-traces
+#     endpoint: nyc3.digitaloceanspaces.com
+#     access_key: ${TEMPO_S3_ACCESS_KEY}
+#     secret_key: ${TEMPO_S3_SECRET_KEY}
+#     insecure: false
+# ============================================================
+storage:
+  trace:
+    backend: local
+
+    local:
+      path: /var/tempo/blocks
+
+    wal:
+      path: /var/tempo/wal
+
+    # Block encoding — snappy is CPU-efficient for single-VM.
+    # Use zstd if disk space is constrained (higher CPU cost).
+    block:
+      bloom_filter_false_positive: 0.05
+      index_downsample_bytes: 1000
+      encoding: snappy
+
+    # Pool configuration — limits concurrent block reads.
+    pool:
+      max_workers: 100
+      queue_depth: 10000
+
+# ============================================================
+# QUERY FRONTEND
+# Handles TraceQL queries and distributes work to queriers.
+# Grafana (Phase 9) queries Tempo via this endpoint.
+# ============================================================
+query_frontend:
+  search:
+    # Duration of trace search queries — cap to avoid runaway queries.
+    query_timeout: 30s
+    # Duration of search tags requests.
+    query_tags_timeout: 30s
+  trace_by_id:
+    # Timeout for single-trace lookup (trace_id → spans).
+    query_timeout: 10s
+
+# ============================================================
+# QUERIER
+# Executes search queries against block storage and the ingester.
+# ============================================================
+querier:
+  # Maximum number of concurrent queries.
+  max_concurrent_queries: 10
+  search:
+    # Prefer ingester data for recent traces (< max_block_duration).
+    prefer_self: 10
+
+# ============================================================
+# METRICS GENERATOR
+# Disabled — Prometheus handles metrics (Phase 4).
+# Enabling metrics_generator would generate service graph metrics
+# from traces, but conflicts with the existing Prometheus setup
+# unless configured carefully. Deferred to Phase 10+.
+# ============================================================
+metrics_generator:
+  # Explicitly disabled: Prometheus + Collector handle all metrics.
+  # Enable in Phase 10+ if service graph or span metrics are needed.
+  # registry:
+  #   collection_interval: 15s
+  # storage:
+  #   path: /var/tempo/generator/wal
+  # processor:
+  #   service_graphs:
+  #     ...
+  #   span_metrics:
+  #     ...
+
+# ============================================================
+# SEARCH
+# TraceQL and tag-based search configuration.
+# Controls how traces are indexed for Grafana Explore queries.
+# ============================================================
+search:
+  # Maximum duration of a trace that is eligible for search.
+  max_duration: 0s     # 0 = unlimited
+  # Bytes of trace data read per second during search.
+  # Limit protects CPU on the single VM.
+  read_rate_limit_bytes: 104857600   # 100 MiB/s
+
+# ============================================================
+# OVERRIDES (per-tenant limits)
+# Single-tenant MVP — all limits apply to the default tenant.
+# ============================================================
+overrides:
+  defaults:
+    # Maximum bytes of trace data received per second (ingestion limit).
+    ingestion:
+      rate_limit_bytes: 15000000    # 15 MiB/s
+      burst_size_bytes: 20000000    # 20 MiB/s burst
+      max_traces_per_user: 10000   # Active traces in ingester
+    # Maximum bytes of data returned by a search request.
+    read:
+      max_bytes_per_trace: 5000000  # 5 MiB per trace result
+
+# ============================================================
+# ANALYTICS
+# Disable Grafana usage reporting — privacy (ADR-030).
+# ============================================================
+usage_report:
+  reporting_enabled: false

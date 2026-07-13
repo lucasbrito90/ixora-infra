@@ -148,8 +148,9 @@ See [`plan.md`](plan.md). Phases intentionally small:
 | **3.75** | Metrics Philosophy (architecture guide — before backend instrumentation) |
 | **4** | Prometheus — `prometheusremotewrite` active; 30-day retention; internal only |
 | **5** | Loki — `loki` exporter active; 14-day retention; Collector sole writer |
+| **5.5** | Logs Philosophy — architectural guide; mandatory before Phases 7 and 8 |
 | **6** | Tempo |
-| **7** | Backend SDK (`back_vibes`) — Phases **7A** and **7B** must follow [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) |
+| **7** | Backend SDK (`back_vibes`) — Phases **7A** and **7B** must follow [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) and [logs-philosophy.md](../../../architecture/logs-philosophy.md) |
 | **8** | Frontend SDK (`front_vibes`) |
 | **9** | Grafana dashboards |
 | **10** | Operational readiness runbook |
@@ -207,7 +208,9 @@ Before marking any implementation phase **Done**:
 | [ADR-021](../../../decisions/ADR-021-notification-security-and-privacy.md) | Notification privacy alignment |
 | [ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md) | Product observability today |
 | [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) | Official naming — services, metrics, spans, logs, events, labels |
+| [logs-philosophy.md](../../../architecture/logs-philosophy.md) | **Phase 5.5** — how engineers think about logs; mandatory before Phases 7 and 8 |
 | [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) | **Phase 3.75** — how engineers think about metrics; mandatory before Phases 7A/7B |
+| [tempo-deployment.md](tempo-deployment.md) | **Phase 6** — Tempo container, config, Collector wiring, sampling, retention, validation |
 | [loki-deployment.md](loki-deployment.md) | **Phase 5** — Loki container, config, Collector wiring, validation, retention |
 | [prometheus-deployment.md](prometheus-deployment.md) | **Phase 4** — Prometheus container, config, Collector wiring, validation |
 | [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md) | Signal choice — metric vs trace vs log vs event |
