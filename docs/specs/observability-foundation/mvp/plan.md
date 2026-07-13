@@ -245,10 +245,32 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 **Goal:** Log aggregation with 14-day retention.
 
+**Complete.**
+
+### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Loki configuration | [`collector/loki/loki.yaml`](../../../../collector/loki/loki.yaml) |
+| Loki service (docker-compose) | [`collector/docker-compose.yml`](../../../../collector/docker-compose.yml) |
+| Collector config updated | [`collector/config.yaml`](../../../../collector/config.yaml) — `loki` exporter active, `debug` removed from logs pipeline |
+| Environment template updated | [`collector/.env.example`](../../../../collector/.env.example) |
+| Deployment spec | [`loki-deployment.md`](loki-deployment.md) |
+
 ### Exit criteria
 
-- Collector exports logs to Loki.
-- Test log queryable in Grafana Explore (Grafana may deploy in Phase 9 — Loki CLI OK for Phase 5).
+- ✅ Loki service running and healthy (`/ready` returns 200).
+- ✅ Collector exports logs to Loki via `loki` exporter.
+- ✅ `debug` exporter removed from logs pipeline.
+- ✅ Logs queryable via LogQL at `http://127.0.0.1:3100`.
+- ✅ Retention period `336h` (14 days) configured in `loki.yaml`.
+- ✅ Compactor retention enforcement enabled.
+- ✅ Loki bound to `127.0.0.1:3100` only — not publicly accessible.
+- ✅ No application writes to Loki directly (Collector is sole writer).
+- ✅ All redaction applied before Loki push (`attributes/redact_secrets`).
+- ✅ Persistence validated: log data survives container restart (named volume + WAL).
+- ✅ No application instrumentation, no Grafana, no Tempo, no SDK changes.
+- ✅ Metrics pipeline (Prometheus) unchanged.
 
 ---
 

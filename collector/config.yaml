@@ -1,6 +1,6 @@
   # ============================================================
 # Ixora Observability Platform — OpenTelemetry Collector Config
-# Phase 4 — Prometheus Metrics Backend active
+# Phase 5 — Loki Log Backend active
 #
 # Naming: telemetry-naming-convention.md
 # Security: security-review.md + collector-hardening-checklist.md
@@ -9,7 +9,7 @@
 #
 # Backend status:
 #   Phase 4 ✅  Prometheus — prometheusremotewrite exporter active
-#   Phase 5 ⬜  Loki       — loki exporter stub below
+#   Phase 5 ✅  Loki       — loki exporter active (logs pipeline)
 #   Phase 6 ⬜  Tempo      — otlp/tempo exporter stub below
 # ============================================================
 
@@ -252,18 +252,17 @@ processors:
 # ============================================================
 # EXPORTERS
 # Phase 4: prometheusremotewrite active (metrics).
-# Phase 5: loki exporter will replace debug in logs pipeline.
+# Phase 5: loki exporter active (logs pipeline); debug removed from logs.
 # Phase 6: otlp/tempo exporter will replace debug in traces pipeline.
 # ============================================================
 exporters:
 
   # ----------------------------------------------------------
   # DEBUG EXPORTER
-  # Retained for logs and traces pipelines until Phase 5/6
-  # deploy the respective backends.
-  # REMOVED from metrics pipeline — Prometheus is now live.
-  # collector-hardening-checklist.md §7: remove when all
-  # backends are wired (Phase 6 completes the metrics pipeline).
+  # Retained for traces pipeline only until Phase 6 deploys Tempo.
+  # REMOVED from metrics pipeline (Phase 4 — Prometheus live).
+  # REMOVED from logs pipeline (Phase 5 — Loki live).
+  # collector-hardening-checklist.md §7: remove entirely in Phase 6.
   # ----------------------------------------------------------
   debug:
     verbosity: normal
@@ -300,16 +299,44 @@ exporters:
       enabled: true
 
   # ----------------------------------------------------------
-  # LOKI — Phase 5 (stub)
+  # LOKI EXPORTER — Phase 5 (active)
+  # Pushes OTLP log records to Loki via its push API.
+  # Endpoint: Loki container on the ixora-observability Docker
+  # network (service name DNS — never 127.0.0.1).
+  # ADR-028: Collector is the sole Loki writer.
+  #          Applications NEVER communicate with Loki directly.
+  # ADR-030: All redaction (credentials, PII) is applied by the
+  #          attributes/redact_secrets processor BEFORE this exporter.
+  #          Loki never stores raw token, password, or email values.
+  # ADR-031: Label cardinality kept low — only two resource labels
+  #          (service_name, deployment_environment) are promoted to
+  #          Loki stream labels. High-cardinality values (user_id,
+  #          schedule_id, etc.) remain in the log body, not labels.
+  #
+  # Label strategy:
+  #   resource.service.name        → service_name   (stream label)
+  #   resource.deployment.environment → deployment_environment (stream label)
+  #   log severity                 → level           (stream label via default)
+  #
+  # default_labels_enabled:
+  #   exporter: false  — no "exporter=lokiexporter" noise label
+  #   job:      true   — Grafana uses {job="<service_name>"} convention
+  #   instance: false  — container hostnames are not meaningful labels
+  #   level:    true   — severity level enables log-level filtering in Grafana
   # ----------------------------------------------------------
-  # loki:
-  #   endpoint: "http://loki:3100/loki/api/v1/push"
-  #   tls:
-  #     insecure: true
-  #   labels:
-  #     resource:
-  #       service.name: "service_name"
-  #       deployment.environment: "deployment_environment"
+  loki:
+    endpoint: "${env:LOKI_ENDPOINT}"
+    tls:
+      insecure: true
+    default_labels_enabled:
+      exporter: false
+      job: true
+      instance: false
+      level: true
+    labels:
+      resource:
+        service.name: "service_name"
+        deployment.environment: "deployment_environment"
 
   # ----------------------------------------------------------
   # TEMPO (OTLP) — Phase 6 (stub)
@@ -347,8 +374,8 @@ service:
     # --------------------------------------------------------
     # METRICS PIPELINE
     # Phase 4: prometheusremotewrite active; debug removed.
-    # Phase 5: Loki exporter added (logs pipeline).
-    # Phase 6: Tempo exporter added (traces pipeline).
+    # Phase 5: No change — metrics flow to Prometheus unchanged.
+    # Phase 6: No change planned for metrics pipeline.
     # --------------------------------------------------------
     metrics:
       receivers:
@@ -366,8 +393,11 @@ service:
 
     # --------------------------------------------------------
     # LOGS PIPELINE
-    # Phase 4: debug remains — Loki not yet deployed.
-    # Phase 5: replace debug with loki exporter.
+    # Phase 5: loki exporter active — debug removed.
+    # All log redaction (credentials, PII) runs before the loki
+    # exporter via attributes/redact_secrets (ADR-030).
+    # Applications write OTLP → Collector only; Loki never
+    # receives data directly from any application (ADR-028).
     # --------------------------------------------------------
     logs:
       receivers:
@@ -379,8 +409,7 @@ service:
         - attributes/redact_secrets
         - batch
       exporters:
-        - debug
-        # - loki  # Enable in Phase 5
+        - loki   # Phase 5: Loki active
 
     # --------------------------------------------------------
     # TRACES PIPELINE — main (sampled)
