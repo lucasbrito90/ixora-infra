@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + **6** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + **Tempo**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -29,7 +29,8 @@
 | 3.75 — Metrics Philosophy | 0 | 0 | 1 | 0 |
 | 4 — Prometheus | 0 | 0 | 3 | 0 |
 | 5 — Loki | 0 | 0 | 3 | 0 |
-| 6 — Tempo | 3 | 0 | 0 | 0 |
+| 5.5 — Logs Philosophy | 0 | 0 | 1 | 0 |
+| 6 — Tempo | 0 | 0 | 3 | 0 |
 | 7 — Backend SDK | 6 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
 | 9 — Dashboards | 5 | 0 | 0 | 0 |
@@ -236,21 +237,50 @@
 
 ---
 
+## Phase 5.5 — Logs Philosophy
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P5.5-1 | Publish **`logs-philosophy.md`** | **Done** | [`logs-philosophy.md`](../../../architecture/logs-philosophy.md) |
+
+**Phase 5.5 implementation notes:**
+
+- Documentation-only phase — no Collector, Loki, Prometheus, Tempo, Grafana, or application changes.
+- Mandatory reading before Phases 7 and 8 (application instrumentation).
+- Complements [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75).
+
+**Branch:** `feature/observability-logs-philosophy`
+
+---
+
 ## Phase 6 — Tempo
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P6-1 | Deploy Tempo with 7-day retention | **Pending** | [`ADR-031`](../../../decisions/ADR-031-retention-storage-and-cost-control.md) |
-| P6-2 | Wire Collector → Tempo with head sampling | **Pending** | |
-| P6-3 | Verify trace ingest + `trace_id` search | **Pending** | |
+| P6-1 | Deploy Tempo with 7-day retention | **Done** | [`tempo-deployment.md`](tempo-deployment.md) · [`ADR-031`](../../../decisions/ADR-031-retention-storage-and-cost-control.md) |
+| P6-2 | Wire Collector → Tempo with head sampling; remove debug exporter | **Done** | [`collector/config.yaml`](../../../../collector/config.yaml) |
+| P6-3 | Verify trace ingest + `trace_id` search | **Done** | [`tempo-deployment.md §9`](tempo-deployment.md) |
 
 **Branch:** `feature/observability-tempo`
+
+**Phase 6 implementation notes:**
+
+- `collector/tempo/tempo.yaml` created — Tempo 2.6.0, filesystem storage, 7-day retention, OTLP receivers (gRPC + HTTP), WAL, compactor, search, `metrics_generator` disabled.
+- `otlp/tempo` exporter enabled in `collector/config.yaml`; endpoint via Docker service name `http://tempo:4317`.
+- `debug` exporter **fully removed** — eliminated from all three pipelines (metrics Phase 4, logs Phase 5, traces Phase 6).
+- Tempo service enabled in `collector/docker-compose.yml`: `127.0.0.1:3200` (HTTP query) and `127.0.0.1:4317` (OTLP gRPC) host bindings, 7-day retention, WAL, named volume `tempo_data`.
+- `collector/.env.example` updated: `TEMPO_VERSION`, `TEMPO_ENDPOINT`, `TEMPO_PORT`, `TEMPO_OTLP_GRPC_PORT`.
+- `collector/README.md` updated: Phase 6 quick start, validation checklist, ports table, upgrade strategy.
+- `tempo-deployment.md` published: architecture, container spec, volumes, sampling, retention, security, Collector changes, object-storage migration note, validation steps, upgrade strategy.
+- Traces pipeline sampling: probabilistic_sampler retained (10% success). Tail sampling documented as Phase 7+ evolution.
+- Metrics pipeline (Prometheus) and logs pipeline (Loki) are **unchanged**.
+- No application repositories modified. No `back_vibes`. No `front_vibes`. No Grafana. No Prometheus. No Loki changes.
 
 ---
 
 ## Phase 7 — Backend SDK
 
-**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75).
+**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) · [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5).
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |

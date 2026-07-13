@@ -27,6 +27,8 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 
 > **Metrics mandate:** Phases **7A** and **7B** (backend instrumentation) **must** follow [`metrics-philosophy.md`](../../../architecture/metrics-philosophy.md) before adding or changing product metrics.
 
+> **Logs mandate:** Phases **7** and **8** (application instrumentation) **must** follow [`logs-philosophy.md`](../../../architecture/logs-philosophy.md) before adding or changing product logs.
+
 ---
 
 ## Current state
@@ -56,7 +58,8 @@ Phase 3.5  ──► Collector validation & hardening
 Phase 3.75 ──► Metrics Philosophy (complete)
 Phase 4    ──► Prometheus
 Phase 5    ──► Loki
-Phase 6    ──► Tempo
+Phase 5.5  ──► Logs Philosophy (complete)
+Phase 6    ──► Tempo (complete)
 Phase 7    ──► Backend SDK (back_vibes)
 Phase 8    ──► Frontend SDK (front_vibes)
 Phase 9    ──► Grafana dashboards
@@ -274,14 +277,59 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 ---
 
+## Phase 5.5 — Logs Philosophy
+
+**Goal:** Define **how engineers think about logs** — a platform-wide architectural guide required before application instrumentation (Phases 7 and 8).
+
+**Complete (documentation only).**
+
+### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Logs philosophy guide | [`logs-philosophy.md`](../../../architecture/logs-philosophy.md) |
+
+### Exit criteria
+
+- Document published with all 14 sections (purpose, principles, when/when-not, levels, attributes, forbidden info, structured logging, platform relationship, metrics/traces relationships, examples, anti-patterns, review checklist, cross-references).
+- README, plan, tasks, and spec updated.
+- Consistent with ADRs 028–031, metrics philosophy, naming convention, decision guide, security review, collector validation, and loki deployment.
+- **No runtime code**, SDK, Collector, Loki, Prometheus, Tempo, Grafana, or infrastructure changes.
+
+> Application instrumentation PRs (Phases 7 and 8) must follow [logs-philosophy.md](../../../architecture/logs-philosophy.md) for log design and [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) for field names.
+
+---
+
 ## Phase 6 — Tempo
 
 **Goal:** Trace backend with 7-day retention and sampling.
 
+**Complete.**
+
+### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Tempo configuration | [`collector/tempo/tempo.yaml`](../../../../collector/tempo/tempo.yaml) |
+| Tempo service (docker-compose) | [`collector/docker-compose.yml`](../../../../collector/docker-compose.yml) |
+| Collector config updated | [`collector/config.yaml`](../../../../collector/config.yaml) — `otlp/tempo` active, `debug` removed from traces pipeline |
+| Environment template updated | [`collector/.env.example`](../../../../collector/.env.example) |
+| Deployment spec | [`tempo-deployment.md`](tempo-deployment.md) |
+
 ### Exit criteria
 
-- Collector exports traces to Tempo with head sampling per ADR-031.
-- Test trace searchable by `trace_id`.
+- ✅ Tempo service running and healthy (`/ready` returns 200).
+- ✅ Collector exports traces to Tempo via `otlp/tempo` exporter.
+- ✅ `debug` exporter **fully removed** from all pipelines (metrics Phase 4, logs Phase 5, traces Phase 6).
+- ✅ Test trace searchable by `trace_id` via Tempo HTTP API.
+- ✅ Retention period `168h` (7 days) configured via compactor.
+- ✅ Tempo bound to `127.0.0.1:3200` (HTTP) and `127.0.0.1:4317` (OTLP gRPC) — not publicly accessible.
+- ✅ No application writes to Tempo directly (Collector is sole writer).
+- ✅ All redaction applied before Tempo push (`attributes/redact_secrets`).
+- ✅ Persistence validated: trace data survives container restart (named volume + WAL).
+- ✅ Sampling: `probabilistic_sampler` (10%) retained; tail sampling documented as Phase 7+ evolution.
+- ✅ Metrics pipeline (Prometheus) and logs pipeline (Loki) unchanged.
+- ✅ No application instrumentation, no Grafana, no SDK changes.
 
 ---
 
@@ -289,7 +337,7 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 **Goal:** `back_vibes` emits OTLP to Collector.
 
-**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) — mandatory for Phases **7A** and **7B**.
+**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) — mandatory for Phases **7A** and **7B**; [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5) — mandatory for Phases **7** and **8**.
 
 ### Scope
 
