@@ -1,12 +1,13 @@
-# Ixora Observability — Collector + Prometheus + Loki
+# Ixora Observability — Collector + Prometheus + Loki + Tempo
 
-**Phase:** 5 — Loki Log Backend  
-**Stack:** OpenTelemetry Collector (contrib) + Prometheus + Loki via Docker Compose  
+**Phase:** 6 — Tempo Trace Backend  
+**Stack:** OpenTelemetry Collector (contrib) + Prometheus + Loki + Tempo via Docker Compose  
 **VM:** DigitalOcean Droplet `observability-staging` (tor1) — [infrastructure-review.md](../docs/specs/observability-foundation/mvp/infrastructure-review.md)
 
-> This directory contains the **complete Collector + Prometheus + Loki deployment** for the Ixora Observability Platform.  
-> Tempo (Phase 6) and Grafana (Phase 9) are stubbed and will be enabled in their respective phases.  
-> **Collector is the only log ingestion point.** Applications write OTLP Logs → Collector only. Loki never receives data from applications directly.
+> This directory contains the **complete Collector + Prometheus + Loki + Tempo deployment** for the Ixora Observability Platform.  
+> Grafana (Phase 9) is stubbed and will be enabled in Phase 9.  
+> **Collector is the only ingestion point for all signals.** Applications export OTLP to the Collector only. Prometheus, Loki, and Tempo never receive data from applications directly.  
+> **Debug exporter fully removed** — all three pipelines export to their respective backends.
 
 ---
 
@@ -15,12 +16,14 @@
 ```
 collector/
 ├── config.yaml                  ← OpenTelemetry Collector configuration
-├── docker-compose.yml           ← Compose file (Collector + Prometheus + Loki active)
+├── docker-compose.yml           ← Compose file (Collector + Prometheus + Loki + Tempo active)
 ├── .env.example                 ← Environment variable template (NEVER commit .env)
 ├── prometheus/
 │   └── prometheus.yml           ← Prometheus configuration (Phase 4)
 ├── loki/
 │   └── loki.yaml                ← Loki configuration (Phase 5)
+├── tempo/
+│   └── tempo.yaml               ← Tempo configuration (Phase 6)
 └── README.md                    ← This file
 ```
 
@@ -49,9 +52,9 @@ cp collector/.env.example collector/.env
 # with strong random keys (openssl rand -hex 32)
 chmod 600 collector/.env
 
-# 3. Start Collector + Prometheus + Loki (Phase 5)
+# 3. Start Collector + Prometheus + Loki + Tempo (Phase 6)
 cd collector
-docker compose up -d collector prometheus loki
+docker compose up -d collector prometheus loki tempo
 
 # 4. Verify Collector
 docker compose ps
@@ -63,7 +66,10 @@ curl http://127.0.0.1:9090/-/ready
 
 # 6. Verify Loki
 curl http://127.0.0.1:3100/ready
-curl http://127.0.0.1:3100/metrics | grep loki_ingester
+
+# 7. Verify Tempo
+curl http://127.0.0.1:3200/ready
+curl http://127.0.0.1:3200/metrics | grep tempo_ingester
 ```
 
 Expected health responses:
@@ -78,13 +84,16 @@ Prometheus Server is Ready.
 
 # Loki
 ready
+
+# Tempo
+ready
 ```
 
 ---
 
-## Validation checklist (Phase 5)
+## Validation checklist (Phase 6)
 
-Run after every deployment or config change. Mirrors [loki-deployment.md](../docs/specs/observability-foundation/mvp/loki-deployment.md) §9 and [prometheus-deployment.md](../docs/specs/observability-foundation/mvp/prometheus-deployment.md) §9.
+Run after every deployment or config change. Mirrors [tempo-deployment.md](../docs/specs/observability-foundation/mvp/tempo-deployment.md) §9, [loki-deployment.md](../docs/specs/observability-foundation/mvp/loki-deployment.md) §9, and [prometheus-deployment.md](../docs/specs/observability-foundation/mvp/prometheus-deployment.md) §9.
 
 ```bash
 # ---- Collector ----
@@ -184,26 +193,82 @@ sleep 15
 curl http://127.0.0.1:3100/ready
 # Expected: "ready"
 
+# ---- Tempo ----
+
+# 20. Tempo running
+docker compose ps tempo
+# Expected: running (healthy)
+
+# 21. Tempo ready endpoint
+curl http://127.0.0.1:3200/ready
+# Expected: "ready"
+
+# 22. Tempo metrics exposed
+curl -s http://127.0.0.1:3200/metrics | grep tempo_ingester_traces_created_total
+# Expected: metric line present (value may be 0 before first trace push)
+
+# 23. End-to-end trace test via Collector OTLP
+# Send a test span via the Collector OTLP HTTP endpoint with a valid API key,
+# then verify Tempo received it:
+curl -X POST http://127.0.0.1:4318/v1/traces \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <OTEL_INGEST_API_KEY_BACKEND>" \
+  -d '{
+    "resourceSpans": [{
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "test-service"}},
+          {"key": "deployment.environment", "value": {"stringValue": "staging"}}
+        ]
+      },
+      "scopeSpans": [{
+        "spans": [{
+          "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "spanId": "00f067aa0ba902b7",
+          "name": "phase-6-tempo-validation",
+          "startTimeUnixNano": "'$(date +%s%N)'",
+          "endTimeUnixNano": "'$(( $(date +%s%N) + 1000000 ))'",
+          "status": {}
+        }]
+      }]
+    }]
+  }'
+sleep 12
+curl -s "http://127.0.0.1:3200/api/traces/4bf92f3577b34da6a3ce929d0e0e4736" | jq .
+# Expected: trace JSON with phase-6-tempo-validation span name
+
+# 24. Tempo retention configured
+grep block_retention collector/tempo/tempo.yaml
+# Expected: block_retention: 168h
+
+# 25. Persistence: restart and verify trace data survives
+docker compose restart tempo
+sleep 20
+curl http://127.0.0.1:3200/ready
+# Expected: "ready"
+
+# 26. Debug exporter fully removed from all pipelines
+grep 'debug' collector/config.yaml | grep -v '#'
+# Expected: no active debug exporter references (only comments)
+
 # ---- Security ----
 
-# 20. Loki not publicly reachable (from outside VM)
+# 27. Tempo not publicly reachable (from outside VM)
 # This test runs from a different machine:
+# curl http://<VM_PUBLIC_IP>:3200/ready
+# Expected: Connection refused or firewall drop
+
+# 28. Loki not publicly reachable (from outside VM)
 # curl http://<VM_PUBLIC_IP>:3100/ready
 # Expected: Connection refused or firewall drop
 
-# 21. Prometheus not publicly reachable (from outside VM)
+# 29. Prometheus not publicly reachable (from outside VM)
 # curl http://<VM_PUBLIC_IP>:9090/-/healthy
 # Expected: Connection refused or firewall drop
 
-# 22. No application /metrics endpoints exposed
-grep -E 'targets|job_name' collector/prometheus/prometheus.yml
-# Expected: only 'prometheus' job with 'localhost:9090'
-
-# 23. Applications cannot reach Loki directly (network isolation)
-# Loki is on ixora-observability Docker network — not accessible from
-# application containers on other networks. Verify by checking compose networks:
-docker network inspect ixora-observability | jq '.[].Containers | keys'
-# Expected: only collector and loki container IDs
+# 30. Network isolation — only observability containers on internal network
+docker network inspect ixora-observability | jq '.[].Containers | to_entries[] | .value.Name'
+# Expected: ixora-otel-collector, ixora-prometheus, ixora-loki, ixora-tempo
 ```
 
 ---
@@ -262,6 +327,27 @@ curl -s 'http://127.0.0.1:3100/loki/api/v1/query_range' \
   --data-urlencode "end=$(date +%s)000000000" \
   | jq '.data.result | length'
 # Expected: > 0 if logs were ingested before restart
+
+# --- Tempo upgrade ---
+# 1. Update version in .env
+TEMPO_VERSION=2.7.0
+
+# 2. Review Tempo release notes for breaking changes before upgrading.
+#    https://grafana.com/docs/tempo/latest/setup/upgrade/
+
+# 3. Pull and restart without touching Collector, Prometheus, or Loki
+docker compose pull tempo
+docker compose up -d --no-deps tempo
+
+# 4. Validate
+curl http://127.0.0.1:3200/ready
+docker compose logs tempo --since=2m
+
+# 5. Confirm trace data survived (tempo_data named volume persists)
+curl -s http://127.0.0.1:3200/api/search \
+  --data-urlencode "minDuration=0ms" \
+  | jq '.traces | length'
+# Expected: > 0 if traces were ingested before restart
 ```
 
 Pin all services to specific versions — **never use `:latest`**.
@@ -284,6 +370,10 @@ See [`.env.example`](.env.example) for full reference.
 | `LOKI_VERSION` | ✅ | Loki image tag to pin (default `3.2.0`) |
 | `LOKI_ENDPOINT` | ✅ | `http://loki:3100/loki/api/v1/push` |
 | `LOKI_PORT` | Optional | Host port for Loki API — defaults to `3100` |
+| `TEMPO_VERSION` | ✅ | Tempo image tag to pin (default `2.6.0`) |
+| `TEMPO_ENDPOINT` | ✅ | `http://tempo:4317` (OTLP gRPC) |
+| `TEMPO_PORT` | Optional | Host port for Tempo HTTP query — defaults to `3200` |
+| `TEMPO_OTLP_GRPC_PORT` | Optional | Host port for Tempo OTLP gRPC — defaults to `4317` |
 | `OTEL_MEMORY_LIMIT_MIB` | Optional | Defaults to `512` |
 | `OTEL_MEMORY_SPIKE_LIMIT_MIB` | Optional | Defaults to `128` |
 
@@ -302,6 +392,8 @@ See [`.env.example`](.env.example) for full reference.
 | `55679` | Collector | Internal (`127.0.0.1`) | zPages |
 | `9090` | Prometheus | Internal (`127.0.0.1`) | Prometheus API + UI (Grafana Phase 9) |
 | `3100` | Loki | Internal (`127.0.0.1`) | Loki push API + LogQL queries (Grafana Phase 9) |
+| `3200` | Tempo | Internal (`127.0.0.1`) | Tempo HTTP query API + TraceQL (Grafana Phase 9) |
+| `4317` | Tempo | Internal (`127.0.0.1`) | Tempo OTLP gRPC receiver (Collector writes here via Docker network) |
 
 Full firewall policy: [infrastructure-review.md §5](../docs/specs/observability-foundation/mvp/infrastructure-review.md).
 
@@ -317,15 +409,14 @@ Full firewall policy: [infrastructure-review.md §5](../docs/specs/observability
 
 ---
 
-## Adding Phase 6–9 backends
+## Adding Phase 9 backend (Grafana)
 
-Phase 5 (Loki) is now active. To enable remaining backends:
+Phases 4 (Prometheus), 5 (Loki), and 6 (Tempo) are now active. To enable Grafana:
 
-1. Uncomment the relevant stub service in `docker-compose.yml`.
-2. Create the required config directory (e.g. `collector/tempo/tempo.yaml`).
-3. Add exporter block in `config.yaml` and wire the pipeline.
-4. Run `docker compose up -d <service>`.
-5. Follow the phase-specific spec in `docs/specs/observability-foundation/mvp/`.
+1. Uncomment the `grafana` service stub in `docker-compose.yml`.
+2. Create `collector/grafana/provisioning/` with datasource and dashboard configs.
+3. Run `docker compose up -d grafana`.
+4. Follow the phase-specific spec in `docs/specs/observability-foundation/mvp/`.
 
 ---
 
@@ -336,11 +427,13 @@ Phase 5 (Loki) is now active. To enable remaining backends:
 | [infrastructure-review.md](../docs/specs/observability-foundation/mvp/infrastructure-review.md) | VM topology and ports |
 | [security-review.md](../docs/specs/observability-foundation/mvp/security-review.md) | Auth, TLS, redaction |
 | [collector-hardening-checklist.md](../docs/operations/collector-hardening-checklist.md) | Deploy verification |
+| [tempo-deployment.md](../docs/specs/observability-foundation/mvp/tempo-deployment.md) | Phase 6 — full Tempo deployment spec |
 | [loki-deployment.md](../docs/specs/observability-foundation/mvp/loki-deployment.md) | Phase 5 — full Loki deployment spec |
 | [prometheus-deployment.md](../docs/specs/observability-foundation/mvp/prometheus-deployment.md) | Phase 4 — full Prometheus deployment spec |
 | [collector-deployment.md](../docs/specs/observability-foundation/mvp/collector-deployment.md) | Phase 3 — Collector deployment spec |
 | [telemetry-naming-convention.md](../docs/architecture/telemetry-naming-convention.md) | Naming in config |
 | [observability-operational-limits.md](../docs/architecture/observability-operational-limits.md) | Memory/batch limits |
 | [metrics-philosophy.md](../docs/architecture/metrics-philosophy.md) | Metrics instrumentation philosophy |
+| [logs-philosophy.md](../docs/architecture/logs-philosophy.md) | Logs instrumentation philosophy |
 | [telemetry-decision-guide.md](../docs/architecture/telemetry-decision-guide.md) | When to use logs vs metrics vs traces |
 | [observability-playbook.md](../docs/operations/observability-playbook.md) | Operational runbook |
