@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + **6** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + **Tempo**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + **6.5** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + **Traces Philosophy**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -31,6 +31,7 @@
 | 5 — Loki | 0 | 0 | 3 | 0 |
 | 5.5 — Logs Philosophy | 0 | 0 | 1 | 0 |
 | 6 — Tempo | 0 | 0 | 3 | 0 |
+| 6.5 — Traces Philosophy | 0 | 0 | 1 | 0 |
 | 7 — Backend SDK | 6 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
 | 9 — Dashboards | 5 | 0 | 0 | 0 |
@@ -278,9 +279,27 @@
 
 ---
 
+## Phase 6.5 — Traces Philosophy
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P6.5-1 | Publish **`traces-philosophy.md`** | **Done** | [`traces-philosophy.md`](../../../architecture/traces-philosophy.md) |
+
+**Phase 6.5 implementation notes:**
+
+- Platform-wide guide for how engineers think about traces — not a Tempo manual or OTel tutorial.
+- Mandatory reading before Phases 7 and 8 (application instrumentation).
+- Complements [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) and [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5).
+- Documentation only — no runtime code, SDK, Collector, Tempo, Prometheus, Loki, Grafana, or infrastructure changes.
+- Validated against ADRs 028–031, security review, collector validation report, and tempo deployment.
+
+**Branch:** `feature/observability-traces-philosophy`
+
+---
+
 ## Phase 7 — Backend SDK
 
-**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) · [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5).
+**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) · [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5) · [traces-philosophy.md](../../../architecture/traces-philosophy.md) (Phase 6.5).
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
