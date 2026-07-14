@@ -29,6 +29,8 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 
 > **Logs mandate:** Phases **7** and **8** (application instrumentation) **must** follow [`logs-philosophy.md`](../../../architecture/logs-philosophy.md) before adding or changing product logs.
 
+> **Traces mandate:** Phases **7** and **8** (application instrumentation) **must** follow [`traces-philosophy.md`](../../../architecture/traces-philosophy.md) before adding or changing product spans.
+
 ---
 
 ## Current state
@@ -60,6 +62,7 @@ Phase 4    ──► Prometheus
 Phase 5    ──► Loki
 Phase 5.5  ──► Logs Philosophy (complete)
 Phase 6    ──► Tempo (complete)
+Phase 6.5  ──► Traces Philosophy (complete)
 Phase 7    ──► Backend SDK (back_vibes)
 Phase 8    ──► Frontend SDK (front_vibes)
 Phase 9    ──► Grafana dashboards
@@ -333,11 +336,34 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 ---
 
+## Phase 6.5 — Traces Philosophy
+
+**Goal:** Define **how engineers think about traces** — a platform-wide architectural guide required before application instrumentation (Phases 7 and 8).
+
+**Complete (documentation only).**
+
+### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Traces philosophy guide | [`traces-philosophy.md`](../../../architecture/traces-philosophy.md) |
+
+### Exit criteria
+
+- Document published with all 14 sections (purpose, principles, when/when-not, hierarchy, attributes, events, exceptions, sampling, metrics/traces/logs relationship, examples, anti-patterns, review checklist, cross-references).
+- README, plan, tasks, and spec updated.
+- Consistent with ADRs 028–031, metrics philosophy, logs philosophy, naming convention, decision guide, observability playbook, security review, collector validation, and tempo deployment.
+- **No runtime code**, SDK, Collector, Tempo, Prometheus, Loki, Grafana, or infrastructure changes.
+
+> Application instrumentation PRs (Phases 7 and 8) must follow [traces-philosophy.md](../../../architecture/traces-philosophy.md) for span design and [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) for names.
+
+---
+
 ## Phase 7 — Backend SDK
 
 **Goal:** `back_vibes` emits OTLP to Collector.
 
-**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) — mandatory for Phases **7A** and **7B**; [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5) — mandatory for Phases **7** and **8**.
+**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) — mandatory for Phases **7A** and **7B**; [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5) — mandatory for Phases **7** and **8**; [traces-philosophy.md](../../../architecture/traces-philosophy.md) (Phase 6.5) — mandatory for Phases **7** and **8**.
 
 ### Scope
 
