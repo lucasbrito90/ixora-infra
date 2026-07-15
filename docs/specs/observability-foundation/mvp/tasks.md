@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + **7A** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + **Backend SDK Foundation**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + **7B.1** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + **HTTP + Routing Instrumentation**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -33,7 +33,12 @@
 | 6 — Tempo | 0 | 0 | 3 | 0 |
 | 6.5 — Traces Philosophy | 0 | 0 | 1 | 0 |
 | 7A — Backend SDK Foundation | 0 | 0 | 9 | 0 |
-| 7B — Backend Domain Instrumentation | 6 | 0 | 0 | 0 |
+| 7B.1 — HTTP + Routing | 0 | 0 | 10 | 0 |
+| 7B.2 — Queue + Console | 5 | 0 | 0 | 0 |
+| 7B.3 — Scheduler | 3 | 0 | 0 | 0 |
+| 7B.4 — Smart Home | 3 | 0 | 0 | 0 |
+| 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
+| 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
 | 9 — Dashboards | 5 | 0 | 0 | 0 |
 | 9.5 — Decision Guide + Playbook | 0 | 0 | 2 | 0 |
@@ -324,26 +329,113 @@
 - Redis auto-instrumentation **not enabled** — no official `open-telemetry`-org package exists; documented gap (`backend-sdk-foundation.md §9`).
 - 27 new tests added; full `back_vibes` suite (737 tests) green after this phase.
 - 737/737 tests pass; no forbidden ADR-030 fields present in resource attributes (tested).
-- **Next:** Phase 7B — Backend Domain Instrumentation (Scheduler, Smart Home, Push manual spans + `ixora.*` metrics + domain logs), using only the Telemetry Contracts from this phase.
+- **Next:** Phase 7B.1 — HTTP + Routing (now complete, see below), followed by Phases 7B.2–7B.6 (Queue + Console, Scheduler, Smart Home, Push, External Providers), using only the Telemetry Contracts from this phase.
 
 **Branch:** `feature/observability-backend-sdk-foundation`
 
 ---
 
-## Phase 7B — Backend Domain Instrumentation
+## Phase 7B.1 — HTTP + Routing
 
 **Prerequisite:** Phase 7A (Backend SDK Foundation) · [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) · [logs-philosophy.md](../../../architecture/logs-philosophy.md) · [traces-philosophy.md](../../../architecture/traces-philosophy.md) · [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md).
 
+**Complete.**
+
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7B-1 | Manual spans: Scheduler dispatch | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
-| P7B-2 | Manual spans: Smart Home provider adapter calls | **Pending** | |
-| P7B-3 | Manual spans: Push delivery | **Pending** | |
-| P7B-4 | Custom metrics (`ixora.*` counters/histograms) per metrics-philosophy.md | **Pending** | |
-| P7B-5 | Domain-specific structured logs per logs-philosophy.md | **Pending** | |
-| P7B-6 | Verify no forbidden fields in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+| P7B1-1 | Review `opentelemetry-auto-laravel` HTTP Kernel hook — root span naming, route/status attributes, exception recording, 404/405/401/422 behavior | **Done** | [`backend-http-routing-instrumentation.md §2`](backend-http-routing-instrumentation.md) |
+| P7B1-2 | Build `app/Telemetry/Http/` (`HttpRequestTelemetry`, `HttpRouteNormalizer`, `HttpOutcome`, `HttpExceptionStatus`) | **Done** | [`backend-http-routing-instrumentation.md §3`](backend-http-routing-instrumentation.md) |
+| P7B1-3 | Add `Tracer::activeSpan()` — documented, additive contract change for span enrichment | **Done** | [`backend-http-routing-instrumentation.md §4`](backend-http-routing-instrumentation.md) |
+| P7B1-4 | Implement `HttpTelemetryMiddleware` at the HTTP lifecycle boundary (global, appended) | **Done** | [`backend-http-routing-instrumentation.md §5`](backend-http-routing-instrumentation.md) |
+| P7B1-5 | Wire `ixora.http.server.request.total` (Counter) + `ixora.http.server.duration` (Histogram, ms) | **Done** | [`backend-http-routing-instrumentation.md §6`](backend-http-routing-instrumentation.md) |
+| P7B1-6 | Enrich existing active HTTP span with safe attributes | **Done** | [`backend-http-routing-instrumentation.md §7`](backend-http-routing-instrumentation.md) |
+| P7B1-7 | Add `HttpErrorContextLogTap` — enrich existing error logs with HTTP context, no routine success logs | **Done** | [`backend-http-routing-instrumentation.md §8`](backend-http-routing-instrumentation.md) |
+| P7B1-8 | Document `Log::build()` on-demand channel limitation | **Done** | [`backend-sdk-foundation.md §8.5`](backend-sdk-foundation.md#85-known-limitation-logbuild-on-demand-channels-are-not-tapped) |
+| P7B1-9 | Tests: success, 404, 405, validation, auth failure, server exception, Collector unavailable, cardinality safety, dependency rule, no double-counting | **Done** | [`backend-http-routing-instrumentation.md §10`](backend-http-routing-instrumentation.md) · `back_vibes/tests/{Unit,Feature}/Telemetry/Http` |
+| P7B1-10 | Verify no forbidden fields (labels/attributes) in exported telemetry | **Done** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) · [`backend-http-routing-instrumentation.md §6–7`](backend-http-routing-instrumentation.md) |
 
-**Branch:** `feature/observability-backend-domain-instrumentation`
+**Phase 7B.1 implementation notes:**
+
+- Existing auto-instrumented HTTP server span reused and enriched — no second root span created.
+- Only one additive Telemetry Contract change across all of Phase 7B.1: `Tracer::activeSpan()` — a real, proven blocker (no way to enrich an ambient span otherwise), fully documented (`backend-http-routing-instrumentation.md §4`). `Meter`, `Counter`, `Histogram`, `Span`, `LoggerCorrelation` untouched.
+- Verified empirically that `Illuminate\Routing\Pipeline` converts every exception (404/405/422/401/5xx) into a `Response` before it reaches global middleware — `HttpRequestTelemetry::recordResponse()` is therefore the path taken by every real request; `recordException()` is a defensive fallback exercised directly in tests.
+- 48 new tests added; full `back_vibes` suite (785 tests) green after this phase; `pint --test` passes.
+- No Queue, Console, Scheduler, Smart Home, Push, or external-provider instrumentation added.
+- **Next:** Phase 7B.2 — Queue + Console, using the same Telemetry Contracts (including `activeSpan()`).
+
+**Branch:** `feature/observability-http-routing-instrumentation`
+
+---
+
+## Phase 7B.2 — Queue + Console
+
+**Prerequisite:** Phase 7B.1 (HTTP + Routing).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B2-1 | Review `opentelemetry-auto-laravel` queue/console hooks — span reuse vs. new spans | **Pending** | |
+| P7B2-2 | Manual spans: queue job execution | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
+| P7B2-3 | Manual spans: console command execution | **Pending** | |
+| P7B2-4 | Custom metrics (`ixora.queue.*`, `ixora.console.*`) per metrics-philosophy.md | **Pending** | |
+| P7B2-5 | Verify no forbidden fields in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+
+**Branch:** `feature/observability-queue-console-instrumentation`
+
+---
+
+## Phase 7B.3 — Scheduler
+
+**Prerequisite:** Phase 7B.1 (HTTP + Routing).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B3-1 | Manual spans: Scheduler dispatch | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
+| P7B3-2 | Custom metrics (`ixora.scheduler.*`) per metrics-philosophy.md | **Pending** | |
+| P7B3-3 | Verify no forbidden fields in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+
+**Branch:** `feature/observability-scheduler-instrumentation`
+
+---
+
+## Phase 7B.4 — Smart Home
+
+**Prerequisite:** Phase 7B.1 (HTTP + Routing).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B4-1 | Manual spans: Smart Home provider adapter calls | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
+| P7B4-2 | Custom metrics (`ixora.smart_home.*`) per metrics-philosophy.md | **Pending** | |
+| P7B4-3 | Verify no forbidden fields (device identifiers, credentials) in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+
+**Branch:** `feature/observability-smart-home-instrumentation`
+
+---
+
+## Phase 7B.5 — Push Notifications
+
+**Prerequisite:** Phase 7B.1 (HTTP + Routing).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B5-1 | Manual spans: push delivery | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
+| P7B5-2 | Custom metrics (`ixora.push.*`) per metrics-philosophy.md | **Pending** | |
+| P7B5-3 | Verify no forbidden fields (device tokens, Firebase UIDs, notification content) in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+
+**Branch:** `feature/observability-push-instrumentation`
+
+---
+
+## Phase 7B.6 — External Providers
+
+**Prerequisite:** Phase 7B.1 (HTTP + Routing).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B6-1 | Manual spans/metrics: outbound external-provider calls not covered by generic HTTP-client auto-instrumentation | **Pending** | Uses `App\Telemetry\Contracts\Tracer`/`Meter` only |
+| P7B6-2 | Custom metrics (`ixora.<provider>.*`) per metrics-philosophy.md | **Pending** | |
+| P7B6-3 | Verify no forbidden fields (credentials, PII) in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+
+**Branch:** `feature/observability-external-providers-instrumentation`
 
 ---
 

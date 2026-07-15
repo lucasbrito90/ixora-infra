@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7A complete — Backend SDK Foundation shipped in `back_vibes`  
+**Status:** Phase 7B.1 complete — HTTP + Routing instrumentation shipped in `back_vibes` (Phase 7A Backend SDK Foundation also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); domain instrumentation pending (Phase 7B) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; remaining domain instrumentation pending (Phases 7B.2–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -65,7 +65,12 @@ Phase 5.5  ──► Logs Philosophy (complete)
 Phase 6    ──► Tempo (complete)
 Phase 6.5  ──► Traces Philosophy (complete)
 Phase 7A   ──► Backend SDK Foundation (back_vibes) (complete)
-Phase 7B   ──► Backend Domain Instrumentation (back_vibes)
+Phase 7B.1 ──► HTTP + Routing (back_vibes) (complete)
+Phase 7B.2 ──► Queue + Console (back_vibes)
+Phase 7B.3 ──► Scheduler (back_vibes)
+Phase 7B.4 ──► Smart Home (back_vibes)
+Phase 7B.5 ──► Push Notifications (back_vibes)
+Phase 7B.6 ──► External Providers (back_vibes)
 Phase 8    ──► Frontend SDK (front_vibes)
 Phase 9    ──► Grafana dashboards
 Phase 9.5  ──► Telemetry Decision Guide + Observability Playbook (complete)
@@ -406,21 +411,88 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 ## Phase 7B — Backend Domain Instrumentation
 
-**Goal:** Instrument Ixora business domains (Scheduler, Smart Home, Push) through the Phase 7A Telemetry Contracts — manual spans, custom metrics, domain logs.
+**Goal:** Instrument Ixora's HTTP boundary and business domains (Queue, Console, Scheduler, Smart Home, Push, external providers) through the Phase 7A Telemetry Contracts — span enrichment/manual spans, custom metrics, domain logs. Broken into six narrow subphases so each domain boundary is reviewed and instrumented independently.
 
 **Prerequisite:** Phase 7A (Backend SDK Foundation) · [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) · [logs-philosophy.md](../../../architecture/logs-philosophy.md) · [traces-philosophy.md](../../../architecture/traces-philosophy.md) · [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md).
 
-### Scope
+**Common rule across all 7B.x subphases:** zero changes to `app/Telemetry/Contracts/*` beyond a real, documented, additive blocker (see Phase 7B.1's `Tracer::activeSpan()`) — subsequent subphases consume the contracts as they exist after the prior subphase, never redesigning them.
 
-- Manual spans via `App\Telemetry\Contracts\Tracer`: Scheduler dispatch, Smart Home provider adapter calls, Push delivery.
-- Custom metrics via `App\Telemetry\Contracts\Meter` (`ixora.*` namespace) per metrics-philosophy.md.
-- Domain-specific structured logs per logs-philosophy.md.
-- Zero changes to `app/Telemetry/Contracts/*` or `TelemetryServiceProvider` — Phase 7A's abstraction layer is consumed as-is.
+---
 
-### Exit criteria
+### Phase 7B.1 — HTTP + Routing (`back_vibes`)
 
-- Staging API + worker export domain telemetry.
-- Collector receives signals; no forbidden fields in spot check (ADR-030).
+**Complete.**
+
+**Goal:** Instrument only the HTTP and routing boundary — enrich the existing auto-instrumented HTTP server span, add the minimum `ixora.http.server.*` metrics, and align error logs — without touching Queue, Console, Scheduler, Smart Home, Push, or external providers.
+
+#### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Auto-instrumentation review (root span naming, route/status attributes, exception recording, 404/405/401/422 behavior) | [`backend-http-routing-instrumentation.md §2`](backend-http-routing-instrumentation.md) |
+| `app/Telemetry/Http/` (`HttpRequestTelemetry`, `HttpRouteNormalizer`, `HttpOutcome`, `HttpExceptionStatus`) | [`backend-http-routing-instrumentation.md §3`](backend-http-routing-instrumentation.md) · `back_vibes/app/Telemetry/Http/` |
+| `Tracer::activeSpan()` — one documented, additive contract method | [`backend-http-routing-instrumentation.md §4`](backend-http-routing-instrumentation.md) · `back_vibes/app/Telemetry/Contracts/Tracer.php` |
+| `App\Http\Middleware\HttpTelemetryMiddleware` (global, appended) | [`backend-http-routing-instrumentation.md §5`](backend-http-routing-instrumentation.md) · `back_vibes/app/Http/Middleware/HttpTelemetryMiddleware.php` |
+| `ixora.http.server.request.total` (Counter) + `ixora.http.server.duration` (Histogram, ms) | [`backend-http-routing-instrumentation.md §6`](backend-http-routing-instrumentation.md) |
+| Span enrichment (`http.request.method`, `http.route`, `http.response.status_code`, `ixora.http.outcome`, `url.scheme`, `server.address`) | [`backend-http-routing-instrumentation.md §7`](backend-http-routing-instrumentation.md) |
+| `App\Telemetry\Logging\HttpErrorContextLogTap` | [`backend-http-routing-instrumentation.md §8`](backend-http-routing-instrumentation.md) · `back_vibes/app/Telemetry/Logging/HttpErrorContextLogTap.php` |
+| `Log::build()` limitation documented | [`backend-sdk-foundation.md §8.5`](backend-sdk-foundation.md#85-known-limitation-logbuild-on-demand-channels-are-not-tapped) |
+| Tests (10 scenarios: success, 404, 405, validation, auth failure, server exception, Collector unavailable, cardinality safety, dependency rule, no double-counting) | `back_vibes/tests/{Unit,Feature}/Telemetry/Http/` |
+| Spec doc | [`backend-http-routing-instrumentation.md`](backend-http-routing-instrumentation.md) |
+
+#### Scope
+
+- Enrich the existing auto-instrumented HTTP server span (no second root span) via one new additive `Tracer::activeSpan()` method.
+- Two new `ixora.*` metrics only — no duplication of anything auto-instrumentation already emits (it emits no HTTP server metrics).
+- Stable, bounded route templates (`HttpRouteNormalizer`) and outcome classification (`HttpOutcome`) — never dynamic IDs, query strings, or raw status codes as labels.
+- One global middleware (`HttpTelemetryMiddleware`, appended — innermost global middleware) as the lifecycle integration point; telemetry failures swallowed by `HttpRequestTelemetry::safely()`.
+- Error log enrichment only (`HttpErrorContextLogTap`) — no routine success logs.
+- **No Queue, Console, Scheduler, Smart Home, Push, or external-provider instrumentation.**
+
+#### Exit criteria
+
+- ✅ Existing auto-instrumented span reused, not duplicated (`backend-http-routing-instrumentation.md §2, §4`).
+- ✅ Both metrics recorded exactly once per request; no forbidden labels (verified by cardinality-safety test).
+- ✅ HTTP/exception behavior byte-for-byte unchanged — full existing suite green with the middleware active.
+- ✅ `trace_id`/`span_id` correlation still works on HTTP logs (Phase 7A tap unchanged, unaffected by the new tap).
+- ✅ Telemetry failure isolation proven with a deliberately-throwing fake `Tracer`.
+- ✅ Dependency Rule respected — no `OpenTelemetry\*` import outside `app/Telemetry/OpenTelemetry`, scoped test added for `app/Telemetry/Http` specifically.
+- ✅ 785/785 `back_vibes` tests pass (48 new); `pint --test` passes.
+- **Ready for Phase 7B.2** — Queue + Console, using the same Telemetry Contracts (`activeSpan()` included).
+
+**Branch:** `feature/observability-http-routing-instrumentation`
+
+---
+
+### Phase 7B.2 — Queue + Console (`back_vibes`)
+
+**Goal:** Instrument queue job execution and console command execution — manual spans (via `Tracer::startSpan()`), `ixora.queue.*` / `ixora.console.*` metrics, following the same route-normalizer-equivalent and outcome-classification pattern established in 7B.1.
+
+**Scope (planned):** Review existing `opentelemetry-auto-laravel` queue/console hooks first (mirroring 7B.1 §2) before deciding span reuse vs. new spans. No Scheduler, Smart Home, Push, or external-provider instrumentation.
+
+---
+
+### Phase 7B.3 — Scheduler (`back_vibes`)
+
+**Goal:** Manual spans for Scheduler dispatch, `ixora.scheduler.*` metrics, per [ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md).
+
+---
+
+### Phase 7B.4 — Smart Home (`back_vibes`)
+
+**Goal:** Manual spans for Smart Home provider adapter calls, `ixora.smart_home.*` metrics — no provider credentials or device identifiers in labels.
+
+---
+
+### Phase 7B.5 — Push Notifications (`back_vibes`)
+
+**Goal:** Manual spans for push delivery, `ixora.push.*` metrics — no device tokens, Firebase UIDs, or notification body content in labels or attributes.
+
+---
+
+### Phase 7B.6 — External Providers (`back_vibes`)
+
+**Goal:** Manual spans/metrics for outbound calls to external providers not already covered by generic HTTP-client auto-instrumentation (Phase 7A) — provider-specific outcome classification, no credentials or PII exported.
 
 ---
 
