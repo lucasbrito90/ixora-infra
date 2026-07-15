@@ -151,7 +151,8 @@ See [`plan.md`](plan.md). Phases intentionally small:
 | **5.5** | Logs Philosophy — architectural guide; mandatory before Phases 7 and 8 |
 | **6** | Tempo |
 | **6.5** | Traces Philosophy — architectural guide; mandatory before Phases 7 and 8 |
-| **7** | Backend SDK (`back_vibes`) — Phases **7A** and **7B** must follow [metrics-philosophy.md](../../../architecture/metrics-philosophy.md), [logs-philosophy.md](../../../architecture/logs-philosophy.md), and [traces-philosophy.md](../../../architecture/traces-philosophy.md) |
+| **7A** | Backend SDK Foundation (`back_vibes`) — **Done**. Telemetry Abstraction Layer, generic auto-instrumentation, log correlation. No domain instrumentation. See [`backend-sdk-foundation.md`](backend-sdk-foundation.md) |
+| **7B** | Backend Domain Instrumentation (`back_vibes`) — manual spans/metrics/logs for Scheduler, Smart Home, Push. Must follow [metrics-philosophy.md](../../../architecture/metrics-philosophy.md), [logs-philosophy.md](../../../architecture/logs-philosophy.md), and [traces-philosophy.md](../../../architecture/traces-philosophy.md) |
 | **8** | Frontend SDK (`front_vibes`) |
 | **9** | Grafana dashboards |
 | **10** | Operational readiness runbook |
@@ -215,6 +216,7 @@ Before marking any implementation phase **Done**:
 | [tempo-deployment.md](tempo-deployment.md) | **Phase 6** — Tempo container, config, Collector wiring, sampling, retention, validation |
 | [loki-deployment.md](loki-deployment.md) | **Phase 5** — Loki container, config, Collector wiring, validation, retention |
 | [prometheus-deployment.md](prometheus-deployment.md) | **Phase 4** — Prometheus container, config, Collector wiring, validation |
+| [backend-sdk-foundation.md](backend-sdk-foundation.md) | **Phase 7A** — `back_vibes` OpenTelemetry SDK, Telemetry Abstraction Layer, auto-instrumentation, log correlation |
 | [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md) | Signal choice — metric vs trace vs log vs event |
 | [infrastructure-review.md](infrastructure-review.md) | Phase 2 — deployment topology, ports, storage, failure analysis |
 | [security-review.md](security-review.md) | Phase 2.5 — threat model, auth, TLS, PII, redaction |
