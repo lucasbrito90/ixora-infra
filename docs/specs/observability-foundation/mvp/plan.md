@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 1 complete — pre-implementation  
+**Status:** Phase 7A complete — Backend SDK Foundation shipped in `back_vibes`  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -40,9 +40,10 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **App Platform runtime logs** | ✅ Shipped — stderr JSON on DO |
 | **Laravel structured logs** | ✅ Shipped — `Log::` with context |
 | **Product observability (automation)** | ✅ Shipped — execution rows + worker logs ([ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md)) |
-| **OpenTelemetry Collector** | ❌ Not deployed |
-| **Prometheus / Loki / Tempo / Grafana** | ❌ Not deployed |
-| **OTel SDK (backend)** | ❌ Not integrated |
+| **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
+| **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
+| **Grafana** | ❌ Not deployed — Phase 9 |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); domain instrumentation pending (Phase 7B) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -63,7 +64,8 @@ Phase 5    ──► Loki
 Phase 5.5  ──► Logs Philosophy (complete)
 Phase 6    ──► Tempo (complete)
 Phase 6.5  ──► Traces Philosophy (complete)
-Phase 7    ──► Backend SDK (back_vibes)
+Phase 7A   ──► Backend SDK Foundation (back_vibes) (complete)
+Phase 7B   ──► Backend Domain Instrumentation (back_vibes)
 Phase 8    ──► Frontend SDK (front_vibes)
 Phase 9    ──► Grafana dashboards
 Phase 9.5  ──► Telemetry Decision Guide + Observability Playbook (complete)
@@ -359,24 +361,66 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 ---
 
-## Phase 7 — Backend SDK
+## Phase 7A — Backend SDK Foundation
 
-**Goal:** `back_vibes` emits OTLP to Collector.
+**Goal:** Introduce the OpenTelemetry PHP SDK into `back_vibes` behind a Telemetry Abstraction Layer, with generic auto-instrumentation and log correlation only — **no** domain instrumentation.
 
-**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) — mandatory for Phases **7A** and **7B**; [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5) — mandatory for Phases **7** and **8**; [traces-philosophy.md](../../../architecture/traces-philosophy.md) (Phase 6.5) — mandatory for Phases **7** and **8**.
+**Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) · [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5) · [traces-philosophy.md](../../../architecture/traces-philosophy.md) (Phase 6.5).
+
+**Complete.**
+
+### Deliverables
+
+| Item | Output |
+| --- | --- |
+| SDK evaluation + chosen packages | [`backend-sdk-foundation.md §2`](backend-sdk-foundation.md) |
+| Telemetry Abstraction Layer (`app/Telemetry/`) | [`backend-sdk-foundation.md §3`](backend-sdk-foundation.md) · `back_vibes/app/Telemetry/` |
+| `TelemetryServiceProvider` + `config/telemetry.php` | `back_vibes/app/Telemetry/Providers/TelemetryServiceProvider.php` · `back_vibes/config/telemetry.php` |
+| Environment template | `back_vibes/.env.example` §"Observability — OpenTelemetry" |
+| Tests (bootstrap, config, resolution, log correlation, failure policy, dependency rule) | `back_vibes/tests/{Unit,Feature}/Telemetry/` |
+| Spec doc | [`backend-sdk-foundation.md`](backend-sdk-foundation.md) |
 
 ### Scope
 
-- OpenTelemetry PHP SDK (or Laravel-compatible package — evaluate in phase).
-- Auto-instrument HTTP requests, queue jobs, console commands.
-- Manual spans for Smart Home adapter, push delivery.
-- `trace_id` injected into Laravel log context.
-- Env: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`.
+- Official OpenTelemetry PHP SDK (`open-telemetry/{api,sdk,sem-conv,exporter-otlp}`) + official Laravel/Guzzle/PDO auto-instrumentation.
+- Telemetry Abstraction Layer: Contracts, OpenTelemetry implementation (isolated), No-op implementation, `TelemetryServiceProvider`.
+- Auto-instrument HTTP requests, Laravel routing, exceptions, queue workers, console commands, HTTP client, database (Eloquent + PDO). Redis not enabled — no official package exists.
+- `trace_id` / `span_id` injected into Laravel log context via a Monolog processor tap — messages never altered.
+- Configuration entirely via env: `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_TRACES_SAMPLER(_ARG)`, `OTEL_PHP_AUTOLOAD_ENABLED`, `APP_ENV`, `APP_VERSION`.
+- **No manual spans, no custom metrics, no custom logs, no Scheduler/Smart Home/Push/Marketplace/AI instrumentation.**
 
 ### Exit criteria
 
-- Staging API + worker export telemetry.
-- Collector receives signals; no forbidden fields in spot check.
+- ✅ SDK installed; Telemetry module + Contracts + isolated OpenTelemetry implementation created.
+- ✅ Dependency Rule respected and enforced by an automated test — no `OpenTelemetry\*` import outside `app/Telemetry/OpenTelemetry`.
+- ✅ Configuration and resource attributes documented and env-driven; no hardcoded URLs.
+- ✅ Generic auto-instrumentation enabled (HTTP, routing, console, queue, DB); logging correlation enabled.
+- ✅ Failure policy validated — Collector unavailable never fails a request, job, or command (empirical + automated test evidence in `backend-sdk-foundation.md §4.3, §7`).
+- ✅ No business logic, Scheduler, Smart Home, Push, database schema, or existing provider/job/command/service/repository changed.
+- ✅ 737/737 `back_vibes` tests pass (27 new).
+- **Ready for Phase 7B** — Backend Domain Instrumentation, using only the Telemetry Contracts from this phase.
+
+**Branch:** `feature/observability-backend-sdk-foundation`
+
+---
+
+## Phase 7B — Backend Domain Instrumentation
+
+**Goal:** Instrument Ixora business domains (Scheduler, Smart Home, Push) through the Phase 7A Telemetry Contracts — manual spans, custom metrics, domain logs.
+
+**Prerequisite:** Phase 7A (Backend SDK Foundation) · [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) · [logs-philosophy.md](../../../architecture/logs-philosophy.md) · [traces-philosophy.md](../../../architecture/traces-philosophy.md) · [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md).
+
+### Scope
+
+- Manual spans via `App\Telemetry\Contracts\Tracer`: Scheduler dispatch, Smart Home provider adapter calls, Push delivery.
+- Custom metrics via `App\Telemetry\Contracts\Meter` (`ixora.*` namespace) per metrics-philosophy.md.
+- Domain-specific structured logs per logs-philosophy.md.
+- Zero changes to `app/Telemetry/Contracts/*` or `TelemetryServiceProvider` — Phase 7A's abstraction layer is consumed as-is.
+
+### Exit criteria
+
+- Staging API + worker export domain telemetry.
+- Collector receives signals; no forbidden fields in spot check (ADR-030).
 
 ---
 
@@ -489,7 +533,8 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 | Staging API reachable from observability VM | 2 |
 | App Platform egress to VM OTLP port | 2 |
 | ADR-030 redaction rules | 2.5, 3 |
-| Backend SDK before dashboards | 7 before 9 |
+| Backend SDK before dashboards | 7A/7B before 9 |
+| Backend SDK Foundation before Domain Instrumentation | 7A before 7B |
 | Mobile SDK before Appium telemetry QA | 8 before 11.5 |
 
 ---

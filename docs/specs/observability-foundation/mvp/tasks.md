@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + **6.5** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + **Traces Philosophy**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + **7A** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + **Backend SDK Foundation**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -32,7 +32,8 @@
 | 5.5 — Logs Philosophy | 0 | 0 | 1 | 0 |
 | 6 — Tempo | 0 | 0 | 3 | 0 |
 | 6.5 — Traces Philosophy | 0 | 0 | 1 | 0 |
-| 7 — Backend SDK | 6 | 0 | 0 | 0 |
+| 7A — Backend SDK Foundation | 0 | 0 | 9 | 0 |
+| 7B — Backend Domain Instrumentation | 6 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
 | 9 — Dashboards | 5 | 0 | 0 | 0 |
 | 9.5 — Decision Guide + Playbook | 0 | 0 | 2 | 0 |
@@ -297,20 +298,52 @@
 
 ---
 
-## Phase 7 — Backend SDK
+## Phase 7A — Backend SDK Foundation
 
 **Prerequisite:** [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) (Phase 3.75) · [logs-philosophy.md](../../../architecture/logs-philosophy.md) (Phase 5.5) · [traces-philosophy.md](../../../architecture/traces-philosophy.md) (Phase 6.5).
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7-1 | Evaluate and integrate OpenTelemetry PHP SDK in `back_vibes` | **Pending** | [`ADR-029`](../../../decisions/ADR-029-telemetry-data-model.md) |
-| P7-2 | Auto-instrument HTTP + queue + console | **Pending** | |
-| P7-3 | Manual spans: Smart Home adapter, push delivery | **Pending** | |
-| P7-4 | Inject `trace_id` into Laravel log context | **Pending** | |
-| P7-5 | Staging env vars documented | **Pending** | |
-| P7-6 | Verify no forbidden fields in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+| P7A-1 | Evaluate OpenTelemetry PHP ecosystem; select official SDK + auto-instrumentation packages | **Done** | [`backend-sdk-foundation.md §2`](backend-sdk-foundation.md) |
+| P7A-2 | Install `open-telemetry/{api,sdk,sem-conv,exporter-otlp}` + `opentelemetry-auto-{laravel,guzzle,pdo}` in `back_vibes` | **Done** | `back_vibes/composer.json` |
+| P7A-3 | Build Telemetry Abstraction Layer (`app/Telemetry/{Contracts,OpenTelemetry,Noop,Providers,Context,Configuration,Resources,Logging}`) | **Done** | [`backend-sdk-foundation.md §3`](backend-sdk-foundation.md) |
+| P7A-4 | Wire `TelemetryServiceProvider`; bind Telemetry Contracts to the OpenTelemetry implementation (or No-op when disabled) | **Done** | [`backend-sdk-foundation.md §3.2`](backend-sdk-foundation.md) |
+| P7A-5 | Enable generic auto-instrumentation (HTTP, routing, console, queue, DB) via env — no domain instrumentation | **Done** | [`backend-sdk-foundation.md §7`](backend-sdk-foundation.md) |
+| P7A-6 | Inject `trace_id` / `span_id` into Laravel log context without altering messages | **Done** | [`backend-sdk-foundation.md §8`](backend-sdk-foundation.md) |
+| P7A-7 | Configuration via env vars; resource attributes; `.env.example` documented | **Done** | [`backend-sdk-foundation.md §5–6`](backend-sdk-foundation.md) · `back_vibes/.env.example` |
+| P7A-8 | Validate failure policy — Collector unavailable never fails requests/jobs | **Done** | [`backend-sdk-foundation.md §4.3, §7`](backend-sdk-foundation.md) |
+| P7A-9 | Tests: bootstrap, config, contract resolution, log correlation, failure isolation, dependency rule | **Done** | [`backend-sdk-foundation.md §11`](backend-sdk-foundation.md) · `back_vibes/tests/{Unit,Feature}/Telemetry` |
 
-**Branch:** `feature/observability-backend-sdk`
+**Phase 7A implementation notes:**
+
+- `app/Telemetry/` module created in `back_vibes` — Contracts, OpenTelemetry implementation, No-op implementation, Configuration, Resources, Context, Logging, Providers.
+- Dependency Rule enforced structurally and by an automated test (`DependencyRuleTest`) — no `OpenTelemetry\*` import exists outside `app/Telemetry/OpenTelemetry`.
+- SDK bootstrap uses the OpenTelemetry SDK's own `SdkAutoloader` (`OTEL_PHP_AUTOLOAD_ENABLED=true`, real process env) rather than a custom bootstrap — avoids a race with auto-instrumentation hooks; see `backend-sdk-foundation.md §4`.
+- No manual spans, no custom metrics, no custom logs, no Scheduler/Smart Home/Push/Marketplace/AI instrumentation — verified by review and by `DependencyRuleTest`.
+- No business rules, controllers, policies, validators, existing providers, jobs, commands, services, repositories, or database schema modified.
+- Redis auto-instrumentation **not enabled** — no official `open-telemetry`-org package exists; documented gap (`backend-sdk-foundation.md §9`).
+- 27 new tests added; full `back_vibes` suite (737 tests) green after this phase.
+- 737/737 tests pass; no forbidden ADR-030 fields present in resource attributes (tested).
+- **Next:** Phase 7B — Backend Domain Instrumentation (Scheduler, Smart Home, Push manual spans + `ixora.*` metrics + domain logs), using only the Telemetry Contracts from this phase.
+
+**Branch:** `feature/observability-backend-sdk-foundation`
+
+---
+
+## Phase 7B — Backend Domain Instrumentation
+
+**Prerequisite:** Phase 7A (Backend SDK Foundation) · [metrics-philosophy.md](../../../architecture/metrics-philosophy.md) · [logs-philosophy.md](../../../architecture/logs-philosophy.md) · [traces-philosophy.md](../../../architecture/traces-philosophy.md) · [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B-1 | Manual spans: Scheduler dispatch | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
+| P7B-2 | Manual spans: Smart Home provider adapter calls | **Pending** | |
+| P7B-3 | Manual spans: Push delivery | **Pending** | |
+| P7B-4 | Custom metrics (`ixora.*` counters/histograms) per metrics-philosophy.md | **Pending** | |
+| P7B-5 | Domain-specific structured logs per logs-philosophy.md | **Pending** | |
+| P7B-6 | Verify no forbidden fields in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+
+**Branch:** `feature/observability-backend-domain-instrumentation`
 
 ---
 
