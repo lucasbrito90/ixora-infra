@@ -283,6 +283,27 @@ Verified end-to-end (§4.3): the same log call produced `{"trace_id":"...","span
 
 Auto-instrumentation and full log correlation coverage both benefit from the `opentelemetry` PECL extension being present in the runtime image; the production Docker image is expected to install it (e.g. via `pecl install opentelemetry` or `install-php-extensions opentelemetry`) as part of the App Platform / Docker build — this is an infrastructure change outside `back_vibes` application code and outside Phase 7A's boundary, tracked as **remaining work for Phase 7B/deploy**.
 
+### 8.5 Known limitation — `Log::build()` on-demand channels are not tapped
+
+Raised during Phase 7A review and confirmed by reading `Illuminate\Log\LogManager`: `TraceCorrelationLogTap` (and, from Phase 7B.1, `HttpErrorContextLogTap` — see [backend-http-routing-instrumentation.md](backend-http-routing-instrumentation.md) §"Structured log alignment") is injected **once, at application boot**, by rewriting `config('logging.channels.*.tap')` for every channel name already present in that config array (`TelemetryServiceProvider::registerLogTaps()`).
+
+**Covered** — any channel Laravel resolves through its normal, config-driven path:
+
+- the `default` channel;
+- every channel listed under `logging.channels` in `config/logging.php`, including `stack`'s constituent channels;
+- the above holds whether the channel is first used on the very first log call of a boot or the five-hundredth — `registerLogTaps()` mutates the config array itself (not a per-channel cache), so every subsequent `LogManager::channel($name)` call for a name already in that array picks up the tap, and this is independent of restart timing as long as the *name* was present in `config/logging.php` at boot.
+
+**Not covered** — `Log::build($config)`. This constructs a channel from an **ad-hoc config array supplied at the call site**, resolved by `LogManager` under the fixed internal name `'ondemand'` — a name that is never present in `config('logging.channels')` and is therefore never touched by `registerLogTaps()`. Concretely: `LogManager::build()` calls `$this->get('ondemand', $config)`, which calls `$this->tap('ondemand', ...)`, which reads `config("logging.channels.ondemand.tap")` — always empty here, regardless of what `$config` itself contains, because `registerLogTaps()` only ever writes to config keys for channel names it already found in `config('logging.channels')` at boot. The same applies to any other channel assembled from a raw array handed to `LogManager` outside `config/logging.php`, and to a channel added to that config array *after* `TelemetryServiceProvider::boot()` has already run (e.g. by another provider's `boot()` executing later, or a runtime `config()->set()` call) — the tap registration is not re-run.
+
+**Current impact: none.** `back_vibes` does not call `Log::build()` anywhere (verified by search across `app/`); every channel in use is declared in `config/logging.php` and was present there at boot, so this limitation has no effect on any log line the application emits today, including the new HTTP error context added in Phase 7B.1.
+
+**If a future phase needs `Log::build()`:** it must not assume trace correlation or HTTP error context "just work" for that channel. Either:
+
+1. Register the on-demand channel's name in `config('logging.channels')` (with `'driver' => 'monolog'` or similar) *before* first use, so `registerLogTaps()` sees it at boot and taps it normally — the simplest fix, and the recommended one; or
+2. Call `(new TraceCorrelationLogTap)($logger)` and, if HTTP context is relevant, `(new HttpErrorContextLogTap)($logger)` directly against the on-demand `Illuminate\Log\Logger` instance right after building it, mirroring what `TelemetryServiceProvider` does for config-declared channels.
+
+No runtime behavior changes as part of documenting this — this is Phase 7B.1, Part 7, a documentation-only clarification.
+
 ---
 
 ## 9. Limitations

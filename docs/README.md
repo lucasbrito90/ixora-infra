@@ -408,7 +408,7 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 
 **ADRs:** [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md)
 
-## Observability Foundation (Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4)
+## Observability Foundation (Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1)
 
 | Document | Description |
 | --- | --- |
@@ -431,6 +431,7 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 | [observability-foundation/mvp/plan.md](specs/observability-foundation/mvp/plan.md) | Implementation plan (Phases 1–11.5 + release) |
 | [observability-foundation/mvp/tasks.md](specs/observability-foundation/mvp/tasks.md) | Task checklist |
 | [backend-sdk-foundation.md](specs/observability-foundation/mvp/backend-sdk-foundation.md) | **Phase 7A — Done** — `back_vibes` OpenTelemetry SDK evaluation, Telemetry Abstraction Layer, auto-instrumentation, log correlation, failure policy validation |
+| [backend-http-routing-instrumentation.md](specs/observability-foundation/mvp/backend-http-routing-instrumentation.md) | **Phase 7B.1 — Done** — `back_vibes` HTTP + routing telemetry: span enrichment, `ixora.http.server.*` metrics, route normalization, error log context |
 
 **Implementation:** [`collector/`](../collector/) — `config.yaml`, `docker-compose.yml`, `.env.example`, `README.md`
 
