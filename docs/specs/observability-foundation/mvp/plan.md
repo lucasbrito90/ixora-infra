@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.1 complete — HTTP + Routing instrumentation shipped in `back_vibes` (Phase 7A Backend SDK Foundation also complete)  
+**Status:** Phase 7B.2 complete — Queue + Console instrumentation shipped in `back_vibes` (Phases 7A Backend SDK Foundation and 7B.1 HTTP + Routing also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; remaining domain instrumentation pending (Phases 7B.2–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; remaining domain instrumentation pending (Phases 7B.3–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -66,7 +66,7 @@ Phase 6    ──► Tempo (complete)
 Phase 6.5  ──► Traces Philosophy (complete)
 Phase 7A   ──► Backend SDK Foundation (back_vibes) (complete)
 Phase 7B.1 ──► HTTP + Routing (back_vibes) (complete)
-Phase 7B.2 ──► Queue + Console (back_vibes)
+Phase 7B.2 ──► Queue + Console (back_vibes) (complete)
 Phase 7B.3 ──► Scheduler (back_vibes)
 Phase 7B.4 ──► Smart Home (back_vibes)
 Phase 7B.5 ──► Push Notifications (back_vibes)
@@ -466,9 +466,46 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 ### Phase 7B.2 — Queue + Console (`back_vibes`)
 
-**Goal:** Instrument queue job execution and console command execution — manual spans (via `Tracer::startSpan()`), `ixora.queue.*` / `ixora.console.*` metrics, following the same route-normalizer-equivalent and outcome-classification pattern established in 7B.1.
+**Complete.**
 
-**Scope (planned):** Review existing `opentelemetry-auto-laravel` queue/console hooks first (mirroring 7B.1 §2) before deciding span reuse vs. new spans. No Scheduler, Smart Home, Push, or external-provider instrumentation.
+**Goal:** Instrument only the generic queue-execution and console/Artisan-command boundary — enrich the existing auto-instrumented queue/console spans where they exist, add the minimum `ixora.queue.job.*` / `ixora.console.command.*` metrics, and align error logs — without touching Scheduler, Smart Home, Push, or external providers.
+
+#### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Auto-instrumentation review (producer/consumer span behavior, context propagation, sync queue, exit-code/exception recording, CLI-SAPI gating) | [`backend-queue-console-instrumentation.md §2–§3`](backend-queue-console-instrumentation.md) |
+| `app/Telemetry/Queue/` (`QueueExecutionTelemetry`, `QueueJobNormalizer`, `QueueOutcome`, `QueueContext`) | [`backend-queue-console-instrumentation.md §4`](backend-queue-console-instrumentation.md) · `back_vibes/app/Telemetry/Queue/` |
+| `app/Telemetry/Console/` (`ConsoleCommandTelemetry`, `ConsoleCommandNormalizer`, `ConsoleOutcome`, `ConsoleContext`) | [`backend-queue-console-instrumentation.md §4`](backend-queue-console-instrumentation.md) · `back_vibes/app/Telemetry/Console/` |
+| `ixora.queue.job.total` / `ixora.queue.job.duration` / `ixora.queue.job.active` (Counter/Histogram/UpDownCounter) + `ixora.console.command.total` / `ixora.console.command.duration` | [`backend-queue-console-instrumentation.md §5`](backend-queue-console-instrumentation.md) |
+| Span enrichment (`ixora.queue.*` on the auto-instrumented consumer/sync span; `ixora.console.*` best-effort) | [`backend-queue-console-instrumentation.md §6`](backend-queue-console-instrumentation.md) |
+| Queue/console lifecycle listeners wired in `TelemetryServiceProvider` (no new middleware/command classes) | [`backend-queue-console-instrumentation.md §7`](backend-queue-console-instrumentation.md) · `back_vibes/app/Telemetry/Providers/TelemetryServiceProvider.php` |
+| `App\Telemetry\Logging\{QueueErrorContextLogTap,ConsoleErrorContextLogTap}` | [`backend-queue-console-instrumentation.md §9`](backend-queue-console-instrumentation.md) · `back_vibes/app/Telemetry/Logging/` |
+| Tests (16 scenarios: success, failure, retry/release, sync queue, unknown metadata, cardinality safety, telemetry failure, long-running worker safety, arguments/options safety, log separation, dependency rule, no double-counting) | `back_vibes/tests/{Unit,Feature}/Telemetry/{Queue,Console,QueueConsole}/` |
+| Spec doc | [`backend-queue-console-instrumentation.md`](backend-queue-console-instrumentation.md) |
+
+#### Scope
+
+- Enrich the existing auto-instrumented queue consumer/sync span (no second root span); best-effort console span enrichment given the documented `CommandStarting`/`CommandFinished` timing gap (§6).
+- Four new `ixora.*` metrics only — no duplication of anything auto-instrumentation already emits (it emits no queue/console metrics).
+- Stable, bounded job/command names (`QueueJobNormalizer`/`ConsoleCommandNormalizer`) and outcome classification (`QueueOutcome`/`ConsoleOutcome`) — never job IDs, UUIDs, payloads, `argv`, or argument/option values as labels.
+- Laravel queue/console events (not new middleware or wrapped command classes) as the lifecycle integration point; telemetry failures swallowed by each service's own `safely()`.
+- Error log enrichment only (`QueueErrorContextLogTap`/`ConsoleErrorContextLogTap`) — no routine success logs.
+- **No Scheduler, Smart Home, Push, or external-provider instrumentation.**
+
+#### Exit criteria
+
+- ✅ Existing auto-instrumented queue span reused, not duplicated; console per-command span behavior documented (`backend-queue-console-instrumentation.md §2, §3, §6`).
+- ✅ Every metric recorded exactly once per job attempt / command execution; no forbidden labels (verified by cardinality-safety and arguments/options-safety tests).
+- ✅ Queue/command behavior byte-for-byte unchanged — full existing suite green with the listeners active.
+- ✅ `trace_id`/`span_id` correlation still works on queue/console logs (Phase 7A tap unchanged, unaffected by the two new taps); HTTP/queue/console log context proven mutually isolated.
+- ✅ Telemetry failure isolation proven with a deliberately-throwing fake `Tracer`.
+- ✅ Long-running worker safety proven — lifecycle stack and active-jobs gauge both return to empty/zero after every job, including a failure and a synchronously-nested job.
+- ✅ Dependency Rule respected — no `OpenTelemetry\*` import outside `app/Telemetry/OpenTelemetry`, scoped test added for `app/Telemetry/Queue`, `app/Telemetry/Console`, and both new log taps specifically.
+- ✅ 836/836 `back_vibes` tests pass (51 new); `pint --test` passes.
+- **Ready for Phase 7B.3** — Scheduler, using the same Telemetry Contracts.
+
+**Branch:** `feature/observability-queue-console-instrumentation`
 
 ---
 

@@ -153,11 +153,11 @@ See [`plan.md`](plan.md). Phases intentionally small:
 | **6.5** | Traces Philosophy — architectural guide; mandatory before Phases 7 and 8 |
 | **7A** | Backend SDK Foundation (`back_vibes`) — **Done**. Telemetry Abstraction Layer, generic auto-instrumentation, log correlation. No domain instrumentation. See [`backend-sdk-foundation.md`](backend-sdk-foundation.md) |
 | **7B.1** | HTTP + Routing (`back_vibes`) — **Done**. Span enrichment, `ixora.http.server.*` metrics, route normalization, error log context. See [`backend-http-routing-instrumentation.md`](backend-http-routing-instrumentation.md) |
-| **7B.2** | Queue + Console (`back_vibes`) — manual spans/metrics for queue jobs and console commands |
-| **7B.3** | Scheduler (`back_vibes`) — manual spans/metrics for Scheduler dispatch |
-| **7B.4** | Smart Home (`back_vibes`) — manual spans/metrics for Smart Home provider adapter calls |
-| **7B.5** | Push Notifications (`back_vibes`) — manual spans/metrics for push delivery |
-| **7B.6** | External Providers (`back_vibes`) — manual spans/metrics for outbound provider integrations |
+| **7B.2** | Queue + Console (`back_vibes`) — **Done**. `ixora.queue.job.*` / `ixora.console.command.*` metrics, job/command normalization, span enrichment, safe error log context. See [`backend-queue-console-instrumentation.md`](backend-queue-console-instrumentation.md) |
+| **7B.3** | Scheduler (`back_vibes`) — Pending. Manual spans/metrics for Scheduler dispatch |
+| **7B.4** | Smart Home (`back_vibes`) — Pending. Manual spans/metrics for Smart Home provider adapter calls |
+| **7B.5** | Push Notifications (`back_vibes`) — Pending. Manual spans/metrics for push delivery |
+| **7B.6** | External Providers (`back_vibes`) — Pending. Manual spans/metrics for outbound provider integrations |
 | **8** | Frontend SDK (`front_vibes`) |
 | **9** | Grafana dashboards |
 | **10** | Operational readiness runbook |
@@ -223,6 +223,7 @@ Before marking any implementation phase **Done**:
 | [prometheus-deployment.md](prometheus-deployment.md) | **Phase 4** — Prometheus container, config, Collector wiring, validation |
 | [backend-sdk-foundation.md](backend-sdk-foundation.md) | **Phase 7A** — `back_vibes` OpenTelemetry SDK, Telemetry Abstraction Layer, auto-instrumentation, log correlation |
 | [backend-http-routing-instrumentation.md](backend-http-routing-instrumentation.md) | **Phase 7B.1** — `back_vibes` HTTP + routing telemetry: span enrichment, `ixora.http.server.*` metrics, route normalization, error log context |
+| [backend-queue-console-instrumentation.md](backend-queue-console-instrumentation.md) | **Phase 7B.2** — `back_vibes` queue + console telemetry: `ixora.queue.job.*` / `ixora.console.command.*` metrics, job/command normalization, span enrichment, safe error log context |
 | [telemetry-decision-guide.md](../../../architecture/telemetry-decision-guide.md) | Signal choice — metric vs trace vs log vs event |
 | [infrastructure-review.md](infrastructure-review.md) | Phase 2 — deployment topology, ports, storage, failure analysis |
 | [security-review.md](security-review.md) | Phase 2.5 — threat model, auth, TLS, PII, redaction |
