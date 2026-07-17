@@ -154,7 +154,7 @@ docs/architecture/
 | **Smart Home MVP** | Shipped — provider connections, devices, vibe actions, async HA execution ([smart-home/mvp/spec](specs/smart-home/mvp/spec.md)) |
 | **Push Notifications Foundation** | Spec + ADRs 017–021 accepted — **not implemented** ([push-notifications/mvp/spec](specs/push-notifications/mvp/spec.md)) |
 | **Scheduler + Smart Home Automations** | Shipped — v1.2.0 ([release notes](releases/v1.2.0-scheduler-smart-home-automations.md)) |
-| **Observability Foundation** | Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + **7A** — Backend SDK Foundation shipped in `back_vibes`; Telemetry Abstraction Layer, auto-instrumentation, log correlation; ready for Phase 7B domain instrumentation ([backend-sdk-foundation](specs/observability-foundation/mvp/backend-sdk-foundation.md); ADRs 028–031) |
+| **Observability Foundation** | Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + **7A** + **7B.1** + **7B.2** — Backend SDK Foundation, HTTP + Routing, and Queue + Console telemetry shipped in `back_vibes`; ready for Phase 7B.3 (Scheduler) ([backend-sdk-foundation](specs/observability-foundation/mvp/backend-sdk-foundation.md); ADRs 028–031) |
 | **Staging environment** | Shipped — DO App Platform + OpenTofu ([staging-digitalocean](architecture/backend/staging-digitalocean.md)) |
 | **Safe delete (sounds, cover bundles)** | Shipped — reference-checked Spaces cleanup |
 | **Legacy Firebase asset URLs** | May coexist on rows until migration |
@@ -196,7 +196,7 @@ Cross-cutting capabilities in delivery order. **Bold** = active spec work; *ital
 | ---: | --- | --- | --- |
 | 1 | Push Notifications Foundation | *Shipped* | [v1.1.0](releases/v1.1.0-push-notifications.md) |
 | 2 | Scheduler + Smart Home Automations | *Shipped* | [v1.2.0](releases/v1.2.0-scheduler-smart-home-automations.md) |
-| 3 | **Observability Foundation** | **Phase 7A complete — Backend SDK Foundation (`back_vibes`); Phase 7B (Backend Domain Instrumentation) next** | [backend-sdk-foundation](specs/observability-foundation/mvp/backend-sdk-foundation.md) · [traces-philosophy](architecture/traces-philosophy.md) · [tempo-deployment](specs/observability-foundation/mvp/tempo-deployment.md) · [metrics-philosophy](architecture/metrics-philosophy.md) |
+| 3 | **Observability Foundation** | **Phase 7A, 7B.1, 7B.2 complete — Backend SDK Foundation + HTTP/Routing + Queue/Console (`back_vibes`); Phase 7B.3 (Scheduler) next** | [backend-sdk-foundation](specs/observability-foundation/mvp/backend-sdk-foundation.md) · [backend-queue-console-instrumentation](specs/observability-foundation/mvp/backend-queue-console-instrumentation.md) · [traces-philosophy](architecture/traces-philosophy.md) · [tempo-deployment](specs/observability-foundation/mvp/tempo-deployment.md) · [metrics-philosophy](architecture/metrics-philosophy.md) |
 | 4 | Smart Home Scenes | Planned | — (Phase 1 ADRs + Spec next) |
 | 5 | Multi-provider Smart Home | Planned | — |
 | 6 | Analytics | Planned | — |
@@ -408,7 +408,7 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 
 **ADRs:** [ADR-022](decisions/ADR-022-scheduler-smart-home-automation-model.md) · [ADR-023](decisions/ADR-023-automation-execution-order-and-failure-policy.md) · [ADR-024](decisions/ADR-024-automation-notifications-and-observability.md) · [ADR-025](decisions/ADR-025-automation-mobile-ux.md) · [ADR-026](decisions/ADR-026-automation-execution-security.md)
 
-## Observability Foundation (Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1)
+## Observability Foundation (Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2)
 
 | Document | Description |
 | --- | --- |
@@ -432,6 +432,7 @@ Feature contracts: **goal, scope, API, acceptance criteria**. Prefer **`spec.md`
 | [observability-foundation/mvp/tasks.md](specs/observability-foundation/mvp/tasks.md) | Task checklist |
 | [backend-sdk-foundation.md](specs/observability-foundation/mvp/backend-sdk-foundation.md) | **Phase 7A — Done** — `back_vibes` OpenTelemetry SDK evaluation, Telemetry Abstraction Layer, auto-instrumentation, log correlation, failure policy validation |
 | [backend-http-routing-instrumentation.md](specs/observability-foundation/mvp/backend-http-routing-instrumentation.md) | **Phase 7B.1 — Done** — `back_vibes` HTTP + routing telemetry: span enrichment, `ixora.http.server.*` metrics, route normalization, error log context |
+| [backend-queue-console-instrumentation.md](specs/observability-foundation/mvp/backend-queue-console-instrumentation.md) | **Phase 7B.2 — Done** — `back_vibes` queue + console telemetry: `ixora.queue.job.*` / `ixora.console.command.*` metrics, job/command normalization, span enrichment, safe error log context |
 
 **Implementation:** [`collector/`](../collector/) — `config.yaml`, `docker-compose.yml`, `.env.example`, `README.md`
 
