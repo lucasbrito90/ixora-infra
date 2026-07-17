@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + **7B.1** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + **HTTP + Routing Instrumentation**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + **7B.2** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + **Queue + Console Instrumentation**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -34,7 +34,7 @@
 | 6.5 — Traces Philosophy | 0 | 0 | 1 | 0 |
 | 7A — Backend SDK Foundation | 0 | 0 | 9 | 0 |
 | 7B.1 — HTTP + Routing | 0 | 0 | 10 | 0 |
-| 7B.2 — Queue + Console | 5 | 0 | 0 | 0 |
+| 7B.2 — Queue + Console | 0 | 0 | 5 | 0 |
 | 7B.3 — Scheduler | 3 | 0 | 0 | 0 |
 | 7B.4 — Smart Home | 3 | 0 | 0 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
@@ -361,7 +361,7 @@
 - Verified empirically that `Illuminate\Routing\Pipeline` converts every exception (404/405/422/401/5xx) into a `Response` before it reaches global middleware — `HttpRequestTelemetry::recordResponse()` is therefore the path taken by every real request; `recordException()` is a defensive fallback exercised directly in tests.
 - 48 new tests added; full `back_vibes` suite (785 tests) green after this phase; `pint --test` passes.
 - No Queue, Console, Scheduler, Smart Home, Push, or external-provider instrumentation added.
-- **Next:** Phase 7B.2 — Queue + Console, using the same Telemetry Contracts (including `activeSpan()`).
+- **Next:** Phase 7B.2 — Queue + Console (now complete, see below), using the same Telemetry Contracts (including `activeSpan()`).
 
 **Branch:** `feature/observability-http-routing-instrumentation`
 
@@ -373,11 +373,20 @@
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7B2-1 | Review `opentelemetry-auto-laravel` queue/console hooks — span reuse vs. new spans | **Pending** | |
-| P7B2-2 | Manual spans: queue job execution | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
-| P7B2-3 | Manual spans: console command execution | **Pending** | |
-| P7B2-4 | Custom metrics (`ixora.queue.*`, `ixora.console.*`) per metrics-philosophy.md | **Pending** | |
-| P7B2-5 | Verify no forbidden fields in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+| P7B2-1 | Review `opentelemetry-auto-laravel` queue/console hooks — span reuse vs. new spans | **Done** | [`backend-queue-console-instrumentation.md §2–§3`](backend-queue-console-instrumentation.md) |
+| P7B2-2 | Queue telemetry: enrich existing auto-instrumented span, `ixora.queue.job.*` metrics | **Done** | Uses `App\Telemetry\Contracts\{Tracer,Meter}` only — `back_vibes/app/Telemetry/Queue/` |
+| P7B2-3 | Console telemetry: best-effort span enrichment, `ixora.console.command.*` metrics | **Done** | `back_vibes/app/Telemetry/Console/` |
+| P7B2-4 | Custom metrics (`ixora.queue.job.total/duration/active`, `ixora.console.command.total/duration`) per metrics-philosophy.md | **Done** | [`backend-queue-console-instrumentation.md §5`](backend-queue-console-instrumentation.md) |
+| P7B2-5 | Verify no forbidden fields in exported telemetry | **Done** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) · [`backend-queue-console-instrumentation.md §5–6`](backend-queue-console-instrumentation.md) |
+
+**Phase 7B.2 implementation notes:**
+
+- Existing auto-instrumented queue consumer/sync span reused and enriched — no second root span created. Console's per-command auto-instrumented span exists but is unreachable from `CommandStarting`/`CommandFinished` (timing gap, documented) — metrics and log context are unaffected.
+- Zero Telemetry Contract changes — Phase 7B.2 consumes `Tracer`, `Meter`, `Counter`, `Histogram`, `UpDownCounter` exactly as they existed after Phase 7B.1 (`activeSpan()` included).
+- Verified empirically that `CommandStarting`/`CommandFinished` never fire during `back_vibes`'s own `APP_ENV=testing` test runs — console tests dispatch these events directly rather than through `$this->artisan()`.
+- 51 new tests added; full `back_vibes` suite (836 tests) green after this phase; `pint --test` passes.
+- No Scheduler, Smart Home, Push, or external-provider instrumentation added.
+- **Next:** Phase 7B.3 — Scheduler, using the same Telemetry Contracts.
 
 **Branch:** `feature/observability-queue-console-instrumentation`
 
