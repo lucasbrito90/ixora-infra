@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + **7B.4.5** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + **Business Failure Semantics**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + **7B.4.6** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + **Business Metrics**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -41,6 +41,7 @@
 | 7B.4.3 — Smart Home Action Execution | 0 | 0 | 13 | 0 |
 | 7B.4.4 — Smart Home Provider Boundary | 0 | 0 | 12 | 0 |
 | 7B.4.5 — Business Failure Semantics | 0 | 0 | 16 | 0 |
+| 7B.4.6 — Business Metrics | 0 | 0 | 14 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -602,6 +603,43 @@
 - **Next:** Phase 7B.4.6 — first Business Metrics implementation, now unblocked by this phase's outcome/failure classification (§11–§12 of this phase's doc supply the ownership groundwork).
 
 **Branch:** `feature/observability-business-failure-semantics`
+
+---
+
+## Phase 7B.4.6 — Business Metrics
+
+**Prerequisite:** Phase 7B.4.5 (Business Failure Semantics).
+
+**Type:** Metrics Design Review + implementation of the metrics it justifies. Explicitly not logging, dashboards, or alerts. No Business Metric may contradict the failure taxonomy Phase 7B.4.5 established.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B4.6-1 | Mandatory architecture review: re-read `backend-business-failure-semantics.md`, all three Smart Home boundary docs, Metrics/Traces/Logs Philosophy, Telemetry Naming Convention, Telemetry Decision Guide; review `SmartHomeDispatchTelemetry`, `SmartHomeActionTelemetry`, `SmartHomeProviderTelemetry`, `QueueExecutionTelemetry`, the `Meter` abstractions, existing metric registration, and OpenTelemetry metric conventions | **Done** | [`backend-smart-home-business-metrics.md §2`](../business-telemetry/backend-smart-home-business-metrics.md) |
+| P7B4.6-2 | Metrics Design Review — produce a Design Record (name, type, business question, boundary owner, counting unit, label set, cardinality analysis, failure-semantics alignment, duplication analysis, decision) for every candidate metric | **Done** | [`backend-smart-home-business-metrics.md §3`](../business-telemetry/backend-smart-home-business-metrics.md) |
+| P7B4.6-3 | Decide `ixora.smart_home.dispatch.total` — Counter, owned by Dispatch, labeled `entry_point`/`outcome` (`dispatched`/`skipped`/`error`) | **Done — Implement** | [`backend-smart-home-business-metrics.md §3.1`](../business-telemetry/backend-smart-home-business-metrics.md) |
+| P7B4.6-4 | Decide `ixora.smart_home.action.total` + `.duration` — Counter + Histogram, owned by Action, labeled `outcome`/`provider`, reusing the existing `SmartHomeActionOutcome` classification verbatim (never re-derived, never merging `unsupported` into `failure`) | **Done — Implement** | [`backend-smart-home-business-metrics.md §3.2`](../business-telemetry/backend-smart-home-business-metrics.md) |
+| P7B4.6-5 | Decide `ixora.smart_home.provider.total` — rejected: 1:1 duplication with the Action counter in today's single-provider-per-attempt pipeline | **Done — Reject** | [`backend-smart-home-business-metrics.md §3.3`](../business-telemetry/backend-smart-home-business-metrics.md) |
+| P7B4.6-6 | Decide the J1–J3 guard-clause-skip metric candidate (surfaced by Phase 7B.4.5 §14/§11, not named in this phase's own candidate list) — deferred: no clean boundary owner exists yet before any span is created | **Done — Defer** | [`backend-smart-home-business-metrics.md §3.4`](../business-telemetry/backend-smart-home-business-metrics.md) |
+| P7B4.6-7 | Cardinality review for every implemented metric — confirm every label is bounded, no forbidden field (IDs, URLs, payloads, exception messages), and estimate total time series (54 + 96 ≪ 10 000/service budget) | **Done** | [`backend-smart-home-business-metrics.md §3.1–§3.2`](../business-telemetry/backend-smart-home-business-metrics.md) |
+| P7B4.6-8 | Failure-alignment review — map every metric outcome value to Phase 7B.4.5's own taxonomy and Span Status policy; confirm no metric ever contradicts a span's own status | **Done** | [`backend-smart-home-business-metrics.md §3.1–§3.2`](../business-telemetry/backend-smart-home-business-metrics.md) |
+| P7B4.6-9 | Duplication review against `ixora.http.server.*`, `ixora.queue.job.*`, `ixora.console.command.*`, `ixora.scheduler.event.*`, and all three existing Smart Home spans | **Done** | [`backend-smart-home-business-metrics.md §3.1–§3.3`](../business-telemetry/backend-smart-home-business-metrics.md) |
+| P7B4.6-10 | Implement the two justified metrics: register `Counter`/`Histogram` via the injected `Meter` in `SmartHomeDispatchTelemetry`/`SmartHomeActionTelemetry`; record them from inside each class's existing `safely()` fail-open guard, reusing the already-classified outcome each span attribute is set from | **Done** | `app/Telemetry/SmartHome/SmartHomeDispatchTelemetry.php`, `app/Telemetry/SmartHome/SmartHomeActionTelemetry.php` |
+| P7B4.6-11 | Wire `Meter`/`environment`/`service_name` into both singleton definitions in `TelemetryServiceProvider`, mirroring the existing `QueueExecutionTelemetry`/`ConsoleCommandTelemetry`/`SchedulerExecutionTelemetry` pattern | **Done** | `app/Telemetry/Providers/TelemetryServiceProvider.php` |
+| P7B4.6-12 | Add/update unit, integration, and dependency-rule tests: metric registration, counter increments per outcome (including the zero-count and error paths), label correctness, bounded cardinality, fail-open on a broken Counter/Histogram, no metric on `SmartHomeProviderTelemetry`/enums, no undocumented metric name or label | **Done** | `tests/Feature/Telemetry/SmartHome/SmartHomeDispatchTelemetryTest.php`, `tests/Feature/Telemetry/SmartHome/SmartHomeActionTelemetryTest.php`, `tests/Unit/Telemetry/SmartHome/SmartHomeDispatchTelemetryDependencyRuleTest.php`, `tests/Unit/Telemetry/SmartHome/SmartHomeActionTelemetryDependencyRuleTest.php`, `tests/Unit/Telemetry/SmartHome/SmartHomeBusinessMetricsDependencyRuleTest.php` (new) |
+| P7B4.6-13 | Run full `back_vibes` suite + `pint --test`; confirm no business/queue/retry/provider/trace-hierarchy behavior changed | **Done** | 980/980 passing (358/358 SmartHome-scoped), `pint` clean |
+| P7B4.6-14 | Write `backend-smart-home-business-metrics.md`; security review; update README/plan/tasks | **Done** | [`backend-smart-home-business-metrics.md`](../business-telemetry/backend-smart-home-business-metrics.md) |
+
+**Phase 7B.4.6 implementation notes:**
+
+- Both implemented metrics reuse an already-classified value the span's own attribute is set from (`SmartHomeActionOutcome`, `SmartHomeDispatchEntryPoint`) — no metric ever computes a second, independently-derived classification that could drift from its own span's status.
+- `action_type` is deliberately **omitted** from `ixora.smart_home.action.total`/`.duration`'s label set this phase, even though `metrics-philosophy.md` §11 and `telemetry-naming-convention.md` §14 both show it in their own reserved/illustrative examples — it is not an existing `smart_home.action` span attribute, and this phase's own brief lists only `outcome`/`provider` for this metric. Recorded as a Phase 7B.4.7 recommendation (adding a label to an existing metric, never a rename).
+- `ixora.smart_home.provider.total` was rejected on a duplication basis, independently re-derived from the current code (one Provider call is 1:1 with one Action attempt in every reachable path today) rather than assumed from Phase 7B.4.5's own preview.
+- `SmartHomeProviderTelemetry.php` and every Smart Home enum remain completely metric-free — guarded by a new phase-specific dependency-rule test in addition to the narrowed pre-existing directory-wide scan.
+- No logs, no dashboards, no alerts, no business/retry/queue/provider/dispatch behavior changes, no new persistence or correlation IDs — all explicitly forbidden by this phase's brief and confirmed absent.
+- Full `back_vibes` suite green after this phase; `pint --test` passes.
+- **Next:** Phase 7B.4.7 — Business Logging, which should treat §9 of this phase's doc (the `action_type` label, the J1–J3 skip visibility question, and the `Log::info`-on-success question) as its own starting brief.
+
+**Branch:** `feature/observability-business-metrics`
 
 ---
 

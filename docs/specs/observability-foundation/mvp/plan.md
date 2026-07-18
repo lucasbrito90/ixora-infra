@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.4.5 complete — Business Failure Semantics (formal failure taxonomy, Business/Infrastructure classification, Span Status policy) documented for `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1 Business Telemetry domain execution review, 7B.4.2 Smart Home dispatch boundary, 7B.4.3 Smart Home Action Execution boundary, and 7B.4.4 Smart Home Provider Boundary also complete)  
+**Status:** Phase 7B.4.6 complete — Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) implemented for `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1 Business Telemetry domain execution review, 7B.4.2 Smart Home dispatch boundary, 7B.4.3 Smart Home Action Execution boundary, 7B.4.4 Smart Home Provider Boundary, and 7B.4.5 Business Failure Semantics also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; remaining domain instrumentation pending (Phases 7B.4.6–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; remaining domain instrumentation pending (Phases 7B.4.7–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -73,6 +73,7 @@ Phase 7B.4.2 ──► Smart Home Dispatch Boundary (back_vibes) (complete)
 Phase 7B.4.3 ──► Smart Home Action Execution (back_vibes) (complete)
 Phase 7B.4.4 ──► Smart Home Provider Boundary (back_vibes) (complete)
 Phase 7B.4.5 ──► Business Failure Semantics (back_vibes) (complete)
+Phase 7B.4.6 ──► Business Metrics (back_vibes) (complete)
 Phase 7B.5   ──► Push Notifications (back_vibes)
 Phase 7B.6   ──► External Providers (back_vibes)
 Phase 8      ──► Frontend SDK (front_vibes)
@@ -613,6 +614,20 @@ Split into a discovery sub-phase and an implementation sub-phase, since Smart Ho
 **Deliverable:** [`backend-business-failure-semantics.md`](../business-telemetry/backend-business-failure-semantics.md) — the reference document for every future Business Telemetry implementation. One narrowly-scoped, review-justified code change: `SmartHomeActionTelemetry::wrap()` now only calls `setError()` when `outcome !== SmartHomeActionOutcome::Unsupported`, while `recordException()` still always fires so the exception remains visible on the span. No new metrics, no new logs, no dashboards, no retry/queue/provider/dispatch behavior changes, no new persistence or correlation IDs.
 
 **Branch:** `feature/observability-business-failure-semantics`
+
+---
+
+#### Phase 7B.4.6 — Business Metrics (`back_vibes`) — **Complete**
+
+**Goal:** Introduce the first Business Metrics for the Smart Home domain, building on Phase 7B.4.5's failure taxonomy — explicitly **not** about logging, dashboards, or alerts. No Business Metric may contradict the failure taxonomy established in that phase.
+
+**Mandatory architecture review (performed before any code):** re-read `backend-business-failure-semantics.md`, all three Smart Home boundary docs (dispatch/action/provider), Metrics/Traces/Logs Philosophy, Telemetry Naming Convention, and Telemetry Decision Guide in full; reviewed `SmartHomeDispatchTelemetry`, `SmartHomeActionTelemetry`, `SmartHomeProviderTelemetry`, `QueueExecutionTelemetry`, the `Meter`/`Counter`/`Histogram` abstractions, existing metric registration patterns, and OpenTelemetry metric conventions. Produced a full Metrics Design Review (Design Record per candidate — business meaning, counting unit, failure semantics, boundary ownership, cardinality, failure alignment, duplication, dashboard preview, decision) for all three metrics named in the brief plus one it surfaced on its own (a J1–J3 guard-clause-skip candidate Phase 7B.4.5 flagged as "worth considering, not decided there").
+
+**Decisions:** `ixora.smart_home.dispatch.total` (Counter, `entry_point`/`outcome`) — **Implement**, narrowest owner is Dispatch, safe cardinality (54 series), no duplication. `ixora.smart_home.action.total`/`.duration` (Counter + Histogram, `outcome`/`provider`) — **Implement**, the platform's own pre-reserved highest-value Smart Home metric pair, reusing the already-classified `SmartHomeActionOutcome` verbatim so it can never contradict its own span's status. `ixora.smart_home.provider.total` — **Reject**, independently re-confirmed 1:1 duplication with the Action counter in today's single-provider-per-attempt pipeline. Guard-clause-skip metric — **Defer**, no clean boundary owner exists yet since J1–J3 never reach a span.
+
+**Deliverable:** [`backend-smart-home-business-metrics.md`](../business-telemetry/backend-smart-home-business-metrics.md). Two Counters + one Histogram registered via the existing `Meter` contract in `SmartHomeDispatchTelemetry`/`SmartHomeActionTelemetry`, recorded from inside each class's pre-existing `safely()` fail-open guard; `TelemetryServiceProvider` wires `Meter`/`environment`/`service_name` into both singletons, mirroring the existing Queue/Console/Scheduler pattern. `SmartHomeProviderTelemetry` and every Smart Home enum remain untouched and metric-free. `action_type` is deliberately omitted from the Action metric's label set this phase (not an existing span attribute; not named in this phase's own brief) and recorded as a Phase 7B.4.7 recommendation. No logs, no dashboards, no alerts, no business/retry/queue/provider/dispatch behavior changes. 980/980 `back_vibes` tests passing (358/358 SmartHome-scoped); `pint --test` clean.
+
+**Branch:** `feature/observability-business-metrics`
 
 ---
 
