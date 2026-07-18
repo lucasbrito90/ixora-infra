@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.4.2 complete — Smart Home dispatch boundary (`smart_home.dispatch` Business Span) shipped in `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, and 7B.4.1 Business Telemetry domain execution review also complete)  
+**Status:** Phase 7B.4.3 complete — Smart Home Action Execution boundary (`smart_home.action` Business Span) shipped in `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1 Business Telemetry domain execution review, and 7B.4.2 Smart Home dispatch boundary also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; remaining domain instrumentation pending (Phases 7B.4.3–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; remaining domain instrumentation pending (Phases 7B.4.4–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -70,7 +70,8 @@ Phase 7B.2   ──► Queue + Console (back_vibes) (complete)
 Phase 7B.3   ──► Generic Scheduler (back_vibes) (complete)
 Phase 7B.4.1 ──► Business Telemetry — Domain Execution Review (ixora-infra) (complete, discovery only)
 Phase 7B.4.2 ──► Smart Home Dispatch Boundary (back_vibes) (complete)
-Phase 7B.4.3 ──► Smart Home Action Execution (back_vibes)
+Phase 7B.4.3 ──► Smart Home Action Execution (back_vibes) (complete)
+Phase 7B.4.4 ──► Smart Home Provider Boundary (back_vibes)
 Phase 7B.5   ──► Push Notifications (back_vibes)
 Phase 7B.6   ──► External Providers (back_vibes)
 Phase 8      ──► Frontend SDK (front_vibes)
@@ -582,9 +583,15 @@ Split into a discovery sub-phase and an implementation sub-phase, since Smart Ho
 
 **Branch:** `feature/observability-smart-home-dispatch-boundary`
 
-#### Phase 7B.4.3 — Smart Home Action Execution (`back_vibes`) — Next
+#### Phase 7B.4.3 — Smart Home Action Execution (`back_vibes`) — **Complete**
 
-**Goal:** Manual spans for `SmartHomeActionJob::handle()`, `ProviderAdapterResolver`, and `HomeAssistantAdapter` execution — the downstream half of the pipeline Phase 7B.4.2 deliberately stopped short of at the queue boundary. Its span(s) will automatically nest under `smart_home.dispatch` for free (existing trace propagation, no correlation work needed).
+**Goal:** Implement the Action Execution boundary — one `smart_home.action` span per `SmartHomeActionJob::handle()` invocation, wrapping only the natural Business Boundary the mandatory architecture review discovered (provider resolution + `ProviderAdapter::executeAction()`), not the entire `handle()` method. Explicitly excludes provider communication internals, HTTP client calls, `HomeAssistantAdapter`'s own request/response handling, business metrics, and business logging (later sub-phases).
+
+**Mandatory architecture review (performed before any span code):** read `SmartHomeActionJob::handle()`, `ProviderAdapterResolver::forProvider()`, and `HomeAssistantAdapter::executeAction()` in full. Found the natural boundary is **narrower** than `handle()`: the method's three leading guard clauses (action/device/provider-connection not found) never resolve a provider adapter and have no corresponding value in the brief's `ixora.action.outcome` vocabulary, so they stay outside the span entirely — mirroring Phase 7B.4.2's own precedent (no span for a precondition checked before the real boundary). `HomeAssistantAdapter::executeAction()` throws `UnsupportedSmartHomeActionException` synchronously, *before* any HTTP call, confirming `unsupported` is a legitimate business outcome distinct from provider-communication `failure`. Exactly one provider call happens per action attempt (no internal loop/retry). `handle()`'s own two `catch` blocks swallow every exception unconditionally today, so Laravel's queue retry mechanism (`tries = 3`) has never actually been triggered by this job — a pre-existing fact this phase does not change.
+
+**Deliverable:** [`backend-smart-home-action-execution.md`](../business-telemetry/backend-smart-home-action-execution.md) — a new `App\Telemetry\SmartHome\SmartHomeActionTelemetry` wrapper is called from inside `SmartHomeActionJob::handle()` around only the discovered boundary; both pre-existing `catch` blocks are byte-for-byte unchanged. Span attributes: `ixora.action.provider` (`home_assistant`/`future`, reserved), `ixora.action.outcome` (`success`/`failure`/`unsupported`), `ixora.action.retry` (`true`/`false`, from Laravel's own job-attempt counter) — no IDs, payloads, or credentials. Outcome classification is supplied by the caller via two closures (`classifyResult`/`classifyException`) rather than the Telemetry layer importing `ActionResult`/`UnsupportedSmartHomeActionException` — generalizing Phase 7B.4.2's `extractCounts` technique. Reuses `Tracer::startSpan()` to nest under the Queue Consumer span (itself already under `smart_home.dispatch`) with zero custom propagation. Fail-open throughout; exceptions are recorded on the span and always rethrown unchanged.
+
+**Branch:** `feature/observability-smart-home-action-execution`
 
 ---
 

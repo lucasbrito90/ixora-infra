@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + **7B.4.2** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + **Smart Home Dispatch Boundary**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + **7B.4.3** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + **Smart Home Action Execution**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -38,7 +38,7 @@
 | 7B.3 — Generic Scheduler | 0 | 0 | 7 | 0 |
 | 7B.4.1 — Business Telemetry: Domain Execution Review | 0 | 0 | 14 | 0 |
 | 7B.4.2 — Smart Home Dispatch Boundary | 0 | 0 | 13 | 0 |
-| 7B.4.3 — Smart Home Action Execution | 3 | 0 | 0 | 0 |
+| 7B.4.3 — Smart Home Action Execution | 0 | 0 | 13 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -497,11 +497,33 @@
 
 **Prerequisite:** Phase 7B.4.2 (Smart Home Dispatch Boundary).
 
+**Type:** Second Business Telemetry implementation. Owns exactly one boundary — the provider-resolution + `ProviderAdapter::executeAction()` segment of `SmartHomeActionJob::handle()` — and nothing else (not the entire `handle()` method, not `HomeAssistantAdapter`'s HTTP internals, no business metrics, no business logging).
+
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7B4.3-1 | Manual spans: `SmartHomeActionJob::handle()`, `ProviderAdapterResolver`, `HomeAssistantAdapter` provider calls | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
-| P7B4.3-2 | Custom metrics (`ixora.smart_home.*`) per metrics-philosophy.md | **Pending** | |
-| P7B4.3-3 | Verify no forbidden fields (device identifiers, credentials) in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+| P7B4.3-1 | Mandatory architecture review: `SmartHomeActionJob::handle()`, `ProviderAdapterResolver`, `HomeAssistantAdapter`, retry behavior, queue consumer lifecycle | **Done** | [`backend-smart-home-action-execution.md §2`](../business-telemetry/backend-smart-home-action-execution.md) |
+| P7B4.3-2 | Boundary discovery — determined the natural Business Boundary is narrower than `handle()` (excludes the three guard clauses; excludes `logResult()`/`notifyActionFailed()`) | **Done** | [`backend-smart-home-action-execution.md §2.5`](../business-telemetry/backend-smart-home-action-execution.md) |
+| P7B4.3-3 | Create `App\Telemetry\SmartHome\SmartHomeActionProvider` enum (`home_assistant`/`future`, reserved) with `fromProviderSlug()` normalizer | **Done** | `app/Telemetry/SmartHome/SmartHomeActionProvider.php` |
+| P7B4.3-4 | Create `App\Telemetry\SmartHome\SmartHomeActionOutcome` enum (`success`/`failure`/`unsupported`/`unknown`, reserved) | **Done** | `app/Telemetry/SmartHome/SmartHomeActionOutcome.php` |
+| P7B4.3-5 | Create `App\Telemetry\SmartHome\SmartHomeActionTelemetry` — one `smart_home.action` span via `Tracer::startSpan()`, fail-open `wrap()` helper taking caller-supplied `classifyResult`/`classifyException` closures, inert-span fallback | **Done** | `app/Telemetry/SmartHome/SmartHomeActionTelemetry.php` |
+| P7B4.3-6 | Wire the wrapper into `SmartHomeActionJob::handle()` around only the discovered boundary; both pre-existing `catch` blocks left byte-for-byte unchanged | **Done** | `app/Jobs/SmartHome/SmartHomeActionJob.php` |
+| P7B4.3-7 | Register the `SmartHomeActionTelemetry` singleton in `TelemetryServiceProvider` | **Done** | `app/Telemetry/Providers/TelemetryServiceProvider.php` |
+| P7B4.3-8 | Dependency-rule test: no OpenTelemetry SDK import, Contracts-only, no domain/job/controller/console/logging/metric-contract import for the three new files | **Done** | `tests/Unit/Telemetry/SmartHome/SmartHomeActionTelemetryDependencyRuleTest.php` |
+| P7B4.3-9 | Unit-level telemetry tests: span creation/naming/`provider`/`retry`, outcome from closures, forbidden-attribute exhaustiveness, lifetime, no duplicates, `startSpan()` (never `activeSpan()`), exception recording + rethrow (identity-checked), fail-open (Tracer and classifier), zero metrics, provider-slug normalization | **Done** | `tests/Feature/Telemetry/SmartHome/SmartHomeActionTelemetryTest.php` |
+| P7B4.3-10 | Real-wiring integration tests: success/failure/unsupported/unexpected-error outcomes, no span for the three guard-clause skip paths, exactly one provider call per span, `retry` attribute from Laravel's own attempt counter, fail-open end-to-end | **Done** | `tests/Feature/Telemetry/SmartHome/SmartHomeActionBoundaryIntegrationTest.php` |
+| P7B4.3-11 | Run full `back_vibes` suite + `pint --test`; confirm pre-existing `SmartHomeActionJobTest` still green (only its test helper updated for the new constructor argument) | **Done** | 929/929 passing, `pint` clean |
+| P7B4.3-12 | Write `backend-smart-home-action-execution.md`; update README/plan/tasks | **Done** | [`backend-smart-home-action-execution.md`](../business-telemetry/backend-smart-home-action-execution.md) |
+| P7B4.3-13 | Verify no forbidden fields (action/device/entity/provider/schedule/vibe/user IDs, provider URLs, credentials, payloads, trace/span IDs) in exported telemetry | **Done** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md); `SmartHomeActionTelemetryTest` "never sets a forbidden attribute" |
+
+**Phase 7B.4.3 implementation notes:**
+
+- The natural Business Boundary is **narrower** than `SmartHomeActionJob::handle()` — it begins only once the three leading guard clauses (action/device/provider-connection not found) have already passed, and ends before `logResult()`/`notifyActionFailed()` run. No span is created at all for the guard-clause skip paths, mirroring Phase 7B.4.2's own precedent for preconditions checked before the real boundary.
+- `App\SmartHome\ProviderAdapterResolver.php`, `App\SmartHome\Adapters\HomeAssistantAdapter.php`, `App\SmartHome\Contracts\ProviderAdapter.php`, `App\SmartHome\DTOs\ActionResult.php`, and `App\SmartHome\Exceptions\UnsupportedSmartHomeActionException.php` all have **zero diff**.
+- `SmartHomeActionTelemetry::wrap()` takes caller-supplied `classifyResult`/`classifyException` closures instead of importing Smart Home domain types — generalizes Phase 7B.4.2's `extractCounts` technique to exception classification as well as result classification.
+- Confirmed `SmartHomeActionJob`'s two pre-existing `catch` blocks swallow every exception unconditionally today, so Laravel's queue retry mechanism (`tries = 3`) has never actually been triggered by this job in practice — a pre-existing fact this phase documents but does not change. `ixora.action.retry` reflects Laravel's own job-attempt counter and is `false` in every real execution today.
+- 35 new tests added; full `back_vibes` suite (929 tests) green after this phase; `pint --test` passes; 2 pre-existing risky tests (`HttpRequestTelemetryMiddlewareTest`, Phase 7B.1) unrelated to this phase.
+- No metrics, no logging changes — both explicitly deferred to Phases 7B.4.6/7B.4.7.
+- **Next:** Phase 7B.4.4 — Smart Home Provider Boundary, which will nest its `smart_home.provider` span under `smart_home.action` for free (§4 of this phase's doc) — no correlation work needed.
 
 **Branch:** `feature/observability-smart-home-action-execution`
 
