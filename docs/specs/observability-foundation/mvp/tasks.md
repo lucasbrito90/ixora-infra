@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + **7B.4.7** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + **Business Logging**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + **7B.4.8** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + **Business Logging**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -43,6 +43,7 @@
 | 7B.4.5 — Business Failure Semantics | 0 | 0 | 16 | 0 |
 | 7B.4.6 — Business Metrics | 0 | 0 | 14 | 0 |
 | 7B.4.7 — Business Logging | 0 | 0 | 8 | 0 |
+| 7B.4.8 — Telemetry Validation & Architecture Review | 0 | 0 | 7 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -676,6 +677,39 @@
 - **Next:** Phase 7B.4.8 or 7B.5 (Push Notifications) — open question is the J1–J3 guard-clause skip visibility (aggregate Counter), `action_type` label on metrics, and connection_id field naming.
 
 **Branch:** `feature/observability-business-logging`
+
+---
+
+## Phase 7B.4.8 — Business Telemetry Validation & Architecture Review
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B4.8-1 | Read every required doc: 7 Business Telemetry docs + 6 Core Observability docs | **Done** | All docs listed in §1 of validation doc |
+| P7B4.8-2 | Review every implementation file: `app/Telemetry/SmartHome/`, `app/Jobs/SmartHome/`, `app/Telemetry/Providers/TelemetryServiceProvider.php` | **Done** | Confirmed against source |
+| P7B4.8-3 | Produce Ownership Matrix (spans, metrics, logs — exactly one owner each) | **Done** | `backend-business-telemetry-validation.md §2` |
+| P7B4.8-4 | Validate Trace Architecture: hierarchy, attributes, status policy, fail-open, propagation | **Done** | `backend-business-telemetry-validation.md §3` |
+| P7B4.8-5 | Validate Metrics Architecture: naming, cardinality, deferred items (guard-clause, action_type) | **Done** | `backend-business-telemetry-validation.md §4` |
+| P7B4.8-6 | Validate Logging Architecture: ownership, fields, sanitization, naming consistency (`provider_connection_id`) | **Done** | `backend-business-telemetry-validation.md §5` |
+| P7B4.8-7 | Cross-Signal Consistency Matrix (all 4 outcomes × span/metric/log) | **Done** | `backend-business-telemetry-validation.md §6` |
+| P7B4.8-8 | Correlation Review: Metric→Trace→Log workflow, `trace_id`, `span_id`, `outcome`, `exception_class` | **Done** | `backend-business-telemetry-validation.md §7` |
+| P7B4.8-9 | Security Review: all signal types, all forbidden fields | **Done — PASS** | `backend-business-telemetry-validation.md §8` |
+| P7B4.8-10 | Dashboard Readiness Review (8 dashboard types) | **Done** | `backend-business-telemetry-validation.md §9` |
+| P7B4.8-11 | Operational Readiness Review ("Lights are not turning on" investigation) | **Done** | `backend-business-telemetry-validation.md §10` |
+| P7B4.8-12 | Future Extensibility Review (Push, Matter, Google Home, Alexa, additional providers) | **Done** | `backend-business-telemetry-validation.md §11` |
+| P7B4.8-13 | Technical Debt Register: 4 items classified (TD-1 through TD-4) | **Done** | `backend-business-telemetry-validation.md §13` |
+| P7B4.8-14 | Write `backend-business-telemetry-validation.md`; update README/plan/tasks | **Done** | [`backend-business-telemetry-validation.md`](../business-telemetry/backend-business-telemetry-validation.md) |
+
+**Phase 7B.4.8 implementation notes:**
+
+- Architecture review is complete and conclusive: the Smart Home Business Telemetry is internally consistent, production-ready, and reusable for future domains without redesign.
+- Every signal has exactly one owner. Trace hierarchy is valid and propagates through the queue boundary via W3C `traceparent` (no custom correlation IDs). Metrics and spans share the same `SmartHomeActionOutcome` vocabulary by construction. Logs complement rather than duplicate the other signals.
+- Security review passes on all three signal types (spans, metrics, logs).
+- No runtime code changes were made — the review found no genuine architectural inconsistency.
+- Four technical debt items documented: TD-1 (`ixora.action.retry` duplication, Medium), TD-2 (`action_type` label absent, Low), TD-3 (guard-clause J1–J3 invisible to metrics, Medium), TD-4 (`provider_connection_id` naming, Low).
+- Full `back_vibes` suite green (986/986, verified before this phase); no test changes made.
+- **Next:** Phase 7B.5 — Push Notifications. Recommend addressing TD-2 (`action_type` label) and TD-1 (`ixora.action.retry` removal) in early 7B.5 scope.
+
+**Branch:** `feature/observability-telemetry-validation`
 
 ---
 
