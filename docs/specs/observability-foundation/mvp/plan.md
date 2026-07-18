@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.4.7 complete — Business Logging improvements applied to `SmartHomeActionJob` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1 Business Telemetry domain execution review, 7B.4.2 Smart Home dispatch boundary, 7B.4.3 Smart Home Action Execution boundary, 7B.4.4 Smart Home Provider Boundary, 7B.4.5 Business Failure Semantics, 7B.4.6 Business Metrics also complete)  
+**Status:** Phase 7B.4.8 complete — Business Telemetry architecture validated as internally consistent and production-ready (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.7 Smart Home Business Telemetry also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -642,6 +642,35 @@ Split into a discovery sub-phase and an implementation sub-phase, since Smart Ho
 **Deliverable:** [`backend-smart-home-business-logging.md`](../business-telemetry/backend-smart-home-business-logging.md). `SmartHomeActionJob` is the only modified file: (1) L-2 resolution — `Log::info` on success removed; (2) `provider_device_id` removed from `$context` (forbidden field per naming-convention §8 — reveals home layout); (3) `exception_class => $e::class` replaces raw `error_message` in both catch blocks; (4) `outcome` added to every failure/unsupported log using the `SmartHomeActionOutcome` vocabulary, enabling cross-signal Loki queries aligned with the Business Metrics. No new log statements, no new Telemetry classes, no metrics, no spans, no dashboards, no business/retry/queue/provider behavior changes. 986/986 `back_vibes` tests passing (364/364 SmartHome-scoped); `pint --test` clean.
 
 **Branch:** `feature/observability-business-logging`
+
+---
+
+#### Phase 7B.4.8 — Business Telemetry Validation & Architecture Review (`back_vibes`) — **Complete**
+
+**Goal:** Validate that all Smart Home Business Telemetry implemented during Phases 7B.4.2–7B.4.7 forms one coherent, internally consistent observability model. Architecture validation phase — not about adding new telemetry, dashboards, or alerts.
+
+**Mandatory architecture review (performed before any decision):** Read all 7 Business Telemetry docs (domain-execution-review, 3 boundary docs, failure-semantics, metrics, logging) + 6 Core Observability guides (naming-convention, decision-guide, metrics-philosophy, logs-philosophy, traces-philosophy, sdk-foundation) in full. Confirmed every telemetry implementation file in `app/Telemetry/SmartHome/`, `app/Jobs/SmartHome/`, and `app/Telemetry/Providers/TelemetryServiceProvider.php` against documentation — no trust in documentation without source verification.
+
+**Key findings:**
+
+- **Ownership:** Every signal (3 spans, 3 metrics, 6 log events) has exactly one owner. No signal is duplicated, missing, or ambiguously owned.
+- **Trace hierarchy:** Validated as `HTTP/Console → smart_home.dispatch → Queue Consumer → smart_home.action → smart_home.provider → POST (Guzzle)`. W3C `traceparent` propagation through queue boundary confirmed via existing `opentelemetry-auto-laravel` hook — no custom correlation code exists or is needed.
+- **Metrics:** All 3 metrics correctly designed, owned, and cardinality-bounded. `action_type` label and guard-clause skip counter remain correctly deferred.
+- **Logging:** All logs are structured, sanitized, at correct levels, and complementary to the other signals. `provider_connection_id` naming is a Low-priority cosmetic inconsistency — no runtime change warranted.
+- **Cross-signal consistency:** `SmartHomeActionOutcome` shared between span and metric by construction — a metric value can never contradict its corresponding span. All 4 outcomes (success, failure, unsupported, unknown) produce consistent, non-contradictory signals.
+- **Correlation:** Complete Metric→Trace→Log navigation confirmed. `trace_id`/`span_id` injected globally by `TraceCorrelationLogTap`. No custom correlation IDs.
+- **Security:** PASS — no forbidden data in any signal type (spans, metrics, logs).
+- **Dashboard readiness:** 6 of 8 panels fully supported. "Provider Performance by device type" and "Top Failures by action type" partially supported — gap closed by adding `action_type` label (TD-2).
+- **Operational readiness:** Full "Lights are not turning on" investigation workflow demonstrated. 9/9 diagnostic questions answerable from current telemetry.
+- **Future extensibility:** Architecture supports Push Notifications, Matter, Google Home, Alexa, and additional Smart Home providers without redesign.
+
+**Technical debt documented:** TD-1 (`ixora.action.retry` duplicate of `ixora.queue.attempt` — Medium, recommend removal in Phase 7B.5); TD-2 (`action_type` label absent — Low, recommend Phase 7B.5); TD-3 (guard-clause J1–J3 invisible to metrics — Medium, recommend Phase 7B.5/7B.6); TD-4 (`provider_connection_id` → `connection_id` naming — Low, bundle with next logging change).
+
+**Runtime changes:** None. No code was changed.
+
+**Deliverable:** [`backend-business-telemetry-validation.md`](../business-telemetry/backend-business-telemetry-validation.md). Full validation report with Ownership Matrix, all review sections, Cross-Signal Consistency Matrix, Correlation analysis, Security review, Dashboard/Operational/Extensibility readiness, and Technical Debt Register.
+
+**Branch:** `feature/observability-telemetry-validation`
 
 ---
 
