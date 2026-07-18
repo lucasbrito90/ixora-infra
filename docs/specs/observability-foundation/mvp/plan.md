@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.4.1 complete — Business Telemetry domain execution review (discovery only, no telemetry added) shipped in `ixora-infra` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, and 7B.3 generic Scheduler also complete in `back_vibes`)  
+**Status:** Phase 7B.4.2 complete — Smart Home dispatch boundary (`smart_home.dispatch` Business Span) shipped in `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, and 7B.4.1 Business Telemetry domain execution review also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; remaining domain instrumentation pending (Phases 7B.4.2–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; remaining domain instrumentation pending (Phases 7B.4.3–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -69,7 +69,8 @@ Phase 7B.1   ──► HTTP + Routing (back_vibes) (complete)
 Phase 7B.2   ──► Queue + Console (back_vibes) (complete)
 Phase 7B.3   ──► Generic Scheduler (back_vibes) (complete)
 Phase 7B.4.1 ──► Business Telemetry — Domain Execution Review (ixora-infra) (complete, discovery only)
-Phase 7B.4.2 ──► Smart Home instrumentation (back_vibes)
+Phase 7B.4.2 ──► Smart Home Dispatch Boundary (back_vibes) (complete)
+Phase 7B.4.3 ──► Smart Home Action Execution (back_vibes)
 Phase 7B.5   ──► Push Notifications (back_vibes)
 Phase 7B.6   ──► External Providers (back_vibes)
 Phase 8      ──► Frontend SDK (front_vibes)
@@ -571,9 +572,19 @@ Split into a discovery sub-phase and an implementation sub-phase, since Smart Ho
 
 **Branch:** `feature/observability-business-telemetry-domain-execution-review`
 
-#### Phase 7B.4.2 — Smart Home instrumentation (`back_vibes`) — Next
+#### Phase 7B.4.2 — Smart Home Dispatch Boundary (`back_vibes`) — **Complete**
 
-**Goal:** Manual spans for Smart Home dispatch/action-execution/provider-adapter calls, `ixora.smart_home.*` metrics — no provider credentials or device identifiers in labels. Scoped and sequenced using Phase 7B.4.1's candidate telemetry boundaries and open questions (correlation ID strategy, outbound-HTTP auto-instrumentation duplication check, dispatch-vs-execution outcome visibility) as its starting brief.
+**Goal:** Implement the first Business Telemetry boundary — one `smart_home.dispatch` span wrapping `VibeSmartHomeDispatchService::dispatch()` only (loading ordered actions, ordering, enqueueing `SmartHomeActionJob`, counting dispatched/skipped, building `SmartHomeDispatchResult`). Explicitly excludes `SmartHomeActionJob`, `ProviderAdapterResolver`, `HomeAssistantAdapter`, provider execution, business metrics, and business logging (later sub-phases).
+
+**Pre-implementation review (mandatory, performed before any span code):** confirmed `opentelemetry-auto-laravel` already injects a W3C `traceparent` into every queued job's payload at dispatch time and extracts it back as the consumer span's parent in `Worker::process()` (Phase 7B.2 §2) — and that `Tracer::startSpan()` activates the span it creates, so any `SmartHomeActionJob::dispatch()` call made while `smart_home.dispatch` is open automatically gets it injected as its parent. **Implementation Gate result: reuse existing propagation — no custom correlation ID, context object, or propagation code was implemented.**
+
+**Deliverable:** [`backend-smart-home-dispatch-boundary.md`](../business-telemetry/backend-smart-home-dispatch-boundary.md) — instrumented at the two call sites (`VibeSmartHomeDispatchController`, `DispatchDueSchedulesCommand`) via a new `App\Telemetry\SmartHome\SmartHomeDispatchTelemetry` wrapper, rather than inside `VibeSmartHomeDispatchService` itself, since the Domain Execution Review found no Laravel event to hook and wrapping the call is the only way to add a span without editing the (deliberately untouched) business method. `VibeSmartHomeDispatchService.php` has zero diff. Span attributes: `ixora.dispatch.entry_point` (`manual`/`scheduled`/`future`, reserved), `ixora.dispatch.dispatched_actions`, `ixora.dispatch.skipped_actions` — no IDs, payloads, or credentials. Fail-open throughout; exceptions from `dispatch()` are recorded on the span and always rethrown unchanged. No metrics, no logging changes.
+
+**Branch:** `feature/observability-smart-home-dispatch-boundary`
+
+#### Phase 7B.4.3 — Smart Home Action Execution (`back_vibes`) — Next
+
+**Goal:** Manual spans for `SmartHomeActionJob::handle()`, `ProviderAdapterResolver`, and `HomeAssistantAdapter` execution — the downstream half of the pipeline Phase 7B.4.2 deliberately stopped short of at the queue boundary. Its span(s) will automatically nest under `smart_home.dispatch` for free (existing trace propagation, no correlation work needed).
 
 ---
 
