@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + **7B.4.3** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + **Smart Home Action Execution**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + **7B.4.4** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + **Smart Home Provider Boundary**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -39,6 +39,7 @@
 | 7B.4.1 — Business Telemetry: Domain Execution Review | 0 | 0 | 14 | 0 |
 | 7B.4.2 — Smart Home Dispatch Boundary | 0 | 0 | 13 | 0 |
 | 7B.4.3 — Smart Home Action Execution | 0 | 0 | 13 | 0 |
+| 7B.4.4 — Smart Home Provider Boundary | 0 | 0 | 12 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -526,6 +527,42 @@
 - **Next:** Phase 7B.4.4 — Smart Home Provider Boundary, which will nest its `smart_home.provider` span under `smart_home.action` for free (§4 of this phase's doc) — no correlation work needed.
 
 **Branch:** `feature/observability-smart-home-action-execution`
+
+---
+
+## Phase 7B.4.4 — Smart Home Provider Boundary
+
+**Prerequisite:** Phase 7B.4.3 (Smart Home Action Execution).
+
+**Type:** Third Business Telemetry implementation. Owns exactly one boundary — the domain/payload-construction-through-`ActionResult` segment of `HomeAssistantAdapter::executeAction()` — and nothing else (not the unsupported-action check, not the HTTP client transport itself, no business metrics, no business logging).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B4.4-1 | Mandatory architecture review: `HomeAssistantAdapter::executeAction()`, `ProviderAdapter` interface, `ProviderAdapterResolver`, `SmartHomeActionTelemetry`, `SmartHomeActionJob`, `HttpRequestTelemetry`, HTTP client auto-instrumentation (`opentelemetry-auto-guzzle`) | **Done** | [`backend-smart-home-provider-boundary.md §2`](../business-telemetry/backend-smart-home-provider-boundary.md) |
+| P7B4.4-2 | Boundary discovery — determined the natural Provider Boundary is narrower than `executeAction()` (excludes the unsupported-action check); validated the span hierarchy against the real code rather than assuming the brief's sketch | **Done** | [`backend-smart-home-provider-boundary.md §3.1, §3.3`](../business-telemetry/backend-smart-home-provider-boundary.md) |
+| P7B4.4-3 | HTTP auto-instrumentation duplication analysis — confirmed `opentelemetry-auto-guzzle` already creates a `SpanKind::CLIENT` span with url/method/status/duration/exception-recording for every provider HTTP call; new span records none of that | **Done** | [`backend-smart-home-provider-boundary.md §2.7, §3.2`](../business-telemetry/backend-smart-home-provider-boundary.md) |
+| P7B4.4-4 | Attribute-ownership re-review of Phase 7B.4.3's own choices — confirmed `ixora.action.provider` and the `unsupported` outcome correctly stay on `smart_home.action`; flagged `ixora.action.retry` as a documented duplicate of `ixora.queue.attempt` for future cleanup (no change made this phase) | **Done** | [`backend-smart-home-provider-boundary.md §3.4, §3.5, §3.6`](../business-telemetry/backend-smart-home-provider-boundary.md) |
+| P7B4.4-5 | Create `App\Telemetry\SmartHome\SmartHomeProviderDeviceDomain` enum (`light`/`switch`/`media_player`/`fan`/`other`, reserved) with `fromDomainSlug()` normalizer | **Done** | `app/Telemetry/SmartHome/SmartHomeProviderDeviceDomain.php` |
+| P7B4.4-6 | Create `App\Telemetry\SmartHome\SmartHomeProviderTelemetry` — one `smart_home.provider` span via `Tracer::startSpan()`, fail-open `wrap()` helper, inert-span fallback; no outcome/provider-identity/url/method/status/duration attribute (§4) | **Done** | `app/Telemetry/SmartHome/SmartHomeProviderTelemetry.php` |
+| P7B4.4-7 | Wire the wrapper into `HomeAssistantAdapter::executeAction()` around only the discovered boundary (after the unsupported-action check); the check itself and every other adapter method left byte-for-byte unchanged | **Done** | `app/SmartHome/Adapters/HomeAssistantAdapter.php` |
+| P7B4.4-8 | Register the `SmartHomeProviderTelemetry` singleton in `TelemetryServiceProvider` | **Done** | `app/Telemetry/Providers/TelemetryServiceProvider.php` |
+| P7B4.4-9 | Dependency-rule test: no OpenTelemetry SDK import, Contracts-only, no domain/job/controller/console/HTTP-client/logging/metric-contract import; no url/method/status/duration attribute set | **Done** | `tests/Unit/Telemetry/SmartHome/SmartHomeProviderTelemetryDependencyRuleTest.php` |
+| P7B4.4-10 | Unit-level telemetry tests: span creation/naming/`device_domain` (all four domains + normalization), forbidden/duplicated-attribute exhaustiveness, lifetime, no duplicates, `startSpan()` (never `activeSpan()`), exception recording + rethrow (identity-checked), non-error on a returned failure value, fail-open, zero metrics | **Done** | `tests/Feature/Telemetry/SmartHome/SmartHomeProviderTelemetryTest.php` |
+| P7B4.4-11 | Real-wiring integration tests through the full `SmartHomeActionJob::handle()` → `HomeAssistantAdapter::executeAction()` pipeline: parent/child hierarchy proof, no span for unsupported/unknown-provider outcomes, non-error on failed `ActionResult`/transport exception, exactly one provider call per span, no `provider_device_id` leak, fail-open end-to-end | **Done** | `tests/Feature/Telemetry/SmartHome/SmartHomeProviderBoundaryIntegrationTest.php` |
+| P7B4.4-12 | Run full `back_vibes` suite + `pint --test`; confirm pre-existing `HomeAssistantAdapterTest`/`ProviderAdapterResolverTest`/`SmartHomeActionBoundaryIntegrationTest` still green (only test helpers/span-count assertions updated for the new constructor argument and the now-real nested span) | **Done** | 960/960 passing, `pint` clean |
+
+**Phase 7B.4.4 implementation notes:**
+
+- The natural Provider Boundary is **narrower** than `HomeAssistantAdapter::executeAction()` — it begins only once the unsupported-action check has already passed, and ends at `ActionResult` construction. No span is created at all for an unsupported action or an unknown-provider resolver rejection, mirroring Phase 7B.4.3's own precedent for preconditions checked before the real boundary.
+- `App\SmartHome\Contracts\ProviderAdapter.php`, `App\SmartHome\ProviderAdapterResolver.php`, `App\SmartHome\DTOs\ActionResult.php`, `App\SmartHome\Exceptions\UnsupportedSmartHomeActionException.php`, `App\Jobs\SmartHome\SmartHomeActionJob.php`, and `App\Telemetry\SmartHome\SmartHomeActionTelemetry.php` all have **zero diff**. `App\SmartHome\Adapters\HomeAssistantAdapter.php` gains only a constructor dependency and the `wrap()` call around the discovered boundary — every other method is byte-for-byte unchanged.
+- Confirmed the existing `opentelemetry-auto-guzzle` HTTP client auto-instrumentation already covers url/method/status/duration/exception-recording for the one provider HTTP call inside this boundary — `smart_home.provider` therefore records exactly one attribute (`ixora.provider.device_domain`) and nothing else, avoiding any duplication.
+- Re-reviewed (not merely re-stated) Phase 7B.4.3's own `ixora.action.provider` and `unsupported`-outcome ownership decisions per the brief's explicit instruction not to assume they were correct — both confirmed structurally necessary at the Action Boundary, since a Provider span cannot exist for either case (no adapter is ever reached). `ixora.action.retry` was found to duplicate Phase 7B.2's own `ixora.queue.attempt` with lower fidelity — documented as a recommendation for a future cleanup phase, not changed here (no new home for it exists within this phase's own scope).
+- This is the one deliberate departure from "wrap only at the call site, never touch the wrapped file" (Phases 7B.4.2/7B.4.3's preferred pattern where possible) — justified because the unsupported-action knowledge needed to exclude that check from the span lives only inside the concrete adapter, with no external call site able to replicate it without duplicating `ACTION_SERVICE_MAP`.
+- 31 new tests added; full `back_vibes` suite (960 tests) green after this phase; `pint --test` passes; 2 pre-existing risky tests unrelated to this phase (confirmed via isolated run of the new files: 31/31, zero risky).
+- No metrics, no logging changes — both explicitly deferred to Phases 7B.4.6/7B.4.7.
+- **Next:** Phase 7B.4.5 — recommended to address the `ixora.action.retry` duplication finding; a future second provider adapter would add its own, independent `SmartHomeProviderTelemetry::wrap()` call following this phase's pattern.
+
+**Branch:** `feature/observability-smart-home-provider-boundary`
 
 ---
 
