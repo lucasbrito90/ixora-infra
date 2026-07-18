@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + **7B.3** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + **Generic Scheduler Instrumentation**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + **7B.4.1** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + **Business Telemetry Domain Execution Review (discovery only)**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -36,7 +36,8 @@
 | 7B.1 — HTTP + Routing | 0 | 0 | 10 | 0 |
 | 7B.2 — Queue + Console | 0 | 0 | 5 | 0 |
 | 7B.3 — Generic Scheduler | 0 | 0 | 7 | 0 |
-| 7B.4 — Smart Home | 3 | 0 | 0 | 0 |
+| 7B.4.1 — Business Telemetry: Domain Execution Review | 0 | 0 | 14 | 0 |
+| 7B.4.2 — Smart Home instrumentation | 3 | 0 | 0 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -415,21 +416,57 @@
 - 33 new tests added; full `back_vibes` suite (869 tests) green after this phase; `pint --test` passes.
 - Level 2 (Ixora Domain Scheduling — Vibe scheduling, `Schedule` model orchestration, Smart Home, Push, provider execution) is explicitly deferred — no domain knowledge added to `app/Telemetry/Scheduler`.
 - No Smart Home, Push, or external-provider instrumentation added.
-- **Next:** Phase 7B.4 — Smart Home, using the same Telemetry Contracts.
+- **Next:** Phase 7B.4.1 — Business Telemetry Domain Execution Review (now complete, see below), then Phase 7B.4.2 — Smart Home instrumentation, using the same Telemetry Contracts.
 
 **Branch:** `feature/observability-generic-scheduler-instrumentation`
 
 ---
 
-## Phase 7B.4 — Smart Home
+## Phase 7B.4.1 — Business Telemetry: Domain Execution Review (discovery only)
 
-**Prerequisite:** Phase 7B.1 (HTTP + Routing).
+**Prerequisite:** Phase 7B.3 (Generic Scheduler) — Infrastructure Telemetry foundation considered complete; this phase is the first to target the **Business Telemetry** layer instead of generic Laravel infrastructure.
+
+**Type:** Architecture review only. No telemetry, spans, metrics, logs, OpenTelemetry code, behavior changes, refactors, database/API/frontend changes, or new abstractions permitted — the only acceptable source-code changes were documentation comments (none were needed).
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7B4-1 | Manual spans: Smart Home provider adapter calls | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
-| P7B4-2 | Custom metrics (`ixora.smart_home.*`) per metrics-philosophy.md | **Pending** | |
-| P7B4-3 | Verify no forbidden fields (device identifiers, credentials) in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+| P7B4.1-1 | Find every Smart Home execution entry point (manual dispatch, scheduled dispatch, provider sync as adjacent-not-execution; confirmed no native Scheduler/event-listener/webhook/Artisan-command/queue-retry entry points exist) | **Done** | [`domain-execution-review.md §1`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-2 | Trace the complete execution pipeline / call graph from every entry point to the final provider HTTP call | **Done** | [`domain-execution-review.md §2`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-3 | Identify the orchestrator(s) — found two sibling entry-point orchestrators converging on a shared dispatch service + job layer, matching ADR-027's layering exactly | **Done** | [`domain-execution-review.md §3`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-4 | Identify domain boundaries actually present in code (Trigger Resolution → Automation Validation → Vibe Action Resolution → Job Enqueue → Device Action Resolution → Provider Resolution → Provider Call → Result → Notification) | **Done** | [`domain-execution-review.md §4`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-5 | Identify domain objects, ownership, and lifecycle (`Vibe`, `Device`, `VibeDeviceAction`, `ProviderConnection`, `Schedule`, `ScheduleExecution`, DTOs) — confirmed no persisted "execution" object exists for Smart Home | **Done** | [`domain-execution-review.md §5`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-6 | Identify current execution model (sequential batch, fan-out enqueue, no fan-in) | **Done** | [`domain-execution-review.md §6`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-7 | Identify failure model (best-effort, isolate-and-continue, log-only; no retry/dead-letter/compensation/rollback in practice) | **Done** | [`domain-execution-review.md §7`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-8 | Identify cancellation model — confirmed not implemented (no cancel/abort/pause/resume/scheduled-retry domain concept) | **Done** | [`domain-execution-review.md §8`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-9 | Identify the provider boundary (`ProviderAdapter` contract / `HomeAssistantAdapter`) without reviewing provider internals | **Done** | [`domain-execution-review.md §9`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-10 | Recommend candidate future telemetry boundaries based only on discovered architecture | **Done** | [`domain-execution-review.md §10`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-11 | Review current observability (logs, events, metrics, exceptions, history, audit, state transitions) | **Done** | [`domain-execution-review.md §11`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-12 | Review duplication risks against existing HTTP/Queue/Console/Scheduler/Push telemetry | **Done** | [`domain-execution-review.md §12`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-13 | Review existing test coverage (covered / partially covered / not covered) — no tests added | **Done** | [`domain-execution-review.md §13`](../business-telemetry/domain-execution-review.md) |
+| P7B4.1-14 | Write `domain-execution-review.md` with unknowns, open questions, and recommendations for Phase 7B.4.2 | **Done** | [`domain-execution-review.md`](../business-telemetry/domain-execution-review.md) |
+
+**Phase 7B.4.1 implementation notes:**
+
+- Zero source-code changes to `back_vibes` — this phase produced documentation only, cross-referencing existing ADRs (022, 023, 024, 026, 027) and the existing `scheduler-smart-home-e2e.md` QA reference rather than duplicating them.
+- Key finding: both real entry points (manual mobile dispatch via `VibeSmartHomeDispatchController`, scheduled dispatch via `DispatchDueSchedulesCommand`) converge on the same `VibeSmartHomeDispatchService` → `SmartHomeActionJob` → `HomeAssistantAdapter` pipeline — there is no separate business logic per entry point.
+- Key gap identified (not fixed in this phase): no correlation ID connects a trigger (schedule tick or manual API call) to the `SmartHomeActionJob` instances it causes — the job carries only an integer `vibe_device_action_id`. This must be resolved as a design decision before Phase 7B.4.2 writes any span code.
+- Key gap identified (not fixed in this phase): no persisted execution-outcome record exists for Smart Home actions — only structured logs. `ScheduleExecution` audits the schedule tick, never the actions it triggered.
+- No tests added or modified — this was a read-only discovery phase.
+- **Next:** Phase 7B.4.2 — Smart Home instrumentation, using this review as its starting brief.
+
+**Branch:** `feature/observability-business-telemetry-domain-execution-review`
+
+---
+
+## Phase 7B.4.2 — Smart Home instrumentation
+
+**Prerequisite:** Phase 7B.1 (HTTP + Routing), Phase 7B.4.1 (Domain Execution Review).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B4.2-1 | Manual spans: Smart Home provider adapter calls | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
+| P7B4.2-2 | Custom metrics (`ixora.smart_home.*`) per metrics-philosophy.md | **Pending** | |
+| P7B4.2-3 | Verify no forbidden fields (device identifiers, credentials) in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
 
 **Branch:** `feature/observability-smart-home-instrumentation`
 

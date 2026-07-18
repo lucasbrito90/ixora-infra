@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.3 complete — generic Scheduler instrumentation shipped in `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, and 7B.2 Queue + Console also complete)  
+**Status:** Phase 7B.4.1 complete — Business Telemetry domain execution review (discovery only, no telemetry added) shipped in `ixora-infra` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, and 7B.3 generic Scheduler also complete in `back_vibes`)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; remaining domain instrumentation pending (Phases 7B.4–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; remaining domain instrumentation pending (Phases 7B.4.2–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -64,14 +64,15 @@ Phase 5    ──► Loki
 Phase 5.5  ──► Logs Philosophy (complete)
 Phase 6    ──► Tempo (complete)
 Phase 6.5  ──► Traces Philosophy (complete)
-Phase 7A   ──► Backend SDK Foundation (back_vibes) (complete)
-Phase 7B.1 ──► HTTP + Routing (back_vibes) (complete)
-Phase 7B.2 ──► Queue + Console (back_vibes) (complete)
-Phase 7B.3 ──► Generic Scheduler (back_vibes) (complete)
-Phase 7B.4 ──► Smart Home (back_vibes)
-Phase 7B.5 ──► Push Notifications (back_vibes)
-Phase 7B.6 ──► External Providers (back_vibes)
-Phase 8    ──► Frontend SDK (front_vibes)
+Phase 7A     ──► Backend SDK Foundation (back_vibes) (complete)
+Phase 7B.1   ──► HTTP + Routing (back_vibes) (complete)
+Phase 7B.2   ──► Queue + Console (back_vibes) (complete)
+Phase 7B.3   ──► Generic Scheduler (back_vibes) (complete)
+Phase 7B.4.1 ──► Business Telemetry — Domain Execution Review (ixora-infra) (complete, discovery only)
+Phase 7B.4.2 ──► Smart Home instrumentation (back_vibes)
+Phase 7B.5   ──► Push Notifications (back_vibes)
+Phase 7B.6   ──► External Providers (back_vibes)
+Phase 8      ──► Frontend SDK (front_vibes)
 Phase 9    ──► Grafana dashboards
 Phase 9.5  ──► Telemetry Decision Guide + Observability Playbook (complete)
 Phase 10   ──► Operational readiness
@@ -558,7 +559,21 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 ### Phase 7B.4 — Smart Home (`back_vibes`)
 
-**Goal:** Manual spans for Smart Home provider adapter calls, `ixora.smart_home.*` metrics — no provider credentials or device identifiers in labels.
+Split into a discovery sub-phase and an implementation sub-phase, since Smart Home execution is the first **Business Telemetry** target (as opposed to the generic Laravel infrastructure telemetry of Phases 7A–7B.3) and its architecture had never been formally mapped end-to-end.
+
+#### Phase 7B.4.1 — Domain Execution Review (discovery only) — **Complete**
+
+**Goal:** Produce a complete, citation-backed architectural map of how a Smart Home execution flows through `back_vibes` today — entry points, call graph, orchestrator(s), domain boundaries/objects, execution/failure/cancellation models, provider boundary, existing observability, duplication risks against Phases 7B.1–7B.3, and test coverage — **before** writing any telemetry code, so Phase 7B.4.2 can proceed without assumptions.
+
+**Explicitly out of scope for this sub-phase:** spans, metrics, logs, OpenTelemetry code, behavior changes, refactors, database/API/frontend changes, new abstractions. The only source-code change permitted was documentation comments (none were needed).
+
+**Deliverable:** [`domain-execution-review.md`](../business-telemetry/domain-execution-review.md) — findings include: two real entry points (manual mobile dispatch, scheduled dispatch) converging on `VibeSmartHomeDispatchService` → `SmartHomeActionJob` → `HomeAssistantAdapter`; no single orchestrator (two sibling entry-point orchestrators sharing a dispatch service + job layer, matching ADR-027's layering exactly); best-effort/log-only failure model with no retry/dead-letter/compensation in practice; no cancellation/timeout domain concept; no persisted per-action execution outcome anywhere (only `ScheduleExecution` audits the schedule tick, not the Smart Home actions it triggers); no correlation ID linking a trigger to its jobs (`SmartHomeActionJob` carries only an integer action ID).
+
+**Branch:** `feature/observability-business-telemetry-domain-execution-review`
+
+#### Phase 7B.4.2 — Smart Home instrumentation (`back_vibes`) — Next
+
+**Goal:** Manual spans for Smart Home dispatch/action-execution/provider-adapter calls, `ixora.smart_home.*` metrics — no provider credentials or device identifiers in labels. Scoped and sequenced using Phase 7B.4.1's candidate telemetry boundaries and open questions (correlation ID strategy, outbound-HTTP auto-instrumentation duplication check, dispatch-vs-execution outcome visibility) as its starting brief.
 
 ---
 
