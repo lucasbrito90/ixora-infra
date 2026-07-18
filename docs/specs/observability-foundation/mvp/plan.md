@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.4.3 complete — Smart Home Action Execution boundary (`smart_home.action` Business Span) shipped in `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1 Business Telemetry domain execution review, and 7B.4.2 Smart Home dispatch boundary also complete)  
+**Status:** Phase 7B.4.4 complete — Smart Home Provider Boundary (`smart_home.provider` Business Span) shipped in `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1 Business Telemetry domain execution review, 7B.4.2 Smart Home dispatch boundary, and 7B.4.3 Smart Home Action Execution boundary also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; remaining domain instrumentation pending (Phases 7B.4.4–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; remaining domain instrumentation pending (Phases 7B.4.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -71,7 +71,7 @@ Phase 7B.3   ──► Generic Scheduler (back_vibes) (complete)
 Phase 7B.4.1 ──► Business Telemetry — Domain Execution Review (ixora-infra) (complete, discovery only)
 Phase 7B.4.2 ──► Smart Home Dispatch Boundary (back_vibes) (complete)
 Phase 7B.4.3 ──► Smart Home Action Execution (back_vibes) (complete)
-Phase 7B.4.4 ──► Smart Home Provider Boundary (back_vibes)
+Phase 7B.4.4 ──► Smart Home Provider Boundary (back_vibes) (complete)
 Phase 7B.5   ──► Push Notifications (back_vibes)
 Phase 7B.6   ──► External Providers (back_vibes)
 Phase 8      ──► Frontend SDK (front_vibes)
@@ -592,6 +592,16 @@ Split into a discovery sub-phase and an implementation sub-phase, since Smart Ho
 **Deliverable:** [`backend-smart-home-action-execution.md`](../business-telemetry/backend-smart-home-action-execution.md) — a new `App\Telemetry\SmartHome\SmartHomeActionTelemetry` wrapper is called from inside `SmartHomeActionJob::handle()` around only the discovered boundary; both pre-existing `catch` blocks are byte-for-byte unchanged. Span attributes: `ixora.action.provider` (`home_assistant`/`future`, reserved), `ixora.action.outcome` (`success`/`failure`/`unsupported`), `ixora.action.retry` (`true`/`false`, from Laravel's own job-attempt counter) — no IDs, payloads, or credentials. Outcome classification is supplied by the caller via two closures (`classifyResult`/`classifyException`) rather than the Telemetry layer importing `ActionResult`/`UnsupportedSmartHomeActionException` — generalizing Phase 7B.4.2's `extractCounts` technique. Reuses `Tracer::startSpan()` to nest under the Queue Consumer span (itself already under `smart_home.dispatch`) with zero custom propagation. Fail-open throughout; exceptions are recorded on the span and always rethrown unchanged.
 
 **Branch:** `feature/observability-smart-home-action-execution`
+
+#### Phase 7B.4.4 — Smart Home Provider Boundary (`back_vibes`) — **Complete**
+
+**Goal:** Implement the Provider Boundary — one `smart_home.provider` span per `HomeAssistantAdapter::executeAction()` invocation, wrapping only the natural Provider Boundary the mandatory architecture review discovered (domain/payload construction through `ActionResult` construction), not the entire method. Explicitly excludes business metrics and business logging (later sub-phases), and never duplicates the existing HTTP client auto-instrumentation.
+
+**Mandatory architecture review (performed before any span code):** read `HomeAssistantAdapter::executeAction()`, the `ProviderAdapter` interface, `ProviderAdapterResolver`, `SmartHomeActionTelemetry`, `SmartHomeActionJob`, and the HTTP client auto-instrumentation (`open-telemetry/opentelemetry-auto-guzzle`) in full. Found the natural boundary is **narrower** than `executeAction()`: the unsupported-action check (`ACTION_SERVICE_MAP` lookup) returns before any provider I/O and mirrors the guard-clause exclusion precedent from Phase 7B.4.3, so it stays outside the span. Confirmed `opentelemetry-auto-guzzle` already creates a `SpanKind::CLIENT` span (named after the HTTP method) for every `Http::...->post(...)` call this segment makes, with url/method/status/duration/exception-recording already covered — the new span therefore records none of that, avoiding duplication. Re-examined Phase 7B.4.3's own attribute choices per the brief's instruction not to assume they were correct: confirmed `ixora.action.provider` must stay on `smart_home.action` (a Provider span cannot exist for an unsupported action or an unknown-provider resolver rejection, both of which occur before any adapter exists); confirmed `unsupported` correctly stays an `smart_home.action` outcome for the same reason; flagged `ixora.action.retry` as a documented duplicate of Phase 7B.2's own `ixora.queue.attempt` (recommended for future cleanup, not changed this phase, per the brief's "no implementation change required unless clearly justified").
+
+**Deliverable:** [`backend-smart-home-provider-boundary.md`](../business-telemetry/backend-smart-home-provider-boundary.md) — a new `App\Telemetry\SmartHome\SmartHomeProviderTelemetry` wrapper is called from inside `HomeAssistantAdapter::executeAction()` (the one deliberate departure from "wrap only at the call site, never touch the wrapped file", justified because the unsupported-action knowledge needed to exclude that check lives only inside the concrete adapter); the check itself and every other adapter method are byte-for-byte unchanged. Span attribute: `ixora.provider.device_domain` (`light`/`switch`/`media_player`/`fan`/`other`, reserved) — no IDs, payloads, credentials, or duplicated url/method/status/duration attributes. Reuses `Tracer::startSpan()` to nest under `smart_home.action` (itself already under the Queue Consumer span and `smart_home.dispatch`) with zero custom propagation; the Guzzle client span nests one level deeper for free. Fail-open throughout; an exception escaping the wrapped segment is recorded on the span and always rethrown unchanged — a normally-returned failed `ActionResult` is never treated as a span error.
+
+**Branch:** `feature/observability-smart-home-provider-boundary`
 
 ---
 
