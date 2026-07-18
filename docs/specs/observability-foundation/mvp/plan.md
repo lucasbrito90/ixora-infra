@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.2 complete — Queue + Console instrumentation shipped in `back_vibes` (Phases 7A Backend SDK Foundation and 7B.1 HTTP + Routing also complete)  
+**Status:** Phase 7B.3 complete — generic Scheduler instrumentation shipped in `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, and 7B.2 Queue + Console also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; remaining domain instrumentation pending (Phases 7B.3–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; remaining domain instrumentation pending (Phases 7B.4–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -67,7 +67,7 @@ Phase 6.5  ──► Traces Philosophy (complete)
 Phase 7A   ──► Backend SDK Foundation (back_vibes) (complete)
 Phase 7B.1 ──► HTTP + Routing (back_vibes) (complete)
 Phase 7B.2 ──► Queue + Console (back_vibes) (complete)
-Phase 7B.3 ──► Scheduler (back_vibes)
+Phase 7B.3 ──► Generic Scheduler (back_vibes) (complete)
 Phase 7B.4 ──► Smart Home (back_vibes)
 Phase 7B.5 ──► Push Notifications (back_vibes)
 Phase 7B.6 ──► External Providers (back_vibes)
@@ -509,9 +509,50 @@ Phases are intentionally small. Infrastructure (2–6) precedes application SDKs
 
 ---
 
-### Phase 7B.3 — Scheduler (`back_vibes`)
+### Phase 7B.3 — Generic Scheduler (`back_vibes`)
 
-**Goal:** Manual spans for Scheduler dispatch, `ixora.scheduler.*` metrics, per [ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md).
+**Complete.**
+
+**Goal:** Instrument only the generic Laravel Scheduler event-execution boundary (Level 1) — create the one required boundary span (no existing span covers it), add the minimum `ixora.scheduler.event.*` metrics, and align error logs — without instrumenting Ixora Domain Scheduling (Level 2: Vibe scheduling, `Schedule` model orchestration, Smart Home, Push, or provider execution), per [ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md).
+
+#### Deliverables
+
+| Item | Output |
+| --- | --- |
+| Scheduler auto-instrumentation + Laravel lifecycle review (no official span exists for a scheduled-event boundary; five dispatched events; command-event process boundary; callback in-process behavior; double-fire finding) | [`backend-generic-scheduler-instrumentation.md §2`](backend-generic-scheduler-instrumentation.md) |
+| `app/Telemetry/Scheduler/` (`SchedulerExecutionTelemetry`, `SchedulerEventNormalizer`, `SchedulerOutcome`, `SchedulerContext`, `SchedulerEventType`, `SchedulerExecutionMode`) | [`backend-generic-scheduler-instrumentation.md §5`](backend-generic-scheduler-instrumentation.md) · `back_vibes/app/Telemetry/Scheduler/` |
+| `ixora.scheduler.event.total` / `ixora.scheduler.event.duration` (Counter/Histogram) — `ixora.scheduler.event.active` deliberately not added (lifecycle asymmetry) | [`backend-generic-scheduler-instrumentation.md §6`](backend-generic-scheduler-instrumentation.md) |
+| Scheduler boundary span (`Tracer::startSpan()`, Strategy B — first `startSpan()` caller in this Telemetry Abstraction Layer) named `scheduler.event {event_name}` | [`backend-generic-scheduler-instrumentation.md §9`](backend-generic-scheduler-instrumentation.md) |
+| Scheduler lifecycle listeners wired in `TelemetryServiceProvider` (`ScheduledTaskStarting`/`Finished`/`Failed`/`Skipped`/`ScheduledBackgroundTaskFinished`) | [`backend-generic-scheduler-instrumentation.md §7`](backend-generic-scheduler-instrumentation.md) · `back_vibes/app/Telemetry/Providers/TelemetryServiceProvider.php` |
+| `App\Telemetry\Logging\SchedulerErrorContextLogTap` | [`backend-generic-scheduler-instrumentation.md §11`](backend-generic-scheduler-instrumentation.md) · `back_vibes/app/Telemetry/Logging/` |
+| `RecordingTracer::startSpan()` + `TelemetryRecorder::recordStartSpan()`/`$startSpanCalls` test-fake support (new span-creation assertions) | `back_vibes/tests/Support/Telemetry/{RecordingTracer.php,TelemetryRecorder.php}` |
+| Tests (18 scenarios: success, failure, closure/callback naming, scheduled job/command boundary separation, manual command isolation, `schedule:run`/`schedule:work` independence, skip, overlap prevention, background, unknown metadata, cardinality safety, telemetry failure, execution-state cleanup, logging context, no double instrumentation, dependency rule) | `back_vibes/tests/{Unit,Feature}/Telemetry/Scheduler/` |
+| Spec doc | [`backend-generic-scheduler-instrumentation.md`](backend-generic-scheduler-instrumentation.md) |
+
+#### Scope
+
+- Create one Scheduler boundary span per executed event via `Tracer::startSpan()` (Strategy B) — no existing span represents this boundary; the span is not a second Console or Queue span.
+- Two new `ixora.scheduler.*` metrics only — no duplicate `ixora.console.*`/`ixora.queue.*` metric from the Scheduler module.
+- Stable, bounded event names/types (`SchedulerEventNormalizer`/`SchedulerEventType`) and outcome classification (`SchedulerOutcome`) — never the full shell command, raw arguments/options, closure source, cron expressions, or timezones as metric labels.
+- Laravel Scheduler events (not a wrapped `Schedule::`/`Event` API) as the lifecycle integration point; telemetry failures swallowed by `SchedulerExecutionTelemetry`'s own `safely()`.
+- `invocation_source` on Console metrics evaluated and explicitly **not added** — not reliably observable across the command-event process boundary; documented as a limitation instead of a misleading label. `ConsoleCommandTelemetry`/`QueueExecutionTelemetry` (Phase 7B.2) are byte-for-byte unmodified.
+- Error log enrichment only (`SchedulerErrorContextLogTap`) — no routine success/skip logs.
+- **Level 1 (generic Laravel Scheduler) only — Level 2 (Ixora Domain Scheduling: Vibe scheduling, `Schedule` model orchestration, schedule execution records, device actions, Smart Home, Push, provider execution, domain retries/cancellation) is explicitly deferred and not instrumented.**
+- **No Smart Home, Push, or external-provider instrumentation.**
+
+#### Exit criteria
+
+- ✅ No existing span covers a scheduled-event boundary (verified against `opentelemetry-auto-laravel`); the new boundary span is the only one, never duplicating a Console or Queue span (`backend-generic-scheduler-instrumentation.md §2, §9`).
+- ✅ Every metric recorded exactly once per scheduled-event lifecycle; no forbidden labels (verified by cardinality-safety tests) — no raw cron expression, mutex key, process ID, or domain ID ever reaches a label, span attribute, or log field.
+- ✅ Scheduler/mutex/overlap behavior byte-for-byte unchanged — full existing suite green with the listeners active; `Event::$skippedBecauseOverlapping`/`$exitCode`/`$runInBackground` only ever read, never mutated.
+- ✅ `trace_id`/`span_id` correlation still works on Scheduler logs (Phase 7A tap unchanged); HTTP/Queue/Console/Scheduler log context proven mutually isolated.
+- ✅ Telemetry failure isolation proven with deliberately-throwing fake `Tracer`/`Counter`/`Histogram`.
+- ✅ Execution-state stack proven to return to empty after success, failure, and skip, with no leakage across `schedule:work`-style repeated ticks.
+- ✅ Dependency Rule respected — no `OpenTelemetry\*` or `App\Telemetry\{OpenTelemetry,Noop}\*` import outside the approved boundary, and no `Schedule`/Vibe/Smart Home/Push/provider domain import anywhere in `app/Telemetry/Scheduler`; scoped test added for `app/Telemetry/Scheduler` and the new log tap specifically.
+- ✅ 869/869 `back_vibes` tests pass (33 new); `pint --test` passes.
+- **Ready for Phase 7B.4** — Smart Home, using the same Telemetry Contracts.
+
+**Branch:** `feature/observability-generic-scheduler-instrumentation`
 
 ---
 
