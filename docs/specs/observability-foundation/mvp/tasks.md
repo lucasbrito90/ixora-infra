@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + **7B.4.6** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + **Business Metrics**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + **7B.4.7** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + **Business Logging**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -42,6 +42,7 @@
 | 7B.4.4 — Smart Home Provider Boundary | 0 | 0 | 12 | 0 |
 | 7B.4.5 — Business Failure Semantics | 0 | 0 | 16 | 0 |
 | 7B.4.6 — Business Metrics | 0 | 0 | 14 | 0 |
+| 7B.4.7 — Business Logging | 0 | 0 | 8 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -640,6 +641,41 @@
 - **Next:** Phase 7B.4.7 — Business Logging, which should treat §9 of this phase's doc (the `action_type` label, the J1–J3 skip visibility question, and the `Log::info`-on-success question) as its own starting brief.
 
 **Branch:** `feature/observability-business-metrics`
+
+---
+
+## Phase 7B.4.7 — Business Logging
+
+**Prerequisite:** Phase 7B.4.5 (Business Failure Semantics) · Phase 7B.4.6 (Business Metrics).
+
+**Type:** Logging Design Review + the improvements it justified. No new log statements added at any Telemetry boundary. No metrics, no spans, no dashboards, no alerts, no business behavior change.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B4.7-1 | Mandatory architecture review: re-read all six prerequisite docs (`backend-business-failure-semantics.md`, `backend-smart-home-business-metrics.md`, three boundary docs, Logs/Traces/Metrics Philosophy, Telemetry Decision Guide, Naming Convention); review `SmartHomeDispatchTelemetry`, `SmartHomeActionTelemetry`, `SmartHomeProviderTelemetry`, `SmartHomeActionJob`, existing Log contracts, `TraceCorrelationLogTap`, `QueueErrorContextLogTap`, `SchedulerErrorContextLogTap` | **Done** | [`backend-smart-home-business-logging.md §2`](../business-telemetry/backend-smart-home-business-logging.md) |
+| P7B4.7-2 | Logging Design Review — produce a Design Record (name, business question, boundary owner, trigger, log level, structured fields, failure-semantics alignment, duplication analysis, security review, decision) for every candidate log | **Done** | [`backend-smart-home-business-logging.md §3`](../business-telemetry/backend-smart-home-business-logging.md) |
+| P7B4.7-3 | Decide `smart_home.dispatch.completed` — rejected: D1 is Trace+Metric-only; D2 already logged at call-site (duplicating would violate single-boundary-ownership) | **Done — Reject** | [`backend-smart-home-business-logging.md §3.1`](../business-telemetry/backend-smart-home-business-logging.md) |
+| P7B4.7-4 | Decide `smart_home.action.completed` — rejected as new log; resolve L-2 instead (remove existing `Log::info` on success) | **Done — Reject / Resolve L-2** | [`backend-smart-home-business-logging.md §3.2`](../business-telemetry/backend-smart-home-business-logging.md) |
+| P7B4.7-5 | Decide `smart_home.action.failed` — rejected as new log; improve existing failure logs (remove `provider_device_id`, add `outcome`, replace `error_message` with `exception_class`) | **Done — Reject / Improve** | [`backend-smart-home-business-logging.md §3.3`](../business-telemetry/backend-smart-home-business-logging.md) |
+| P7B4.7-6 | Decide `smart_home.provider.failed` — rejected: 1:1 duplication with A2/A5 logs one layer up; violates single-boundary-ownership rule | **Done — Reject** | [`backend-smart-home-business-logging.md §3.4`](../business-telemetry/backend-smart-home-business-logging.md) |
+| P7B4.7-7 | Implement: resolve L-2 (remove `Log::info` on success), remove `provider_device_id`, replace `error_message` with `exception_class`, remove redundant `success`/`status_code => null` from catch blocks, add `outcome` to failure logs | **Done** | `app/Jobs/SmartHome/SmartHomeActionJob.php` |
+| P7B4.7-8 | Add/update unit and dependency-rule tests: no `Log::info` on success, no `provider_device_id`, no `error_message`, `exception_class` in catch blocks, `outcome` in failure logs, no `success` key; update all affected feature tests | **Done** | `tests/Feature/SmartHome/SmartHomeActionJobTest.php`, `tests/Unit/Telemetry/SmartHome/SmartHomeBusinessLoggingTest.php` (new) |
+| P7B4.7-9 | Run full `back_vibes` suite + `pint --test`; confirm no business/queue/retry/provider/trace-hierarchy/metric behavior changed | **Done** | 986/986 passing (364/364 SmartHome-scoped), `pint` clean |
+| P7B4.7-10 | Write `backend-smart-home-business-logging.md`; security review; update README/plan/tasks | **Done** | [`backend-smart-home-business-logging.md`](../business-telemetry/backend-smart-home-business-logging.md) |
+
+**Phase 7B.4.7 implementation notes:**
+
+- All four candidate Business Logs were rejected — no new log statement was introduced at any Telemetry boundary. Every failure path across the Smart Home pipeline was already correctly logged by pre-existing domain logs in `SmartHomeActionJob`.
+- L-2 (flagged by Phase 7B.4.5 §14, reiterated by Phase 7B.4.6 §9 recommendation #4) is resolved: `Log::info` on every successful action execution is removed. Metric + trace covers this outcome.
+- `provider_device_id` is removed from every log context — it is the HA physical entity ID, which `telemetry-naming-convention.md` §8 explicitly names as a forbidden field (may reveal home layout).
+- `exception_class` replaces raw `error_message` (`$e->getMessage()`) in both catch blocks — the FQCN is bounded, safe, and the standard field name for exception context.
+- `outcome` is added to every failure/unsupported log using the `SmartHomeActionOutcome` vocabulary already used by the Business Metrics, enabling direct cross-signal Loki queries (`outcome=failure` in logs ↔ `outcome="failure"` in metrics).
+- Trace correlation is handled automatically by `TraceCorrelationLogTap` (already registered globally) — no `trace_id` injection needed in application code.
+- No new `SmartHomeActionContextLogTap` was introduced — the domain-layer logs already carry the full investigation context; a tap would add no value.
+- Full `back_vibes` suite green after this phase; `pint --test` passes.
+- **Next:** Phase 7B.4.8 or 7B.5 (Push Notifications) — open question is the J1–J3 guard-clause skip visibility (aggregate Counter), `action_type` label on metrics, and connection_id field naming.
+
+**Branch:** `feature/observability-business-logging`
 
 ---
 
