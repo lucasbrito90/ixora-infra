@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.4.4 complete — Smart Home Provider Boundary (`smart_home.provider` Business Span) shipped in `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1 Business Telemetry domain execution review, 7B.4.2 Smart Home dispatch boundary, and 7B.4.3 Smart Home Action Execution boundary also complete)  
+**Status:** Phase 7B.4.5 complete — Business Failure Semantics (formal failure taxonomy, Business/Infrastructure classification, Span Status policy) documented for `back_vibes` (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1 Business Telemetry domain execution review, 7B.4.2 Smart Home dispatch boundary, 7B.4.3 Smart Home Action Execution boundary, and 7B.4.4 Smart Home Provider Boundary also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; remaining domain instrumentation pending (Phases 7B.4.5–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; remaining domain instrumentation pending (Phases 7B.4.6–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -72,6 +72,7 @@ Phase 7B.4.1 ──► Business Telemetry — Domain Execution Review (ixora-inf
 Phase 7B.4.2 ──► Smart Home Dispatch Boundary (back_vibes) (complete)
 Phase 7B.4.3 ──► Smart Home Action Execution (back_vibes) (complete)
 Phase 7B.4.4 ──► Smart Home Provider Boundary (back_vibes) (complete)
+Phase 7B.4.5 ──► Business Failure Semantics (back_vibes) (complete)
 Phase 7B.5   ──► Push Notifications (back_vibes)
 Phase 7B.6   ──► External Providers (back_vibes)
 Phase 8      ──► Frontend SDK (front_vibes)
@@ -602,6 +603,16 @@ Split into a discovery sub-phase and an implementation sub-phase, since Smart Ho
 **Deliverable:** [`backend-smart-home-provider-boundary.md`](../business-telemetry/backend-smart-home-provider-boundary.md) — a new `App\Telemetry\SmartHome\SmartHomeProviderTelemetry` wrapper is called from inside `HomeAssistantAdapter::executeAction()` (the one deliberate departure from "wrap only at the call site, never touch the wrapped file", justified because the unsupported-action knowledge needed to exclude that check lives only inside the concrete adapter); the check itself and every other adapter method are byte-for-byte unchanged. Span attribute: `ixora.provider.device_domain` (`light`/`switch`/`media_player`/`fan`/`other`, reserved) — no IDs, payloads, credentials, or duplicated url/method/status/duration attributes. Reuses `Tracer::startSpan()` to nest under `smart_home.action` (itself already under the Queue Consumer span and `smart_home.dispatch`) with zero custom propagation; the Guzzle client span nests one level deeper for free. Fail-open throughout; an exception escaping the wrapped segment is recorded on the span and always rethrown unchanged — a normally-returned failed `ActionResult` is never treated as a span error.
 
 **Branch:** `feature/observability-smart-home-provider-boundary`
+
+#### Phase 7B.4.5 — Business Failure Semantics (`back_vibes`) — **Complete**
+
+**Goal:** Formally define Business Failure Semantics for Smart Home execution — an architecture-review phase, explicitly **not** about adding metrics, logs, or dashboards. Every later Business Telemetry sub-phase (metrics, logging, dashboards, alerts) depends on the decisions made here.
+
+**Mandatory architecture review (performed before any code):** re-read `SmartHomeActionJob`, `SmartHomeActionTelemetry`, `SmartHomeProviderTelemetry`, `SmartHomeDispatchTelemetry`, `HomeAssistantAdapter`, `ProviderAdapter`, `ProviderAdapterResolver`, `ActionResult`, `UnsupportedSmartHomeActionException`, `QueueExecutionTelemetry`, `QueueOutcome`, the Telemetry contracts, and the Traces/Logs/Metrics Philosophy + Telemetry Decision Guide docs in full. Produced an exhaustive failure taxonomy across the dispatch → queue → action → provider → HTTP-client pipeline and classified every entry as Business, Infrastructure, Platform, Telemetry, or Unknown. Confirmed `ProviderConnectionException` is **unreachable** in this pipeline (only thrown by device-sync code, not action execution) — a notable finding, since the brief's example list assumed it was reachable. Confirmed `ActionResult(success=false)` represents "successful execution with an unsuccessful business outcome" rather than an infrastructure failure, while documenting that it conflates provider rejection and transport failure at this level (accepted limitation). Formalized the Span Status policy: OpenTelemetry's recommendation that business failures are not usually span errors is adopted — `unsupported` is a recognized, expected business outcome (analogous to an HTTP 4xx) and must never mark a span `ERROR`, while genuine unexpected `Throwable`s escaping any boundary still do. This review surfaced exactly one inconsistency with that policy: `SmartHomeActionTelemetry::wrap()` unconditionally called `setError()` for every exception, including `unsupported`. Reviewed the existing `ixora.action.outcome` vocabulary (`success`/`failure`/`unsupported`/`unknown`) and confirmed no new outcome values are needed. Documented failure propagation across the full span hierarchy, retry semantics (a retried job is an **independent event** producing a new `smart_home.action` span, not a "failure" of the prior attempt), and classified logging/metrics ownership per failure type for future phases — without implementing any of it.
+
+**Deliverable:** [`backend-business-failure-semantics.md`](../business-telemetry/backend-business-failure-semantics.md) — the reference document for every future Business Telemetry implementation. One narrowly-scoped, review-justified code change: `SmartHomeActionTelemetry::wrap()` now only calls `setError()` when `outcome !== SmartHomeActionOutcome::Unsupported`, while `recordException()` still always fires so the exception remains visible on the span. No new metrics, no new logs, no dashboards, no retry/queue/provider/dispatch behavior changes, no new persistence or correlation IDs.
+
+**Branch:** `feature/observability-business-failure-semantics`
 
 ---
 

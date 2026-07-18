@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + **7B.4.4** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + **Smart Home Provider Boundary**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + **7B.4.5** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + **Business Failure Semantics**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -40,6 +40,7 @@
 | 7B.4.2 — Smart Home Dispatch Boundary | 0 | 0 | 13 | 0 |
 | 7B.4.3 — Smart Home Action Execution | 0 | 0 | 13 | 0 |
 | 7B.4.4 — Smart Home Provider Boundary | 0 | 0 | 12 | 0 |
+| 7B.4.5 — Business Failure Semantics | 0 | 0 | 16 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -563,6 +564,44 @@
 - **Next:** Phase 7B.4.5 — recommended to address the `ixora.action.retry` duplication finding; a future second provider adapter would add its own, independent `SmartHomeProviderTelemetry::wrap()` call following this phase's pattern.
 
 **Branch:** `feature/observability-smart-home-provider-boundary`
+
+---
+
+## Phase 7B.4.5 — Business Failure Semantics
+
+**Prerequisite:** Phase 7B.4.4 (Smart Home Provider Boundary).
+
+**Type:** Architecture-review phase. Owns exactly one thing — formally defining Business Failure Semantics for Smart Home execution — and explicitly not metrics, logs, dashboards, retry implementation, or any boundary redesign. Documentation is an acceptable, sufficient outcome; code changes are permitted only where the review clearly justifies them.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B4.5-1 | Mandatory architecture review: re-read `SmartHomeActionJob`, `SmartHomeActionTelemetry`, `SmartHomeProviderTelemetry`, `SmartHomeDispatchTelemetry`, `HomeAssistantAdapter`, `ProviderAdapter`, `ProviderAdapterResolver`, `ActionResult`, `UnsupportedSmartHomeActionException`, `QueueExecutionTelemetry`, `QueueOutcome`, the Telemetry contracts, and the Traces/Logs/Metrics Philosophy + Telemetry Decision Guide docs | **Done** | [`backend-business-failure-semantics.md §2`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-2 | Produce an exhaustive failure taxonomy across the dispatch → queue → action → provider → HTTP-client pipeline | **Done** | [`backend-business-failure-semantics.md §3`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-3 | Classify every discovered failure as Business, Infrastructure, Platform, Telemetry, or Unknown, with reasoning; discovered `ProviderConnectionException` is **unreachable** in this pipeline (device-sync only), correcting an assumption in the brief's example list | **Done** | [`backend-business-failure-semantics.md §4`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-4 | Determine exception ownership (span `ERROR` vs `OK` + business outcome) for `UnsupportedSmartHomeActionException`, the internal `ConnectionException` catch, `ActionResult(success=false)`, `ProviderConnectionException`, and generic `Throwable` | **Done** | [`backend-business-failure-semantics.md §5`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-5 | Decide `ActionResult(success=false)` semantics — successful execution with an unsuccessful business outcome, not an infrastructure failure; document the accepted conflation of provider rejection vs. transport failure at this level | **Done** | [`backend-business-failure-semantics.md §6`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-6 | Document the Span Status policy — adopt OpenTelemetry's recommendation that business failures are not usually span errors; `unsupported` is a recognized business outcome (never `ERROR`), unexpected `Throwable`s escaping a boundary still are | **Done** | [`backend-business-failure-semantics.md §7`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-7 | Review the existing `ixora.action.outcome` vocabulary (`success`/`failure`/`unsupported`/`unknown`); confirm no new outcome values are justified | **Done** | [`backend-business-failure-semantics.md §8`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-8 | Document failure propagation across the full span hierarchy (HTTP/Console/Scheduler → `smart_home.dispatch` → Queue Consumer → `smart_home.action` → `smart_home.provider` → HTTP Client) | **Done** | [`backend-business-failure-semantics.md §9`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-9 | Document retry semantics — a retried job attempt is an independent event producing a new `smart_home.action` span, not a continuation or a "failure" of the prior attempt | **Done** | [`backend-business-failure-semantics.md §10`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-10 | Classify logging ownership (trace only / log only / trace + log / no telemetry) per failure type, for future Business Logging phases — no implementation | **Done** | [`backend-business-failure-semantics.md §11`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-11 | Classify metrics ownership per failure type, for future Business Metrics phases — no implementation | **Done** | [`backend-business-failure-semantics.md §12`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-12 | Implementation gate: review concluded exactly one inconsistency exists with the adopted Span Status policy — implement the justified fix in `SmartHomeActionTelemetry::wrap()` (no `setError()` for `outcome === Unsupported`; `recordException()` still always fires) | **Done** | `app/Telemetry/SmartHome/SmartHomeActionTelemetry.php` |
+| P7B4.5-13 | Update/add unit + integration tests for the fix: `spanErrorCalls` stays `0` for `unsupported` while `recordException` still fires; `failure`/`unknown` outcomes and unexpected resolver errors still set `spanErrorCalls` to `1` | **Done** | `tests/Feature/Telemetry/SmartHome/SmartHomeActionTelemetryTest.php`, `tests/Feature/Telemetry/SmartHome/SmartHomeActionBoundaryIntegrationTest.php` |
+| P7B4.5-14 | Run full `back_vibes` suite + `pint --test`; confirm no business/queue/retry/provider behavior changed | **Done** | 929/929 passing, `pint` clean |
+| P7B4.5-15 | Write `backend-business-failure-semantics.md`; update README/plan/tasks | **Done** | [`backend-business-failure-semantics.md`](../business-telemetry/backend-business-failure-semantics.md) |
+| P7B4.5-16 | Security review — confirm no forbidden fields (credentials, payloads, entity/device IDs, headers, request/response bodies, tokens, URLs with credentials) introduced; confirm fail-open preserved throughout | **Done** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md); [`backend-business-failure-semantics.md §13`](../business-telemetry/backend-business-failure-semantics.md) |
+
+**Phase 7B.4.5 implementation notes:**
+
+- This phase is a discovery/documentation phase by design — the brief explicitly allows "documentation is an acceptable outcome" if the review concludes existing telemetry already models failures correctly. The review found telemetry was **almost** correct: one narrowly-scoped Span Status inconsistency was discovered and fixed, nothing else changed.
+- `ProviderConnectionException` was confirmed **unreachable** in the Smart Home action execution pipeline (it is only thrown by device-sync code, never by `HomeAssistantAdapter::executeAction()` or anything it calls) — an important correction to an assumption implicit in the brief's own example failure list.
+- `App\SmartHome\Adapters\HomeAssistantAdapter.php`, `App\SmartHome\Contracts\ProviderAdapter.php`, `App\SmartHome\ProviderAdapterResolver.php`, `App\SmartHome\DTOs\ActionResult.php`, `App\SmartHome\Exceptions\UnsupportedSmartHomeActionException.php`, `App\Jobs\SmartHome\SmartHomeActionJob.php`, `App\Telemetry\SmartHome\SmartHomeProviderTelemetry.php`, and `App\Telemetry\SmartHome\SmartHomeDispatchTelemetry.php` all have **zero diff**. `App\Telemetry\SmartHome\SmartHomeActionTelemetry.php` gains only the conditional guard around `setError()` — everything else in `wrap()` is unchanged.
+- No new metrics, no new logs, no dashboards, no retry/queue/provider/dispatch behavior changes, no new persistence or correlation IDs — all explicitly forbidden by this phase's brief and confirmed absent.
+- Full `back_vibes` suite green after this phase; `pint --test` passes.
+- **Next:** Phase 7B.4.6 — first Business Metrics implementation, now unblocked by this phase's outcome/failure classification (§11–§12 of this phase's doc supply the ownership groundwork).
+
+**Branch:** `feature/observability-business-failure-semantics`
 
 ---
 
