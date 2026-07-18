@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + **7B.4.1** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + **Business Telemetry Domain Execution Review (discovery only)**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + **7B.4.2** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + **Smart Home Dispatch Boundary**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -37,7 +37,8 @@
 | 7B.2 — Queue + Console | 0 | 0 | 5 | 0 |
 | 7B.3 — Generic Scheduler | 0 | 0 | 7 | 0 |
 | 7B.4.1 — Business Telemetry: Domain Execution Review | 0 | 0 | 14 | 0 |
-| 7B.4.2 — Smart Home instrumentation | 3 | 0 | 0 | 0 |
+| 7B.4.2 — Smart Home Dispatch Boundary | 0 | 0 | 13 | 0 |
+| 7B.4.3 — Smart Home Action Execution | 3 | 0 | 0 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -416,7 +417,7 @@
 - 33 new tests added; full `back_vibes` suite (869 tests) green after this phase; `pint --test` passes.
 - Level 2 (Ixora Domain Scheduling — Vibe scheduling, `Schedule` model orchestration, Smart Home, Push, provider execution) is explicitly deferred — no domain knowledge added to `app/Telemetry/Scheduler`.
 - No Smart Home, Push, or external-provider instrumentation added.
-- **Next:** Phase 7B.4.1 — Business Telemetry Domain Execution Review (now complete, see below), then Phase 7B.4.2 — Smart Home instrumentation, using the same Telemetry Contracts.
+- **Next:** Phase 7B.4.1 — Business Telemetry Domain Execution Review (now complete, see below), then Phase 7B.4.2 — Smart Home Dispatch Boundary (now also complete, see below), using the same Telemetry Contracts.
 
 **Branch:** `feature/observability-generic-scheduler-instrumentation`
 
@@ -452,23 +453,57 @@
 - Key gap identified (not fixed in this phase): no correlation ID connects a trigger (schedule tick or manual API call) to the `SmartHomeActionJob` instances it causes — the job carries only an integer `vibe_device_action_id`. This must be resolved as a design decision before Phase 7B.4.2 writes any span code.
 - Key gap identified (not fixed in this phase): no persisted execution-outcome record exists for Smart Home actions — only structured logs. `ScheduleExecution` audits the schedule tick, never the actions it triggered.
 - No tests added or modified — this was a read-only discovery phase.
-- **Next:** Phase 7B.4.2 — Smart Home instrumentation, using this review as its starting brief.
+- **Next:** Phase 7B.4.2 — Smart Home Dispatch Boundary, using this review as its starting brief.
 
 **Branch:** `feature/observability-business-telemetry-domain-execution-review`
 
 ---
 
-## Phase 7B.4.2 — Smart Home instrumentation
+## Phase 7B.4.2 — Smart Home Dispatch Boundary
 
-**Prerequisite:** Phase 7B.1 (HTTP + Routing), Phase 7B.4.1 (Domain Execution Review).
+**Prerequisite:** Phase 7B.1 (HTTP + Routing), Phase 7B.2 (Queue + Console), Phase 7B.4.1 (Domain Execution Review — authoritative architectural reference, never contradicted by this phase).
+
+**Type:** First Business Telemetry implementation. Owns exactly one boundary — `VibeSmartHomeDispatchService::dispatch()` — and nothing else (not `SmartHomeActionJob`, not `ProviderAdapterResolver`/`HomeAssistantAdapter`, no business metrics, no business logging).
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P7B4.2-1 | Manual spans: Smart Home provider adapter calls | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
-| P7B4.2-2 | Custom metrics (`ixora.smart_home.*`) per metrics-philosophy.md | **Pending** | |
-| P7B4.2-3 | Verify no forbidden fields (device identifiers, credentials) in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+| P7B4.2-1 | Pre-implementation review: auto-instrumentation, Phase 7B.2 Queue trace-context propagation, active-span reuse across `dispatch()` → `SmartHomeActionJob::dispatch()` → Queue → `handle()` | **Done** | [`backend-smart-home-dispatch-boundary.md §2`](../business-telemetry/backend-smart-home-dispatch-boundary.md) |
+| P7B4.2-2 | Implementation Gate decision — confirmed OTel already propagates TraceContext correctly across the queue boundary; reuse it, implement no custom correlation ID/context/propagation | **Done** | [`backend-smart-home-dispatch-boundary.md §2`](../business-telemetry/backend-smart-home-dispatch-boundary.md) |
+| P7B4.2-3 | Decide instrumentation point — wrap the two call sites (Controller, Command) instead of editing `VibeSmartHomeDispatchService` itself, since no Laravel event exists to hook | **Done** | [`backend-smart-home-dispatch-boundary.md §3`](../business-telemetry/backend-smart-home-dispatch-boundary.md) |
+| P7B4.2-4 | Create `App\Telemetry\SmartHome\SmartHomeDispatchEntryPoint` enum (`manual`/`scheduled`/`future`, reserved) | **Done** | `app/Telemetry/SmartHome/SmartHomeDispatchEntryPoint.php` |
+| P7B4.2-5 | Create `App\Telemetry\SmartHome\SmartHomeDispatchTelemetry` — one `smart_home.dispatch` span via `Tracer::startSpan()`, fail-open `wrap()` helper, inert-span fallback | **Done** | `app/Telemetry/SmartHome/SmartHomeDispatchTelemetry.php` |
+| P7B4.2-6 | Wire the manual entry point into `VibeSmartHomeDispatchController::__invoke()` | **Done** | `app/Http/Controllers/Api/VibeSmartHomeDispatchController.php` |
+| P7B4.2-7 | Wire the scheduled entry point into `DispatchDueSchedulesCommand::dispatchSmartHomeAfterSchedule()` | **Done** | `app/Console/Commands/DispatchDueSchedulesCommand.php` |
+| P7B4.2-8 | Register the `SmartHomeDispatchTelemetry` singleton in `TelemetryServiceProvider` | **Done** | `app/Telemetry/Providers/TelemetryServiceProvider.php` |
+| P7B4.2-9 | Dependency-rule test: no OpenTelemetry SDK import, Contracts-only, no domain/controller/console/logging/metric-contract import under `app/Telemetry/SmartHome` | **Done** | `tests/Unit/Telemetry/SmartHome/SmartHomeDispatchTelemetryDependencyRuleTest.php` |
+| P7B4.2-10 | Unit-level telemetry tests: span creation/naming/entry_point, count attributes, forbidden-attribute exhaustiveness, lifetime, no duplicates, `startSpan()` (never `activeSpan()`), exception recording + rethrow, fail-open, zero metrics | **Done** | `tests/Feature/Telemetry/SmartHome/SmartHomeDispatchTelemetryTest.php` |
+| P7B4.2-11 | Real-wiring integration tests: manual (HTTP) and scheduled (Console) entry points, no span on 403/validator failure, multiple schedules never merged/duplicated, no action/provider execution observed | **Done** | `tests/Feature/Telemetry/SmartHome/SmartHomeDispatchBoundaryIntegrationTest.php` |
+| P7B4.2-12 | Run full `back_vibes` suite + `pint --test`; confirm pre-existing Smart Home/Scheduling suites still green unmodified | **Done** | 894/894 passing, `pint` clean |
+| P7B4.2-13 | Write `backend-smart-home-dispatch-boundary.md`; update README/plan/tasks | **Done** | [`backend-smart-home-dispatch-boundary.md`](../business-telemetry/backend-smart-home-dispatch-boundary.md) |
 
-**Branch:** `feature/observability-smart-home-instrumentation`
+**Phase 7B.4.2 implementation notes:**
+
+- `App\SmartHome\Services\VibeSmartHomeDispatchService.php` has **zero diff** — the span wraps the call at its two call sites instead of editing the business method, per the Domain Execution Review's "observe, never redesign" principle and because no Laravel event exists around this call to listen to (unlike Queue/Console/Scheduler).
+- Trace propagation across the queue boundary was verified to already work correctly via existing OTel auto-instrumentation + `Tracer::startSpan()`'s own `activate()` call — no custom correlation ID, `BusinessCorrelationId`, `ExecutionContext`, or `DispatchContext` was introduced, honoring the Implementation Gate.
+- 25 new tests added; full `back_vibes` suite (894 tests) green after this phase; `pint --test` passes; 2 pre-existing risky tests (`HttpRequestTelemetryMiddlewareTest`, Phase 7B.1) unrelated to this phase.
+- No metrics, no logging changes — both explicitly deferred to Phases 7B.4.6/7B.4.7.
+- **Next:** Phase 7B.4.3 — Smart Home Action Execution, using this phase's span as the automatic parent for its own.
+
+**Branch:** `feature/observability-smart-home-dispatch-boundary`
+
+---
+
+## Phase 7B.4.3 — Smart Home Action Execution
+
+**Prerequisite:** Phase 7B.4.2 (Smart Home Dispatch Boundary).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B4.3-1 | Manual spans: `SmartHomeActionJob::handle()`, `ProviderAdapterResolver`, `HomeAssistantAdapter` provider calls | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
+| P7B4.3-2 | Custom metrics (`ixora.smart_home.*`) per metrics-philosophy.md | **Pending** | |
+| P7B4.3-3 | Verify no forbidden fields (device identifiers, credentials) in exported telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+
+**Branch:** `feature/observability-smart-home-action-execution`
 
 ---
 
