@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 8.4 complete — Smart Home Business Dashboard D-02 (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards also complete)  
+**Status:** Phase 8.5 complete — Platform Overview Dashboard D-01 (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards, 8.4 D-02 Smart Home Business Dashboard also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -818,7 +818,32 @@ No Smart Home-specific assumptions remain — Smart Home is the validated refere
 
 ---
 
-### Phase 7B.6 — External Providers (`back_vibes`)
+#### Phase 8.5 — Platform Overview Dashboard (D-01) — **Complete**
+
+**Goal:** Implement D-01 Platform Overview Dashboard. Default landing page for operators. Cross-domain health summary — HTTP, Queue, Scheduler, Smart Home, Collector/Prometheus. Points to specialized dashboards via panel and dashboard-level navigation links.
+
+**Mandatory review (performed before implementation):** Read all mandatory docs: dashboard-conventions.md, dashboard-requirements.md, all existing dashboard docs (D-02, D-04, D-05, D-06, D-07), metrics/logs/traces philosophy, telemetry-naming-convention. Verified all metrics used by cross-referencing expressions from existing dashboard implementations.
+
+**Architecture findings:**
+- No new metrics introduced in D-01. All queries reuse metrics verified in previous phases.
+- `ixora_telemetry_export_failed_total` uses label `deployment_environment`, not `environment` — panel 105 uses `deployment_environment=~"$environment"`, consistent with D-07.
+- Infrastructure metrics (`otelcol_*`, `up{job=...}`) carry no `environment` label — infrastructure panels explicitly document this.
+- **UID discrepancy:** `dashboard-conventions.md §1.2` planned `ixora-overview`; Phase 8.5 spec requires `ixora-platform`. Used `ixora-platform`; conventions doc updated.
+- D-03 Push Notifications absent: `ixora_push_delivery_total` not yet implemented (Phase 7B.5 pending).
+
+**Runtime changes:**
+- `collector/grafana/provisioning/dashboards/overview/d01-platform-overview.json` — D-01 Platform Overview (32 panels: 5 row headers + 27 content panels, uid=`ixora-platform`, Overview folder, `ixora-prometheus`, refresh=30s).
+- `collector/grafana/validate.sh` — Extended with Checks 34–42 (JSON syntax, UID, provisioned+Overview folder, datasource refs, link style, panel ID uniqueness, panel ID ranges, description completeness, datasource UID completeness). Total: **42/42 PASS**.
+- `docs/specs/observability-foundation/mvp/dashboard-conventions.md` — §1.2 UID table updated: `ixora-overview` → `ixora-platform`.
+
+**Documentation:**
+- `dashboard-d01-platform-overview.md` — Architecture review, metrics inventory, UID discrepancy, panel inventory (all 27 content panels), navigation strategy, security review, known limitations (KL-1 through KL-6), troubleshooting.
+
+**Validation:** `./grafana/validate.sh` → **42/42 PASS** (initial start + post-restart idempotency confirmation).
+
+**Branch:** `feature/observability-platform-overview-dashboard`
+
+---
 
 **Goal:** Manual spans/metrics for outbound calls to external providers not already covered by generic HTTP-client auto-instrumentation (Phase 7A) — provider-specific outcome classification, no credentials or PII exported.
 

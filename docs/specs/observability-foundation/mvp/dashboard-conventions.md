@@ -27,7 +27,7 @@ Dashboard UIDs are **immutable and version-controlled**. They must never be auto
 
 | Dashboard | UID | Folder | Status |
 | --- | --- | --- | --- |
-| D-01 Platform Overview | `ixora-overview` | Overview | Phase 8.4+ |
+| D-01 Platform Overview | `ixora-platform` | Overview | Phase 8.5 ✅ |
 | D-02 Smart Home | `ixora-smart-home` | Business | Phase 8.4 |
 | D-03 Push Notifications | `ixora-push` | Business | Phase 7B.5+ |
 | D-04 Queue Workers | `ixora-queue` | Application | Phase 8.3 ✅ |
