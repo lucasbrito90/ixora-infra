@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + **7B.4.8** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + **Business Logging**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + **7B.4.9** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + **Business Telemetry Foundation Baseline**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -44,6 +44,7 @@
 | 7B.4.6 — Business Metrics | 0 | 0 | 14 | 0 |
 | 7B.4.7 — Business Logging | 0 | 0 | 8 | 0 |
 | 7B.4.8 — Telemetry Validation & Architecture Review | 0 | 0 | 7 | 0 |
+| 7B.4.9 — Business Telemetry Foundation Baseline | 0 | 0 | 5 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -710,6 +711,31 @@
 - **Next:** Phase 7B.5 — Push Notifications. Recommend addressing TD-2 (`action_type` label) and TD-1 (`ixora.action.retry` removal) in early 7B.5 scope.
 
 **Branch:** `feature/observability-telemetry-validation`
+
+---
+
+## Phase 7B.4.9 — Business Telemetry Foundation Baseline
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B4.9-1 | Read all mandatory docs: validation, Smart Home boundary/failure/metrics/logging docs, platform philosophy guides | **Done** | All docs listed in §1 of foundation doc |
+| P7B4.9-2 | Extract reusable architectural rules: boundary ownership, signal ownership, failure taxonomy, outcome vocabulary, cross-signal consistency, correlation, security, fail-open, cardinality, logging/metrics/tracing policies | **Done** | `business-telemetry-foundation.md §3` |
+| P7B4.9-3 | Document Business Boundary Pattern: standard lifecycle, layer responsibilities, boundary discovery method | **Done** | `business-telemetry-foundation.md §4` |
+| P7B4.9-4 | Document Required Business Telemetry Components and standard Telemetry class pattern | **Done** | `business-telemetry-foundation.md §5` |
+| P7B4.9-5 | Document Standard Design Reviews: Architecture, Failure Semantics, Metrics, Logging, Security, Validation | **Done** | `business-telemetry-foundation.md §6` |
+| P7B4.9-6 | Document Extension Rules for future domains (Push, Marketplace, AI, Matter, Google Home, Alexa) | **Done** | `business-telemetry-foundation.md §7` |
+| P7B4.9-7 | Document Anti-patterns: duplication, ownership violations, security, correlation, design violations | **Done** | `business-telemetry-foundation.md §8` |
+| P7B4.9-8 | Write `business-telemetry-foundation.md`; update README/plan/tasks | **Done** | [`business-telemetry-foundation.md`](../business-telemetry/business-telemetry-foundation.md) |
+
+**Phase 7B.4.9 implementation notes:**
+
+- Documentation-only phase — no runtime code, telemetry, metrics, spans, logs, or tests changed.
+- Generalizes the validated Smart Home architecture (Phases 7B.4.1–7B.4.8) into platform-wide Business Telemetry standards.
+- No Smart Home-specific assumptions remain — all rules stated in domain-neutral terms with Smart Home as reference implementation only.
+- Future domains (Push Notifications, Marketplace, AI, Matter, Google Home, Alexa) can implement Business Telemetry by following this foundation without redefining architecture.
+- **Next:** Phase 7B.5 — Push Notifications.
+
+**Branch:** `feature/observability-business-telemetry-foundation`
 
 ---
 
