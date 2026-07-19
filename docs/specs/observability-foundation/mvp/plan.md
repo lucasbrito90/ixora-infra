@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 7B.4.8 complete — Business Telemetry architecture validated as internally consistent and production-ready (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.7 Smart Home Business Telemetry also complete)  
+**Status:** Phase 7B.4.9 complete — Business Telemetry Foundation Baseline established as platform-wide standard (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.8 Smart Home Business Telemetry also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard generalized from Smart Home reference, documentation-only) — Phase 7B.4.9; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -671,6 +671,27 @@ Split into a discovery sub-phase and an implementation sub-phase, since Smart Ho
 **Deliverable:** [`backend-business-telemetry-validation.md`](../business-telemetry/backend-business-telemetry-validation.md). Full validation report with Ownership Matrix, all review sections, Cross-Signal Consistency Matrix, Correlation analysis, Security review, Dashboard/Operational/Extensibility readiness, and Technical Debt Register.
 
 **Branch:** `feature/observability-telemetry-validation`
+
+---
+
+#### Phase 7B.4.9 — Business Telemetry Foundation Baseline — **Complete**
+
+**Goal:** Transform the validated Smart Home Business Telemetry architecture into a platform-wide Business Telemetry standard. Documentation-only — no runtime code, telemetry, metrics, spans, logs, or tests.
+
+**Mandatory review (performed before writing):** Read `backend-business-telemetry-validation.md`, all Smart Home boundary/failure/metrics/logging docs, and all six Core Observability guides (telemetry-decision-guide, telemetry-naming-convention, metrics-philosophy, logs-philosophy, traces-philosophy, backend-sdk-foundation).
+
+**Deliverable:** [`business-telemetry-foundation.md`](../business-telemetry/business-telemetry-foundation.md). Platform-wide baseline covering:
+
+- **Platform rules (§3):** Business boundary ownership, signal ownership, failure taxonomy, business outcome vocabulary, cross-signal consistency, correlation model, security model, fail-open policy, cardinality/logging/metrics/tracing policies.
+- **Business boundary pattern (§4):** Standard lifecycle (Entrypoint → Dispatch → Execution → Provider → External), layer responsibilities, boundary discovery method.
+- **Required components (§5):** Mandatory deliverables per domain, standard Telemetry class pattern with Dependency Rule.
+- **Standard design reviews (§6):** Architecture, Failure Semantics, Metrics Design, Logging Design, Security, Validation — each with mandatory gate criteria.
+- **Extension rules (§7):** How to add new domains, boundaries, and providers without redesign.
+- **Anti-patterns (§8):** Prohibited duplication, ownership, security, correlation, and design violations.
+
+No Smart Home-specific assumptions remain — Smart Home is the validated reference implementation, not a special case.
+
+**Branch:** `feature/observability-business-telemetry-foundation`
 
 ---
 
