@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 8.3 complete — Application Infrastructure Dashboards (D-04 Queue Workers, D-05 HTTP API, D-06 Scheduler) (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard also complete)  
+**Status:** Phase 8.4 complete — Smart Home Business Dashboard D-02 (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -787,6 +787,34 @@ No Smart Home-specific assumptions remain — Smart Home is the validated refere
 **Validation:** `./grafana/validate.sh` → **26/26 PASS** (initial start + post-restart idempotency confirmation).
 
 **Branch:** `feature/observability-application-dashboards`
+
+---
+
+#### Phase 8.4 — Smart Home Business Dashboard (D-02) — **Complete**
+
+**Goal:** Implement D-02 Smart Home Business Dashboard. First Business dashboard for the platform. Covers dispatch throughput, action success/failure rates, provider performance, and business relationships.
+
+**Mandatory review (performed before implementation):** Read ADRs 028–031, all observability philosophy/architecture docs, all grafana docs (conventions, requirements, existing dashboards), all Smart Home Business Telemetry docs (domain-execution-review, dispatch-boundary, action-execution, provider-boundary, business-failure-semantics, business-metrics, business-logging, business-telemetry-validation, business-telemetry-foundation). Verified every metric, label, histogram, outcome value directly against `SmartHomeDispatchTelemetry.php`, `SmartHomeActionTelemetry.php`, `SmartHomeProviderTelemetry.php`, and all enums.
+
+**Architecture findings:**
+- `ixora_smart_home_dispatch_total` verified: labels `entry_point` (manual/scheduled/future), `outcome` (dispatched/skipped/error). Counting unit: actions (not calls) for dispatched/skipped; 1 for error.
+- `ixora_smart_home_action_total` verified: labels `outcome` (success/failure/unsupported/unknown), `provider` (home_assistant/future). Unit: `{action}`.
+- `ixora_smart_home_action_duration` verified: Histogram, unit `ms`, same label set as action_total.
+- **`ixora_smart_home_provider_total` / `_duration` do NOT exist** — Provider metrics were rejected in Phase 7B.4.6 §3.3 as 1:1 duplications of action metrics. No panels for these.
+- **No `action_type` label** — deliberately deferred in Phase 7B.4.6 §3.2.
+- `unsupported` is a Business outcome (span stays OK), not a failure — panel descriptions document this distinction.
+- Queue/Business orthogonality (Phase 7B.4.5 §8.3) explicitly shown in panel 501.
+
+**Runtime changes:**
+- `collector/grafana/provisioning/dashboards/business/d02-smart-home.json` — D-02 Smart Home Business (23 panels: 5 rows + 18 content panels, uid=`ixora-smart-home`, Business folder, `ixora-prometheus`, refresh=1m).
+- `collector/grafana/validate.sh` — Extended with Checks 13–16 for D-02. Total: 33/33 PASS.
+
+**Documentation:**
+- `dashboard-d02-smart-home.md` — Full architecture review, metric verification, panel inventory, PromQL queries, variables, navigation, security review, known limitations.
+
+**Validation:** `./grafana/validate.sh` → **33/33 PASS** (initial start + post-restart idempotency confirmation).
+
+**Branch:** `feature/observability-smart-home-dashboard`
 
 ---
 

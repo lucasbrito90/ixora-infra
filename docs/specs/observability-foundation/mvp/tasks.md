@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + **8.3** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + **Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler)**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + **8.4** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + **Smart Home Business Dashboard (D-02)**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -49,6 +49,7 @@
 | 8.1 — Grafana Foundation & Provisioning | 0 | 0 | 7 | 0 |
 | 8.2 — D-07 Infrastructure Dashboard | 0 | 0 | 7 | 0 |
 | 8.3 — Application Infrastructure Dashboards | 0 | 0 | 9 | 0 |
+| 8.4 — Smart Home Business Dashboard (D-02) | 0 | 0 | 7 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -850,6 +851,36 @@
 - Dashboard UID `ixora-collector` establishes the standard for all future dashboards (see §5 of dashboard-d07-infrastructure.md).
 
 **Branch:** `feature/observability-d07-infrastructure`
+
+---
+
+## Phase 8.4 — Smart Home Business Dashboard (D-02)
+
+**Prerequisite:** dashboard-conventions.md (Phase 8.3), backend-smart-home-business-metrics.md (Phase 7B.4.6), backend-business-failure-semantics.md (Phase 7B.4.5).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.4-1 | Mandatory architecture review: read all ADRs, philosophy docs, grafana docs, Smart Home business telemetry docs | **Done** | ADR-028–031, dashboard-conventions.md, business telemetry docs |
+| P8.4-2 | Metric verification: verify every metric, label, histogram, outcome value directly against implementation (no trust of docs alone) | **Done** | `SmartHomeDispatchTelemetry.php`, `SmartHomeActionTelemetry.php`, `SmartHomeProviderTelemetry.php`, all enums |
+| P8.4-3 | Implement d02-smart-home.json (D-02 Smart Home Business, 23 panels, uid=ixora-smart-home, Business folder, ixora-prometheus, refresh=1m) | **Done** | `collector/grafana/provisioning/dashboards/business/d02-smart-home.json` |
+| P8.4-4 | Extend validate.sh with checks 13–16 for D-02; verify 33/33 PASS + restart idempotency | **Done** | `collector/grafana/validate.sh` — 33/33 PASS (initial + restart) |
+| P8.4-5 | Write dashboard-d02-smart-home.md | **Done** | `docs/specs/observability-foundation/mvp/dashboard-d02-smart-home.md` |
+| P8.4-6 | Update tasks.md, plan.md, README.md | **Done** | Roadmap files |
+| P8.4-7 | Git flow: commit → develop → staging → push → back to develop | **Done** | `feature/observability-smart-home-dashboard` |
+
+**Phase 8.4 implementation notes:**
+
+- First Business dashboard provisioned: D-02 Smart Home (23 panels across 5 sections: Health, Throughput, Failures, Performance, Business Relationships).
+- **Metrics verified directly against implementation:** `ixora_smart_home_dispatch_total` (outcome: dispatched/skipped/error, entry_point: manual/scheduled/future), `ixora_smart_home_action_total` (outcome: success/failure/unsupported/unknown, provider: home_assistant/future), `ixora_smart_home_action_duration` (Histogram, ms, same labels as action_total).
+- **`ixora_smart_home_provider_total` / `ixora_smart_home_provider_duration` NOT implemented** — Provider-level metrics were rejected in Phase 7B.4.6 §3.3 as 1:1 duplications. No panels for these metrics.
+- **No `action_type` label** — deliberately deferred in Phase 7B.4.6 §3.2. No panels filter by action_type.
+- **Queue/Business orthogonality** (Phase 7B.4.5 §8.3) explicitly documented in panel 501: `ixora_queue_job_total{outcome=success}` ≠ "Smart Home action succeeded". Both metrics shown together with explanation.
+- **`unsupported` ≠ `failure`** — unsupported is a Business outcome (span stays OK), not a failure. Documented in panels 102, 303 and failures section.
+- Validation extended: Checks 13–16 for D-02 (JSON syntax, UID, provisioned+folder, datasource refs). Total: 33/33 PASS.
+- Variables: `$environment` (mandatory, custom, default staging), `$provider` (query-based from `label_values(action_total)`, includeAll=true).
+- Business folder confirmed working — dashboard placed in Business folder automatically via providers.yaml (pre-existing provider definition from Phase 8.1).
+
+**Branch:** `feature/observability-smart-home-dashboard`
 
 ---
 
