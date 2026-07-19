@@ -1,0 +1,686 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "D-04 — Queue worker health and job execution. Answers: Are queue workers processing jobs? Which queues are backed up? Which job types are failing or slow? Application-scoped: no infrastructure, HTTP, scheduler, or business metrics.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-05 HTTP API",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-http"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-06 Scheduler",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-scheduler"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-07 Infrastructure",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-collector"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "title": "Health",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Fraction of completed job attempts (attempts not retried or failed) that succeeded. Healthy: > 95%. Below 90% warrants investigation — use the Failure Breakdown panel below to identify the failing job class, then Tempo + Loki for root cause.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 0.90},
+              {"color": "green", "value": 0.95}
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "id": 101,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_queue_job_total{environment=~\"$environment\",outcome=\"success\"}[5m])) / sum(rate(ixora_queue_job_total{environment=~\"$environment\",outcome!=\"retried\",outcome!=\"released\"}[5m]))",
+          "instant": true,
+          "legendFormat": "success rate",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Job Success Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Rate of job failures (exhausted retries, marked as failed) per second. Healthy: 0. Any non-zero value means jobs are permanently failing — check failed_jobs table and Loki for exception context (trace_id correlation available).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0.01},
+              {"color": "red", "value": 0.1}
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "id": 102,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_queue_job_total{environment=~\"$environment\",outcome=\"failed\"}[5m]))",
+          "instant": true,
+          "legendFormat": "failures/s",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Failure Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Number of jobs currently executing across all queues and connections. Healthy: low and stable. A rising active count without a matching throughput increase indicates jobs are stalling. Note: gauge resets on worker restart.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 20},
+              {"color": "red", "value": 50}
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "id": 103,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "sum(ixora_queue_job_active{environment=~\"$environment\"})",
+          "instant": true,
+          "legendFormat": "active jobs",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Active Jobs",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Rate of jobs timing out (SIGALRM timeout exceeded) per second. Healthy: 0. Timeouts indicate a job is running longer than its configured timeout — often a slow external provider or a deadlock. Check `ixora.queue.job.duration` p95 for the affected job class.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0.001},
+              {"color": "red", "value": 0.01}
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "id": 104,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_queue_job_total{environment=~\"$environment\",outcome=\"timed_out\"}[5m]))",
+          "instant": true,
+          "legendFormat": "timeouts/s",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Timeout Rate",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "id": 200,
+      "title": "Throughput",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Job completion rate over time per queue (smart-home, push, default). A flat or falling line while error rate rises indicates workers are processing but failing. A flat line at zero indicates no workers on that queue.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "id": 201,
+      "options": {
+        "fillOpacity": 10,
+        "legend": {"displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "sum by(queue) (rate(ixora_queue_job_total{environment=~\"$environment\",queue=~\"$queue\"}[5m]))",
+          "instant": false,
+          "legendFormat": "{{queue}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Job Throughput by Queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Rate of job retries (released back to queue after exception) per second. Healthy: near 0. A sustained retry rate on a specific queue indicates persistent failures without exhausting max attempts — the job is retrying repeatedly.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"fixedColor": "orange", "mode": "fixed"},
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "id": 202,
+      "options": {
+        "fillOpacity": 15,
+        "legend": {"displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "sum by(queue) (rate(ixora_queue_job_total{environment=~\"$environment\",outcome=\"retried\",queue=~\"$queue\"}[5m]))",
+          "instant": false,
+          "legendFormat": "{{queue}} retries",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Retry Rate by Queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Job outcome breakdown over time — success, retried, failed, timed_out, released. Use to identify outcome distribution shifts. A healthy queue shows mostly 'success' with occasional 'retried' spikes.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "ops"
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "failed"},
+            "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "timed_out"},
+            "properties": [{"id": "color", "value": {"fixedColor": "purple", "mode": "fixed"}}]
+          }
+        ]
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 14},
+      "id": 203,
+      "options": {
+        "fillOpacity": 15,
+        "legend": {"displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "sum by(outcome) (rate(ixora_queue_job_total{environment=~\"$environment\",queue=~\"$queue\"}[5m]))",
+          "instant": false,
+          "legendFormat": "{{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Outcome Breakdown",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 22},
+      "id": 300,
+      "title": "Errors",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Failed job attempts broken down by job class name (job_name label). Shows which job types are failing most in the selected window. Drill-down: Tempo → filter by {job_name} span with ERROR status → Loki trace_id for exception_class.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"fixedColor": "red", "mode": "fixed"},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 23},
+      "id": 301,
+      "options": {
+        "barWidth": 0.97,
+        "fillOpacity": 80,
+        "groupWidth": 0.7,
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {"mode": "single"},
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "topk(10, sum by(job_name) (increase(ixora_queue_job_total{environment=~\"$environment\",outcome=\"failed\",queue=~\"$queue\"}[$__range])))",
+          "instant": true,
+          "legendFormat": "{{job_name}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Failure Breakdown by Job Class",
+      "type": "barchart"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Failed jobs rate over time per queue. A sustained non-zero line means jobs are permanently failing (not just retrying). Cross-reference with retry rate — if retries are also high, jobs are failing on every attempt.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"fixedColor": "red", "mode": "fixed"},
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 23},
+      "id": 302,
+      "options": {
+        "fillOpacity": 15,
+        "legend": {"displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "sum by(queue) (rate(ixora_queue_job_total{environment=~\"$environment\",outcome=\"failed\",queue=~\"$queue\"}[5m]))",
+          "instant": false,
+          "legendFormat": "{{queue}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Failed Jobs Rate by Queue",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 31},
+      "id": 400,
+      "title": "Performance",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Median (p50) job execution duration across all job classes and queues (milliseconds). Reflects the typical job processing time.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5000},
+              {"color": "red", "value": 30000}
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 32},
+      "id": 401,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by(le) (rate(ixora_queue_job_duration_bucket{environment=~\"$environment\",queue=~\"$queue\"}[5m])))",
+          "instant": true,
+          "legendFormat": "p50",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Job Duration p50",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "95th percentile job execution duration (ms). 95% of jobs complete faster than this. High p95 combined with high timeout rate indicates jobs are approaching the configured timeout limit.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 30000},
+              {"color": "red", "value": 60000}
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 32},
+      "id": 402,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate(ixora_queue_job_duration_bucket{environment=~\"$environment\",queue=~\"$queue\"}[5m])))",
+          "instant": true,
+          "legendFormat": "p95",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Job Duration p95",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "99th percentile job execution duration (ms). If p99 significantly exceeds p95, a small fraction of jobs are extremely slow — likely due to provider latency spikes or resource contention.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 60000},
+              {"color": "red", "value": 120000}
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 32},
+      "id": 403,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(ixora_queue_job_duration_bucket{environment=~\"$environment\",queue=~\"$queue\"}[5m])))",
+          "instant": true,
+          "legendFormat": "p99",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Job Duration p99",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Job execution duration percentiles over time (p50, p95, p99). Use to detect performance regressions introduced by deployments or external provider slowdowns.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 36},
+      "id": 404,
+      "options": {
+        "fillOpacity": 5,
+        "legend": {"displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by(le) (rate(ixora_queue_job_duration_bucket{environment=~\"$environment\",queue=~\"$queue\"}[5m])))",
+          "instant": false,
+          "legendFormat": "p50",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate(ixora_queue_job_duration_bucket{environment=~\"$environment\",queue=~\"$queue\"}[5m])))",
+          "instant": false,
+          "legendFormat": "p95",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(ixora_queue_job_duration_bucket{environment=~\"$environment\",queue=~\"$queue\"}[5m])))",
+          "instant": false,
+          "legendFormat": "p99",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Job Duration Percentiles over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "description": "Top 15 job classes ranked by p95 execution duration in the selected time window. Use to identify which job types are the slowest and most likely to approach their configured timeout.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Value"},
+            "properties": [
+              {"id": "displayName", "value": "p95 duration (ms)"},
+              {"id": "unit", "value": "ms"}
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 44},
+      "id": 405,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {"show": false},
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "editorMode": "code",
+          "expr": "topk(15, histogram_quantile(0.95, sum by(le, job_name) (rate(ixora_queue_job_duration_bucket{environment=~\"$environment\",queue=~\"$queue\"}[5m]))))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Slowest Job Classes (p95)",
+      "transformations": [
+        {"id": "organize", "options": {"excludeByName": {"Time": true, "le": true}, "renameByName": {"job_name": "Job Class", "Value": "p95 ms"}}}
+      ],
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["application", "queue", "workers", "d-04"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": true, "text": "staging", "value": "staging"},
+        "description": "Deployment environment — applied to all panel queries.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [
+          {"selected": false, "text": "development", "value": "development"},
+          {"selected": true,  "text": "staging",     "value": "staging"},
+          {"selected": false, "text": "production",  "value": "production"}
+        ],
+        "query": "development,staging,production",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+        "definition": "label_values(ixora_queue_job_total{environment=\"$environment\"}, queue)",
+        "description": "Queue name filter. Select a specific queue (smart-home, push, default) or All to see aggregate metrics.",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Queue",
+        "multi": false,
+        "name": "queue",
+        "options": [],
+        "query": {
+          "query": "label_values(ixora_queue_job_total{environment=\"$environment\"}, queue)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "D-04 — Queue Workers",
+  "uid": "ixora-queue",
+  "version": 1
+}
