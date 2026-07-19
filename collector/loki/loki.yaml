@@ -168,7 +168,7 @@ limits_config:
 
   # ---- Volume ----
   # Max number of labels returned by /loki/api/v1/labels.
-  max_label_names: 100
+  # Note: max_label_names was removed in Loki 3.x; use max_label_names_per_series above.
 
 # ============================================================
 # QUERY RANGE
@@ -188,8 +188,8 @@ query_range:
 # Controls query execution behaviour.
 # ============================================================
 querier:
-  # Maximum query time allowed before aborting — protects CPU.
-  query_timeout: 5m
+  # query_timeout was moved to limits_config in Loki 3.x.
+  # Set max query time via limits_config.query_timeout if needed.
   # Number of concurrent queries per querier instance.
   max_concurrent: 4
 
@@ -213,9 +213,7 @@ ingester:
     enabled: true
     dir: /loki/wal
     flush_on_shutdown: true
-    # Replay up to this many concurrent WAL segments on startup.
-    # Reduces startup time after unclean shutdown.
-    recover_from_wal: true
+    # recover_from_wal was removed in Loki 3.x; WAL recovery is automatic.
 
 # ============================================================
 # ANALYTICS
