@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # Ixora Observability — Grafana Foundation Validation
-# Phase 8.1 + Phase 8.2 + Phase 8.3 + Phase 8.4
+# Phase 8.1 + Phase 8.2 + Phase 8.3 + Phase 8.4 + Phase 8.5
 #
 # Phase 8.1 checks (1–6):
 #   Validates that Grafana has started correctly and that all
@@ -24,6 +24,19 @@
 #   25: Dashboard UID uniqueness — every UID appears exactly once
 #       across all provisioning directories.
 #   26: Dashboard UID naming — every UID starts with "ixora-".
+#
+# Phase 8.5 checks (34–42):
+#   Validates D-01 Platform Overview dashboard and cross-dashboard
+#   conventions:
+#   34: D-01 JSON syntax valid.
+#   35: UID stable (ixora-platform) in JSON file.
+#   36: D-01 provisioned in Grafana, placed in Overview folder.
+#   37: Datasource UID references (ixora-prometheus, no name-only).
+#   38: All dashboard links use UID-style URLs (no numeric IDs).
+#   39: D-01 panel IDs unique within dashboard.
+#   40: D-01 panel IDs respect reserved ranges (1–599).
+#   41: Every non-row panel in D-01 contains a description.
+#   42: Every non-row panel in D-01 contains a datasource UID.
 #
 # Usage:
 #   ./validate.sh
@@ -79,7 +92,7 @@ if [[ -z "${GRAFANA_PASS}" ]]; then
 fi
 
 echo ""
-echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3"
+echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5"
 echo "Target: ${GRAFANA_URL}"
 echo "────────────────────────────────────────────────"
 echo ""
@@ -578,6 +591,313 @@ if echo "${NAMING_CHECK}" | grep -q "^PASS:"; then
 else
   fail "${NAMING_CHECK#FAIL: }"
 fi
+# ── 34. D-01 Platform Overview — JSON syntax ─────────────────
+
+echo ""
+echo "34. D-01 Platform Overview JSON syntax"
+
+check_json_syntax "D-01 Platform Overview" \
+  "${PROVISIONING_DIR}/dashboards/overview/d01-platform-overview.json"
+
+# ── 35. D-01 Platform Overview — UID in JSON ─────────────────
+
+echo ""
+echo "35. D-01 Platform Overview UID (ixora-platform)"
+
+check_dashboard_uid_in_file "D-01 Platform Overview JSON file" \
+  "${PROVISIONING_DIR}/dashboards/overview/d01-platform-overview.json" \
+  "ixora-platform"
+
+# ── 36. D-01 Platform Overview — provisioned + folder ────────
+# Single combined check: uid found in Grafana, provisioned=true,
+# and placed in the Overview folder.
+
+echo ""
+echo "36. D-01 Platform Overview provisioned in Grafana (Overview folder)"
+
+D01_RESULT=$(python3 -c "
+import json, subprocess, sys
+
+url  = '${GRAFANA_URL}'
+user = '${GRAFANA_USER}'
+pw   = '${GRAFANA_PASS}'
+
+try:
+    out = subprocess.check_output([
+        'curl', '--silent', '--fail',
+        '--user', f'{user}:{pw}',
+        f'{url}/api/dashboards/uid/ixora-platform'
+    ], stderr=subprocess.DEVNULL)
+    d = json.loads(out)
+except Exception as e:
+    print(f'FAIL: cannot fetch ixora-platform from Grafana: {e}')
+    sys.exit(0)
+
+uid = d.get('dashboard', {}).get('uid', '')
+provisioned = d.get('meta', {}).get('provisioned', False)
+folder = d.get('meta', {}).get('folderTitle', '')
+
+if uid != 'ixora-platform':
+    print(f'FAIL: dashboard uid=\"{uid}\", expected ixora-platform')
+elif not provisioned:
+    print('FAIL: provisioned=false (dashboard was created manually, not via provisioning file)')
+elif folder != 'Overview':
+    print(f'FAIL: folder=\"{folder}\", expected Overview')
+else:
+    print('PASS: ixora-platform provisioned=true in Overview folder')
+" 2>/dev/null || echo "FAIL: python3 check failed")
+
+if echo "${D01_RESULT}" | grep -q "^PASS:"; then
+  pass "${D01_RESULT#PASS: }"
+else
+  fail "${D01_RESULT#FAIL: }"
+fi
+
+# ── 37. D-01 Platform Overview — datasource UID references ───
+# Single combined check: no name-only datasource references AND
+# ixora-prometheus is present as the primary datasource.
+
+echo ""
+echo "37. D-01 Platform Overview datasource UID references"
+
+D01_DS_RESULT=$(python3 -c "
+import json, sys
+
+fpath = '${PROVISIONING_DIR}/dashboards/overview/d01-platform-overview.json'
+try:
+    with open(fpath) as f:
+        d = json.load(f)
+except Exception as e:
+    print(f'FAIL: cannot open {fpath}: {e}')
+    sys.exit(0)
+
+bad = []
+def scan(obj):
+    if isinstance(obj, dict):
+        if obj.get('type') in ('prometheus','loki','tempo') and 'uid' not in obj:
+            bad.append(str(obj))
+        for v in obj.values():
+            scan(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            scan(v)
+scan(d)
+
+import re
+content = json.dumps(d)
+has_prometheus = 'ixora-prometheus' in re.findall(r'\"uid\":\s*\"([^\"]+)\"', content)
+
+if bad:
+    print(f'FAIL: {len(bad)} datasource reference(s) missing uid field')
+elif not has_prometheus:
+    print('FAIL: ixora-prometheus not found in datasource uid references')
+else:
+    print('PASS: all datasource references use UID, ixora-prometheus present')
+" 2>/dev/null || echo "FAIL: python3 datasource check failed")
+
+if echo "${D01_DS_RESULT}" | grep -q "^PASS:"; then
+  pass "${D01_DS_RESULT#PASS: }"
+else
+  fail "${D01_DS_RESULT#FAIL: }"
+fi
+
+# ── 38. Dashboard links use UID-style URLs ────────────────────
+# All links across all provisioned dashboards must use /d/ixora-*
+# style UIDs. Numeric IDs (e.g. /d/123) break when Grafana
+# data volume is recreated or on a fresh install.
+
+echo ""
+echo "38. Dashboard links use UID-style URLs (no /d/<numeric-id>)"
+
+LINK_CHECK=$(python3 -c "
+import json, os, re, sys
+
+provisioning = '${PROVISIONING_DIR}/dashboards'
+bad = []
+
+for root, dirs, files in os.walk(provisioning):
+    for fname in sorted(files):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(root, fname)
+        try:
+            with open(fpath) as f:
+                content = f.read()
+            numeric = re.findall(r'/d/[0-9]+', content)
+            if numeric:
+                bad.append(f'{fname}: {numeric}')
+        except Exception as e:
+            bad.append(f'error reading {fname}: {e}')
+
+if bad:
+    print('FAIL: numeric dashboard IDs found in links: ' + ' | '.join(bad))
+else:
+    print('PASS: all dashboard links use UID-style URLs')
+" 2>/dev/null || echo "FAIL: python3 link check failed")
+
+if echo "${LINK_CHECK}" | grep -q "^PASS:"; then
+  pass "${LINK_CHECK#PASS: }"
+else
+  fail "${LINK_CHECK#FAIL: }"
+fi
+
+# ── 39. D-01 panel IDs unique within dashboard ───────────────
+
+echo ""
+echo "39. D-01 panel IDs unique within dashboard"
+
+PANEL_ID_UNIQ=$(python3 -c "
+import json, sys
+
+fpath = '${PROVISIONING_DIR}/dashboards/overview/d01-platform-overview.json'
+try:
+    with open(fpath) as f:
+        d = json.load(f)
+except Exception as e:
+    print(f'FAIL: cannot open file: {e}')
+    sys.exit(0)
+
+ids = [p['id'] for p in d.get('panels', []) if 'id' in p]
+seen = {}
+for i in ids:
+    seen[i] = seen.get(i, 0) + 1
+dupes = [i for i, c in seen.items() if c > 1]
+
+if dupes:
+    print(f'FAIL: duplicate panel IDs: {dupes}')
+else:
+    print(f'PASS: {len(ids)} panel IDs — all unique')
+" 2>/dev/null || echo "FAIL: python3 panel ID check failed")
+
+if echo "${PANEL_ID_UNIQ}" | grep -q "^PASS:"; then
+  pass "${PANEL_ID_UNIQ#PASS: }"
+else
+  fail "${PANEL_ID_UNIQ#FAIL: }"
+fi
+
+# ── 40. D-01 panel IDs respect reserved ranges ───────────────
+# Allowed ranges per dashboard-conventions.md §8:
+#   1–99   row headers
+#   100–199 health
+#   200–299 throughput/business
+#   300–399 errors/application
+#   400–499 performance/infrastructure
+#   500–599 business relationships/navigation
+
+echo ""
+echo "40. D-01 panel IDs respect reserved ranges (1–599)"
+
+PANEL_RANGE=$(python3 -c "
+import json, sys
+
+fpath = '${PROVISIONING_DIR}/dashboards/overview/d01-platform-overview.json'
+try:
+    with open(fpath) as f:
+        d = json.load(f)
+except Exception as e:
+    print(f'FAIL: cannot open file: {e}')
+    sys.exit(0)
+
+panels = d.get('panels', [])
+bad = []
+for p in panels:
+    pid = p.get('id', -1)
+    ptype = p.get('type', '')
+    if ptype == 'row':
+        if not (1 <= pid <= 99):
+            bad.append(f'row panel id={pid} (expected 1–99)')
+    else:
+        if not (100 <= pid <= 599):
+            bad.append(f'panel id={pid} (expected 100–599)')
+
+if bad:
+    print('FAIL: out-of-range panel IDs: ' + ' | '.join(bad))
+else:
+    total = len(panels)
+    print(f'PASS: all {total} panels have IDs within reserved ranges (rows 1–99, content 100–599)')
+" 2>/dev/null || echo "FAIL: python3 range check failed")
+
+if echo "${PANEL_RANGE}" | grep -q "^PASS:"; then
+  pass "${PANEL_RANGE#PASS: }"
+else
+  fail "${PANEL_RANGE#FAIL: }"
+fi
+
+# ── 41. D-01 every non-row panel has description ─────────────
+
+echo ""
+echo "41. D-01 every non-row panel contains description"
+
+PANEL_DESC=$(python3 -c "
+import json, sys
+
+fpath = '${PROVISIONING_DIR}/dashboards/overview/d01-platform-overview.json'
+try:
+    with open(fpath) as f:
+        d = json.load(f)
+except Exception as e:
+    print(f'FAIL: cannot open file: {e}')
+    sys.exit(0)
+
+bad = []
+for p in d.get('panels', []):
+    if p.get('type') == 'row':
+        continue
+    desc = p.get('description', '').strip()
+    if not desc:
+        bad.append(f'id={p[\"id\"]} title=\"{p.get(\"title\",\"\")}\"')
+
+if bad:
+    print(f'FAIL: {len(bad)} panel(s) missing description: ' + ' | '.join(bad))
+else:
+    content_count = len([p for p in d.get('panels', []) if p.get('type') != 'row'])
+    print(f'PASS: all {content_count} non-row panels have a description')
+" 2>/dev/null || echo "FAIL: python3 description check failed")
+
+if echo "${PANEL_DESC}" | grep -q "^PASS:"; then
+  pass "${PANEL_DESC#PASS: }"
+else
+  fail "${PANEL_DESC#FAIL: }"
+fi
+
+# ── 42. D-01 every non-row panel has datasource UID ──────────
+
+echo ""
+echo "42. D-01 every non-row panel contains datasource UID"
+
+PANEL_DS=$(python3 -c "
+import json, sys
+
+fpath = '${PROVISIONING_DIR}/dashboards/overview/d01-platform-overview.json'
+try:
+    with open(fpath) as f:
+        d = json.load(f)
+except Exception as e:
+    print(f'FAIL: cannot open file: {e}')
+    sys.exit(0)
+
+bad = []
+for p in d.get('panels', []):
+    if p.get('type') == 'row':
+        continue
+    ds = p.get('datasource', {})
+    uid = ds.get('uid', '').strip() if isinstance(ds, dict) else ''
+    if not uid:
+        bad.append(f'id={p[\"id\"]} title=\"{p.get(\"title\",\"\")}\"')
+
+if bad:
+    print(f'FAIL: {len(bad)} panel(s) missing datasource uid: ' + ' | '.join(bad))
+else:
+    content_count = len([p for p in d.get('panels', []) if p.get('type') != 'row'])
+    print(f'PASS: all {content_count} non-row panels have datasource uid')
+" 2>/dev/null || echo "FAIL: python3 datasource uid check failed")
+
+if echo "${PANEL_DS}" | grep -q "^PASS:"; then
+  pass "${PANEL_DS#PASS: }"
+else
+  fail "${PANEL_DS#FAIL: }"
+fi
+
 # ── Summary ───────────────────────────────────────────────────
 
 echo ""
