@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + **8.4** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + **Smart Home Business Dashboard (D-02)**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + 8.4 + **8.5** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + Smart Home Business Dashboard (D-02) + **Platform Overview Dashboard (D-01)**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -884,7 +884,35 @@
 
 ---
 
-## Phase 7B.5 — Push Notifications
+## Phase 8.5 — Platform Overview Dashboard (D-01)
+
+**Prerequisite:** dashboard-conventions.md (Phase 8.3), D-02 (Phase 8.4), D-04/D-05/D-06 (Phase 8.3), D-07 (Phase 8.2).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.5-1 | Mandatory review: dashboard-conventions, requirements, all dashboard docs, philosophy docs | **Done** | All docs read before implementation |
+| P8.5-2 | Architecture review: verify all metrics from existing dashboards, UID map, folder structure | **Done** | All metrics traced to source dashboards; no new metrics introduced |
+| P8.5-3 | Implement d01-platform-overview.json (D-01, 32 panels, uid=ixora-platform, Overview folder, ixora-prometheus, refresh=30s) | **Done** | `collector/grafana/provisioning/dashboards/overview/d01-platform-overview.json` |
+| P8.5-4 | Extend validate.sh with checks 34–42; verify 42/42 PASS + restart idempotency | **Done** | `collector/grafana/validate.sh` — 42/42 PASS (initial + restart) |
+| P8.5-5 | Write dashboard-d01-platform-overview.md | **Done** | `docs/specs/observability-foundation/mvp/dashboard-d01-platform-overview.md` |
+| P8.5-6 | Update dashboard-conventions.md §1.2 (UID: ixora-overview → ixora-platform) | **Done** | `docs/specs/observability-foundation/mvp/dashboard-conventions.md` |
+| P8.5-7 | Update tasks.md, plan.md, README.md | **Done** | Roadmap files |
+
+**Phase 8.5 implementation notes:**
+
+- First Overview/Platform dashboard provisioned: D-01 Platform Overview (32 panels: 5 row headers + 27 content panels across 5 sections).
+- **Sections:** Platform Health (100–105), Business Summary (200–204), Application Summary (300–304), Infrastructure Summary (400–405), Navigation (500–504).
+- **All metrics reused from existing verified dashboards** — no new metric names introduced. HTTP from D-05, Queue from D-04, Scheduler from D-06, Smart Home from D-02, Collector/Prometheus from D-07.
+- **UID discrepancy:** `dashboard-conventions.md §1.2` planned `ixora-overview`; Phase 8.5 spec requires `ixora-platform`. Used `ixora-platform` per implementation spec; conventions updated.
+- **Navigation panels** (Section 5): text-type panels with markdown links using stable UID-style URLs only. Check 38 validates no numeric IDs across all 6 dashboards.
+- **Infrastructure panels not filtered by `$environment`**: `otelcol_*` and `up{job=...}` are platform-wide; `ixora_telemetry_export_failed_total` uses `deployment_environment` label (consistent with D-07).
+- **D-03 Push Notifications absent**: `ixora_push_delivery_total` not yet implemented (Phase 7B.5). D-01 Business Summary can be extended when D-03 ships.
+- Validation extended: Checks 34–42 (JSON syntax, UID, provisioned+folder, datasource refs, link style, panel ID uniqueness, panel ID ranges, description completeness, datasource UID completeness). Total: **42/42 PASS**.
+- Restart idempotency verified: `docker compose restart grafana` → 42/42 PASS.
+
+**Branch:** `feature/observability-platform-overview-dashboard`
+
+---
 
 **Prerequisite:** Phase 7B.1 (HTTP + Routing).
 
