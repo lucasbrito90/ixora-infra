@@ -1,0 +1,113 @@
+# ============================================================
+# Ixora Observability Platform — Grafana Dashboard Providers
+# Phase 8.1 — Grafana Foundation
+#
+# This file defines how Grafana discovers and loads dashboard JSON
+# files from the filesystem. It does NOT contain dashboards.
+#
+# Dashboard JSON files are added in Phase 9 (one per dashboard D-01→D-07).
+# See: dashboard-requirements.md for the complete panel inventory.
+#
+# FOLDER STRATEGY:
+#   Grafana creates a folder for each provider when it finds at least
+#   one dashboard JSON file in the configured path. The folder name
+#   and UID defined here are the authoritative values — never change
+#   them after Phase 9 deployment (dashboard links break).
+#
+# FOLDER HIERARCHY (matches dashboard-requirements.md §1):
+#
+#   Infrastructure  (folderUID: ixora-folder-infrastructure)
+#     └── D-07 Collector & Infrastructure
+#
+#   Application     (folderUID: ixora-folder-application)
+#     ├── D-04 Queue Workers
+#     ├── D-05 HTTP API
+#     └── D-06 Scheduler
+#
+#   Business        (folderUID: ixora-folder-business)
+#     ├── D-02 Smart Home
+#     └── D-03 Push Notifications (Phase 7B.5)
+#
+#   Overview        (folderUID: ixora-folder-overview)
+#     └── D-01 Platform Overview
+#
+# IMPLEMENTATION ORDER (Phase 9):
+#   D-07 → D-04 → D-05 → D-06 → D-02 → D-01 → D-03
+#
+# POLICY:
+#   - disableDeletion: true — dashboards removed from filesystem are
+#     not deleted from Grafana UI (prevents accidental loss during
+#     rolling deploy). Set to false only during intentional cleanup.
+#   - allowUiUpdates: false — all changes must go through git and be
+#     redeployed. Prevents drift between filesystem and Grafana state.
+#   - updateIntervalSeconds: 60 — Grafana polls for new/changed JSON
+#     every 60 seconds. Adjust if CI/CD deploy time requires faster pickup.
+# ============================================================
+
+apiVersion: 1
+
+providers:
+
+  # ----------------------------------------------------------
+  # Infrastructure folder
+  # Target dashboards: D-07 Collector & Infrastructure
+  # Phase 9 implementation order: FIRST
+  # ----------------------------------------------------------
+  - name: infrastructure-provider
+    orgId: 1
+    folder: Infrastructure
+    folderUID: ixora-folder-infrastructure
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 60
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/infrastructure
+
+  # ----------------------------------------------------------
+  # Application folder
+  # Target dashboards: D-04 Queue Workers, D-05 HTTP API, D-06 Scheduler
+  # Phase 9 implementation order: SECOND (D-04, D-05, D-06)
+  # ----------------------------------------------------------
+  - name: application-provider
+    orgId: 1
+    folder: Application
+    folderUID: ixora-folder-application
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 60
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/application
+
+  # ----------------------------------------------------------
+  # Business folder
+  # Target dashboards: D-02 Smart Home, D-03 Push Notifications
+  # Phase 9 implementation order: FIFTH (D-02), post-Phase-7B.5 (D-03)
+  # ----------------------------------------------------------
+  - name: business-provider
+    orgId: 1
+    folder: Business
+    folderUID: ixora-folder-business
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 60
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/business
+
+  # ----------------------------------------------------------
+  # Overview folder
+  # Target dashboards: D-01 Platform Overview
+  # Phase 9 implementation order: SIXTH (D-01)
+  # ----------------------------------------------------------
+  - name: overview-provider
+    orgId: 1
+    folder: Overview
+    folderUID: ixora-folder-overview
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 60
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/overview

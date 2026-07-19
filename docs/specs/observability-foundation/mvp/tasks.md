@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + **8.0** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + **Dashboard Requirements**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + **8.1** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + **Grafana Foundation & Provisioning**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -46,6 +46,7 @@
 | 7B.4.8 — Telemetry Validation & Architecture Review | 0 | 0 | 7 | 0 |
 | 7B.4.9 — Business Telemetry Foundation Baseline | 0 | 0 | 5 | 0 |
 | 8.0 — Dashboard Requirements Review | 0 | 0 | 4 | 0 |
+| 8.1 — Grafana Foundation & Provisioning | 0 | 0 | 7 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -762,6 +763,35 @@
 - **Next:** Phase 7B.5 — Push Notifications Business Telemetry.
 
 **Branch:** `feature/observability-dashboard-requirements`
+
+---
+
+## Phase 8.1 — Grafana Foundation & Provisioning
+
+**Prerequisite:** dashboard-requirements.md (Phase 8.0), Prometheus/Loki/Tempo healthy (Phases 4–6).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.1-1 | Read mandatory docs: dashboard-requirements, business-telemetry-foundation, metrics/traces/logs-philosophy, telemetry-decision-guide, telemetry-naming-convention; review Collector/docker-compose/OpenTofu infrastructure | **Done** | All docs in §1 of grafana-foundation.md |
+| P8.1-2 | Implement provisioning: grafana/ directory, datasources.yaml (stable UIDs), providers.yaml (4 folder providers), activate Grafana service in docker-compose.yml, update .env.example | **Done** | `collector/grafana/provisioning/datasources/datasources.yaml`, `collector/grafana/provisioning/dashboards/providers.yaml`, `collector/docker-compose.yml` |
+| P8.1-3 | Fix Tempo 2.6.0 and Loki 3.2.0 config files (9 deprecated/renamed fields) blocking container startup | **Done** | `collector/tempo/tempo.yaml`, `collector/loki/loki.yaml` |
+| P8.1-4 | Start Grafana, validate 12/12 checks (health, UIDs, defaults, connectivity, read-only, count), confirm idempotent post-restart | **Done** | `collector/grafana/validate.sh` — 12/12 PASS (initial + restart) |
+| P8.1-5 | Write grafana-foundation.md (provisioning arch, datasource strategy, folder strategy, dashboard-as-code standard, variables, navigation, plugins, security, environment strategy, extensibility) | **Done** | `grafana-foundation.md` |
+| P8.1-6 | Update tasks.md, plan.md, README.md | **Done** | Roadmap files |
+| P8.1-7 | Git flow: commit → develop → staging → push → back to develop | **Done** | `feature/observability-grafana-foundation` |
+
+**Phase 8.1 implementation notes:**
+
+- Grafana OSS 11.3.0 active on `127.0.0.1:3000` via Docker Compose.
+- Three datasources provisioned with stable UIDs: `ixora-prometheus` (default), `ixora-loki`, `ixora-tempo`.
+- Cross-signal linking wired: Prometheus→Tempo exemplars, Loki derived fields for `trace_id`→Tempo, Tempo→Loki/Prometheus drill-down.
+- Four folder providers defined: Infrastructure (`ixora-folder-infrastructure`), Application (`ixora-folder-application`), Business (`ixora-folder-business`), Overview (`ixora-folder-overview`). Folders will be created in Grafana when Phase 9 dashboard JSONs are deployed.
+- All config expressed as env vars in docker-compose.yml — no `grafana.ini` needed.
+- Tempo 2.6.0 config: 6 deprecated fields removed. Loki 3.2.0 config: 3 deprecated fields removed.
+- Validation: 12/12 checks pass on first start and after restart (idempotency confirmed).
+- **Next:** Phase 8.2 — D-07 Collector & Infrastructure dashboard (first Grafana dashboard).
+
+**Branch:** `feature/observability-grafana-foundation`
 
 ---
 

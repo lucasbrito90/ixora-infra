@@ -71,9 +71,7 @@ ingester:
   max_block_duration: 5m
   trace_idle_period: 10s
   max_block_bytes: 1073741824   # 1 GiB — flush if block exceeds this size
-  wal:
-    # WAL resides inside the named volume for durability across restarts.
-    path: /var/tempo/wal
+  # WAL is configured under storage.trace.wal (Tempo 2.6+).
 
 # ============================================================
 # COMPACTOR
@@ -114,12 +112,9 @@ storage:
     wal:
       path: /var/tempo/wal
 
-    # Block encoding — snappy is CPU-efficient for single-VM.
-    # Use zstd if disk space is constrained (higher CPU cost).
+    # Block configuration — Tempo 2.6 uses defaults for encoding/index.
     block:
       bloom_filter_false_positive: 0.05
-      index_downsample_bytes: 1000
-      encoding: snappy
 
     # Pool configuration — limits concurrent block reads.
     pool:
@@ -132,14 +127,11 @@ storage:
 # Grafana (Phase 9) queries Tempo via this endpoint.
 # ============================================================
 query_frontend:
-  search:
-    # Duration of trace search queries — cap to avoid runaway queries.
-    query_timeout: 30s
-    # Duration of search tags requests.
-    query_tags_timeout: 30s
-  trace_by_id:
-    # Timeout for single-trace lookup (trace_id → spans).
-    query_timeout: 10s
+  # max_batch_size must be positive (Tempo 2.6 requirement).
+  max_batch_size: 5
+  # Query timeouts are configured via server settings in Tempo 2.6+.
+  # Explicit sub-block timeout fields (query_timeout, query_tags_timeout)
+  # were removed from query_frontend in Tempo 2.6.
 
 # ============================================================
 # QUERIER
@@ -173,31 +165,16 @@ metrics_generator:
   #     ...
 
 # ============================================================
-# SEARCH
-# TraceQL and tag-based search configuration.
-# Controls how traces are indexed for Grafana Explore queries.
-# ============================================================
-search:
-  # Maximum duration of a trace that is eligible for search.
-  max_duration: 0s     # 0 = unlimited
-  # Bytes of trace data read per second during search.
-  # Limit protects CPU on the single VM.
-  read_rate_limit_bytes: 104857600   # 100 MiB/s
-
-# ============================================================
 # OVERRIDES (per-tenant limits)
 # Single-tenant MVP — all limits apply to the default tenant.
+# Tempo 2.6: overrides uses flat key-value fields, not a nested
+# `defaults` block (which was removed in the legacyConfig API).
 # ============================================================
 overrides:
-  defaults:
-    # Maximum bytes of trace data received per second (ingestion limit).
-    ingestion:
-      rate_limit_bytes: 15000000    # 15 MiB/s
-      burst_size_bytes: 20000000    # 20 MiB/s burst
-      max_traces_per_user: 10000   # Active traces in ingester
-    # Maximum bytes of data returned by a search request.
-    read:
-      max_bytes_per_trace: 5000000  # 5 MiB per trace result
+  ingestion_rate_limit_bytes: 15000000    # 15 MiB/s
+  ingestion_burst_size_bytes: 20000000    # 20 MiB/s burst
+  max_traces_per_user: 10000             # Active traces in ingester
+  max_bytes_per_trace: 5000000           # 5 MiB per trace result
 
 # ============================================================
 # ANALYTICS

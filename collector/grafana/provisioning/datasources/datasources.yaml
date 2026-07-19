@@ -1,0 +1,132 @@
+# ============================================================
+# Ixora Observability Platform — Grafana Datasource Provisioning
+# Phase 8.1 — Grafana Foundation
+#
+# ADRs:
+#   ADR-028 — Collector-only ingestion; Grafana reads from backends only
+#   ADR-029 — Telemetry data model; datasource names follow §11 conventions
+#   ADR-030 — No PII in datasource config or query templates
+#   ADR-031 — Retention limits annotated per datasource
+#
+# KEY CONSTRAINTS:
+#   - UIDs are IMMUTABLE once deployed. Dashboards reference these UIDs.
+#     Changing a UID is a BREAKING CHANGE requiring dashboard migration.
+#   - editable: false prevents UI-driven changes that would not survive
+#     a Grafana recreation. All changes must go through this file.
+#   - All datasources use proxy access — the Grafana server proxies
+#     queries to backends via the Docker Compose network. The browser
+#     never connects to Prometheus/Loki/Tempo directly.
+#   - Datasource names follow telemetry-naming-convention.md §11:
+#     Title case, platform prefix.
+#
+# DATASOURCE UIDS (STABLE — NEVER CHANGE):
+#   Prometheus  →  ixora-prometheus
+#   Loki        →  ixora-loki
+#   Tempo       →  ixora-tempo
+# ============================================================
+
+apiVersion: 1
+
+datasources:
+
+  # ----------------------------------------------------------
+  # Prometheus — Metrics
+  # Retention: 30 days (ADR-031 §MVP retention)
+  # Scrape interval: 30s (prometheus.yml global.scrape_interval)
+  # Default datasource: yes — most panels are metric-based
+  # Exemplars: Prometheus → Tempo drill-down via trace_id label
+  # ----------------------------------------------------------
+  - name: Prometheus
+    type: prometheus
+    uid: ixora-prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    version: 1
+    editable: false
+    jsonData:
+      # Match the Prometheus scrape interval so Grafana auto-fills
+      # panel min-step correctly. Change if prometheus.yml changes.
+      timeInterval: "30s"
+      # POST is preferred for long PromQL expressions (avoids URL length limit).
+      httpMethod: POST
+      # Exemplar linking: Prometheus exemplars carry a trace_id label.
+      # Clicking an exemplar opens the corresponding Tempo trace.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: ixora-tempo
+
+  # ----------------------------------------------------------
+  # Loki — Logs
+  # Retention: 14 days (ADR-031 §MVP retention)
+  # Correlation: every log line carries trace_id / span_id via
+  #              TraceCorrelationLogTap (Phase 7A)
+  # derivedFields: extract trace_id from JSON logs and link to Tempo
+  # ----------------------------------------------------------
+  - name: Loki
+    type: loki
+    uid: ixora-loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    version: 1
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        # Extract trace_id from structured JSON log lines.
+        # Matches: "trace_id":"<hex>" (all Laravel logs via TraceCorrelationLogTap)
+        - name: trace_id
+          matcherRegex: '"trace_id"\s*:\s*"([a-f0-9]+)"'
+          url: "${__value.raw}"
+          # Opens the trace in Tempo using the stable datasource UID.
+          datasourceUid: ixora-tempo
+          urlDisplayLabel: "Open in Tempo"
+
+  # ----------------------------------------------------------
+  # Tempo — Traces
+  # Retention: 7 days (ADR-031 §MVP retention)
+  # TraceQL: supported in Tempo 2.x (Phase 6)
+  # Trace → Log: links span's trace_id to Loki query
+  # Trace → Metrics: links span's service.name to Prometheus
+  # ----------------------------------------------------------
+  - name: Tempo
+    type: tempo
+    uid: ixora-tempo
+    access: proxy
+    url: http://tempo:3200
+    isDefault: false
+    version: 1
+    editable: false
+    jsonData:
+      httpMethod: GET
+      # Trace → Logs: clicking on a span opens correlated Loki logs.
+      # The query filters by service.name tag and trace_id field
+      # (TraceCorrelationLogTap injects trace_id into every log line).
+      tracesToLogsV2:
+        datasourceUid: ixora-loki
+        filterByTraceID: true
+        filterBySpanID: false
+        customQuery: true
+        query: '{service_name="${__span.tags["service.name"]}"} | json | trace_id="${__trace.traceId}"'
+      # Trace → Metrics: links to Prometheus for the same service/time window.
+      tracesToMetrics:
+        datasourceUid: ixora-prometheus
+        tags:
+          - key: service.name
+            value: service_name
+        queries:
+          - name: "Error Rate"
+            query: 'sum(rate(ixora_http_server_duration_count{service_name="$__tags{service_name}",http_status_code=~"5.."}[5m]))'
+      # Service map: topology graph sourced from Prometheus.
+      serviceMap:
+        datasourceUid: ixora-prometheus
+      # Node graph visualization — shows span tree visually.
+      nodeGraph:
+        enabled: true
+      # TraceQL search — required for Phase 9 Explore panels.
+      search:
+        hide: false
+      # Loki integration for log search from Tempo UI.
+      lokiSearch:
+        datasourceUid: ixora-loki
