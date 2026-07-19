@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 8.0 complete — Dashboard Requirements Review complete (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline also complete)  
+**Status:** Phase 8.1 complete — Grafana Foundation & Provisioning (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -43,7 +43,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ❌ Not deployed — Phase 9 |
-| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard, documentation-only) — Phase 7B.4.9; ✅ Dashboard Requirements Review (7 dashboards defined, 6 investigation workflows, Phase 9 checklist, documentation-only) — Phase 8.0 |bt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard generalized from Smart Home reference, documentation-only) — Phase 7B.4.9; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
+| **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard, documentation-only) — Phase 7B.4.9; ✅ Dashboard Requirements Review (7 dashboards defined, 6 investigation workflows, Phase 9 checklist, documentation-only) — Phase 8.0; ✅ Grafana Foundation & Provisioning (Grafana active, 3 datasources provisioned, stable UIDs, 4 folder providers, 12/12 validation checks, Tempo/Loki config fixes) — Phase 8.1 |bt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard generalized from Smart Home reference, documentation-only) — Phase 7B.4.9; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
 
@@ -714,6 +714,30 @@ No Smart Home-specific assumptions remain — Smart Home is the validated refere
 - **Phase 9 checklist (§15):** Implementation checklist for Grafana dashboard construction.
 
 **Branch:** `feature/observability-dashboard-requirements`
+
+---
+
+#### Phase 8.1 — Grafana Foundation & Provisioning — **Complete**
+
+**Goal:** Activate Grafana OSS as a fully provisioned, version-controlled, environment-independent platform. Grafana can be destroyed and recreated with no manual configuration.
+
+**Mandatory review (performed before implementation):** Read `dashboard-requirements.md`, `business-telemetry-foundation.md`, `metrics-philosophy.md`, `logs-philosophy.md`, `traces-philosophy.md`, `telemetry-decision-guide.md`, `telemetry-naming-convention.md`. Reviewed all Collector/Prometheus/Loki/Tempo configs and docker-compose.yml.
+
+**Runtime changes:**
+- `docker-compose.yml` — Grafana service activated (replaced Phase 9 stub comment).
+- `collector/grafana/provisioning/datasources/datasources.yaml` — 3 datasources with stable UIDs (`ixora-prometheus`, `ixora-loki`, `ixora-tempo`), Tempo→Loki/Prometheus drill-down links, Prometheus→Tempo exemplar links, Loki derived fields for `trace_id` → Tempo.
+- `collector/grafana/provisioning/dashboards/providers.yaml` — 4 folder providers (Infrastructure, Application, Business, Overview) with stable `folderUID`s.
+- `collector/grafana/provisioning/dashboards/{infrastructure,application,business,overview}/` — directory structure for Phase 9 dashboard JSONs.
+- `collector/grafana/validate.sh` — 12-check validation script confirming health, UIDs, defaults, connectivity, read-only status, and datasource count.
+- `.env.example` — Grafana variables added (`GRAFANA_VERSION`, `GF_ADMIN_*`, `GF_SERVER_ROOT_URL`, etc.).
+- `collector/tempo/tempo.yaml` — Fixed 6 config fields removed/renamed in Tempo 2.6.0 (`ingester.wal`, `block.encoding`, `query_frontend` sub-timeouts, top-level `search` block, `overrides.defaults`).
+- `collector/loki/loki.yaml` — Fixed 3 config fields removed/renamed in Loki 3.2.0 (`limits_config.max_label_names`, `querier.query_timeout`, `ingester.wal.recover_from_wal`).
+
+**Documentation:** [`grafana-foundation.md`](grafana-foundation.md) covering provisioning architecture, datasource strategy (stable UIDs, drill-down wiring), folder strategy, dashboard-as-code standard, platform variables strategy, navigation strategy, plugin policy, security review, environment strategy, backend config fixes, extensibility, validation results (12/12), known limitations, and Phase 8.2 recommendations.
+
+**Validation:** `./grafana/validate.sh` → **12/12 PASS** (initial start + post-restart idempotency confirmation).
+
+**Branch:** `feature/observability-grafana-foundation`
 
 ---
 

@@ -1,24 +1,23 @@
 # ============================================================
 # Ixora Observability Platform — Docker Compose
-# Phase 6 — Tempo Trace Backend
+# Phase 8.1 — Grafana Foundation
 #
 # Active services:
 #   collector   — OpenTelemetry Collector (Phase 3)
 #   prometheus  — Prometheus TSDB, 30-day retention (Phase 4)
 #   loki        — Loki log aggregation, 14-day retention (Phase 5)
 #   tempo       — Tempo distributed tracing, 7-day retention (Phase 6)
-#
-# Stubbed for later phases:
-#   grafana     — Phase 9
+#   grafana     — Grafana visualization platform (Phase 8.1)
 #
 # Usage:
 #   cp .env.example .env  && fill secrets
-#   docker compose up -d collector prometheus loki tempo
-#   docker compose ps
+#   docker compose up -d
 #   curl http://localhost:13133/health        # Collector
 #   curl http://localhost:9090/-/healthy      # Prometheus
 #   curl http://localhost:3100/ready          # Loki
 #   curl http://localhost:3200/ready          # Tempo
+#   curl http://localhost:3000/api/health     # Grafana
+#   ./grafana/validate.sh                     # Phase 8.1 validation
 # ============================================================
 
 # ============================================================
@@ -384,21 +383,130 @@ services:
         max-file: "3"
 
   # ============================================================
-  # PHASE 9 STUB — Grafana
+  # PHASE 8.1 — Grafana Foundation
+  # ADR-028: internal only; never publicly reachable.
+  # ADR-030: anonymous access disabled; admin credentials from .env.
+  # Security: bound to 127.0.0.1 on the host; accessible via
+  #           reverse proxy (Caddy/nginx) for remote access.
+  #           All datasources are accessed via proxy mode — the
+  #           browser never connects to Prometheus/Loki/Tempo.
+  # Provisioning: datasources + dashboard providers loaded from
+  #               ./grafana/provisioning (read-only bind mount).
+  #               Grafana is fully reproducible from this directory.
   # ============================================================
-  # grafana:
-  #   image: "grafana/grafana-oss:11.3.0"
-  #   container_name: ixora-grafana
-  #   restart: unless-stopped
-  #   environment:
-  #     GF_SECURITY_ADMIN_USER: "${GF_ADMIN_USER:-admin}"
-  #     GF_SECURITY_ADMIN_PASSWORD: "${GF_ADMIN_PASSWORD}"
-  #     GF_AUTH_ANONYMOUS_ENABLED: "false"
-  #     GF_SERVER_ROOT_URL: "https://grafana-staging.ixora-app.app"
-  #   volumes:
-  #     - grafana_data:/var/lib/grafana
-  #     - ./grafana/provisioning:/etc/grafana/provisioning:ro
-  #   networks:
-  #     - observability
-  #   ports:
-  #     - "127.0.0.1:3000:3000"
+  grafana:
+    # Pin to a specific release — never use :latest in infra.
+    # Update GRAFANA_VERSION in .env to upgrade.
+    image: "grafana/grafana-oss:${GRAFANA_VERSION:-11.3.0}"
+    container_name: ixora-grafana
+    restart: unless-stopped
+
+    environment:
+      # ---- Admin credentials (from .env — never hardcode) ----
+      GF_SECURITY_ADMIN_USER: "${GF_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GF_ADMIN_PASSWORD}"
+
+      # ---- Server ----
+      # Root URL must match the public address so redirect links work.
+      # Development: http://localhost:3000
+      # Staging: https://grafana-staging.ixora-app.app
+      GF_SERVER_ROOT_URL: "${GF_SERVER_ROOT_URL:-http://localhost:3000}"
+      GF_SERVER_HTTP_PORT: "3000"
+
+      # ---- Authentication ----
+      # Anonymous access disabled — every user must authenticate.
+      # Basic auth enabled for API access (validation scripts, CI).
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_AUTH_BASIC_ENABLED: "true"
+      # Disable the login form in future if OAuth/SSO is configured.
+      # GF_AUTH_DISABLE_LOGIN_FORM: "false"
+
+      # ---- Analytics / external calls ----
+      # Disable all Grafana telemetry and update checks.
+      # Prevents unexpected outbound connections from the VM.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_ANALYTICS_FEEDBACK_LINKS_ENABLED: "false"
+
+      # ---- Security ----
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      # Set to true when Grafana is served over HTTPS (staging/prod).
+      GF_SECURITY_COOKIE_SECURE: "${GF_SECURITY_COOKIE_SECURE:-false}"
+      # SameSite cookie policy — strict for production.
+      GF_SECURITY_COOKIE_SAMESITE: "${GF_SECURITY_COOKIE_SAMESITE:-lax}"
+
+      # ---- Logging ----
+      # warn in production to reduce log volume; info for debugging.
+      GF_LOG_LEVEL: "${GF_LOG_LEVEL:-warn}"
+      GF_LOG_MODE: "console"
+
+      # ---- Provisioning ----
+      GF_PATHS_PROVISIONING: "/etc/grafana/provisioning"
+
+      # ---- Users ----
+      # Disable self-registration — all accounts are admin-managed.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_AUTO_ASSIGN_ORG: "true"
+      GF_USERS_AUTO_ASSIGN_ORG_ROLE: "Viewer"
+
+      # ---- Deployment environment (informational) ----
+      GF_ENVIRONMENT: "${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}"
+
+    volumes:
+      # Persistent Grafana data (SQLite DB, sessions, alert state).
+      # Survives container recreation — datasources & dashboards are
+      # provisioned, so only user preferences are truly stateful here.
+      - grafana_data:/var/lib/grafana
+
+      # Provisioning directory — read-only bind mount.
+      # datasources.yaml and dashboard providers are loaded from here.
+      # Changes require a Grafana restart to take effect.
+      - type: bind
+        source: ./grafana/provisioning
+        target: /etc/grafana/provisioning
+        read_only: true
+
+    ports:
+      # Internal only — accessible from host for ops debugging and
+      # reverse proxy forwarding. Firewall MUST block port 3000 from
+      # the internet; expose only via Caddy/nginx HTTPS termination.
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+
+    networks:
+      # Same bridge as all other backends — Grafana reaches
+      # Prometheus at http://prometheus:9090, Loki at http://loki:3100,
+      # Tempo at http://tempo:3200 via service-name DNS resolution.
+      - observability
+
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "256M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
