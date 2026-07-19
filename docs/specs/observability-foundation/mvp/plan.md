@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 8.2 complete — D-07 Infrastructure Dashboard (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation also complete)  
+**Status:** Phase 8.3 complete — Application Infrastructure Dashboards (D-04 Queue Workers, D-05 HTTP API, D-06 Scheduler) (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -42,7 +42,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **Product observability (automation)** | ✅ Shipped — execution rows + worker logs ([ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md)) |
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
-| **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2 |
+| **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2; ✅ D-04 Queue Workers + D-05 HTTP API + D-06 Scheduler — Phase 8.3 |
 | **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard, documentation-only) — Phase 7B.4.9; ✅ Dashboard Requirements Review (7 dashboards defined, 6 investigation workflows, Phase 9 checklist, documentation-only) — Phase 8.0; ✅ Grafana Foundation & Provisioning (Grafana active, 3 datasources provisioned, stable UIDs, 4 folder providers, 12/12 validation checks, Tempo/Loki config fixes) — Phase 8.1 |bt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard generalized from Smart Home reference, documentation-only) — Phase 7B.4.9; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
@@ -761,7 +761,32 @@ No Smart Home-specific assumptions remain — Smart Home is the validated refere
 
 **Branch:** `feature/observability-d07-infrastructure`
 
-**Goal:** Manual spans for push delivery, `ixora.push.*` metrics — no device tokens, Firebase UIDs, or notification body content in labels or attributes.
+---
+
+#### Phase 8.3 — Application Infrastructure Dashboards — **Complete**
+
+**Goal:** Implement application-runtime dashboards for HTTP API, Queue Workers, and Scheduler. Establish permanent Grafana conventions documented in `dashboard-conventions.md`.
+
+**Mandatory review (performed before implementation):** Read ADRs 028–031, all observability philosophy docs, grafana-foundation.md, dashboard-requirements.md, dashboard-d07-infrastructure.md, all HTTP/Queue/Scheduler metric implementations (`HttpRequestTelemetry.php`, `QueueExecutionTelemetry.php`, `SchedulerExecutionTelemetry.php`).
+
+**Architecture findings:**
+- Scheduler metric names in `dashboard-requirements.md §8` were incorrect pre-implementation placeholders. Actual names: `ixora.scheduler.event.total` / `ixora.scheduler.event.duration`. Outcomes: `success`, `failed`, `overlap_prevented`, `skipped`, `background_completed`.
+- HTTP metrics use `status_code_class` (2xx/4xx/5xx), not individual status codes. Individual 401/403 isolation requires Tempo drill-down.
+- Queue label is `job_name` (not `job`). `ixora_queue_job_active` UpDownCounter available.
+
+**Runtime changes:**
+- `collector/grafana/provisioning/dashboards/application/d05-http.json` — D-05 HTTP API (15 panels, uid=`ixora-http`, Application folder, `ixora-prometheus`).
+- `collector/grafana/provisioning/dashboards/application/d04-queue.json` — D-04 Queue Workers (17 panels, uid=`ixora-queue`, Application folder, `ixora-prometheus`).
+- `collector/grafana/provisioning/dashboards/application/d06-scheduler.json` — D-06 Scheduler (17 panels, uid=`ixora-scheduler`, Application folder, `ixora-prometheus`).
+- `collector/grafana/validate.sh` — Extended with Check 25 (UID uniqueness across all dirs) and Check 26 (all UIDs start with `ixora-`). Total: 26/26 PASS.
+
+**Documentation:**
+- `dashboard-conventions.md` — Permanent Grafana standard: UID convention, folder convention, datasource convention, refresh convention, time range convention, variable convention, panel convention, panel ID ranges (100–199 Health, 200–299 Throughput, 300–399 Errors, 400–499 Performance, 500–599 Business), JSON standards, security convention, validation requirements, navigation convention, known limitations.
+- `dashboard-d05-http.md`, `dashboard-d04-queue.md`, `dashboard-d06-scheduler.md`.
+
+**Validation:** `./grafana/validate.sh` → **26/26 PASS** (initial start + post-restart idempotency confirmation).
+
+**Branch:** `feature/observability-application-dashboards`
 
 ---
 

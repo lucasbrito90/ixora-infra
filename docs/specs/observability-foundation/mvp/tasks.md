@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + **8.2** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + **D-07 Infrastructure Dashboard**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + **8.3** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + **Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler)**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -48,6 +48,7 @@
 | 8.0 — Dashboard Requirements Review | 0 | 0 | 4 | 0 |
 | 8.1 — Grafana Foundation & Provisioning | 0 | 0 | 7 | 0 |
 | 8.2 — D-07 Infrastructure Dashboard | 0 | 0 | 7 | 0 |
+| 8.3 — Application Infrastructure Dashboards | 0 | 0 | 9 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -817,6 +818,34 @@
 - All datasource references use `ixora-prometheus` UID — no name-based references.
 - Grafana 11.3 limitation: folder UIDs are auto-generated on first creation (folder **names** are stable). Documented in KL-1 of dashboard-d07-infrastructure.md.
 - Three pre-existing infrastructure bugs fixed: Loki exporter `labels` key removed (OTel 0.115.x), endpoint env vars added to docker-compose, Tempo host port changed to `14317` to avoid Collector OTLP port conflict.
+
+---
+
+## Phase 8.3 — Application Infrastructure Dashboards
+
+**Prerequisite:** dashboard-conventions.md (Phase 8.3), grafana-foundation.md (Phase 8.1), dashboard-requirements.md §6–8 (Phase 8.0).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.3-1 | Architecture review: verify all HTTP/Queue/Scheduler metrics against implementation; discover discrepancies with dashboard-requirements.md | **Done** | `HttpRequestTelemetry.php`, `QueueExecutionTelemetry.php`, `SchedulerExecutionTelemetry.php` |
+| P8.3-2 | Create dashboard-conventions.md (permanent Grafana standard: UIDs, folders, datasources, refresh, time range, variables, panels, panel IDs, JSON standards, security, navigation) | **Done** | `docs/specs/observability-foundation/mvp/dashboard-conventions.md` |
+| P8.3-3 | Implement d05-http.json (D-05 HTTP API, 15 panels, uid=ixora-http, Application folder, ixora-prometheus) | **Done** | `collector/grafana/provisioning/dashboards/application/d05-http.json` |
+| P8.3-4 | Implement d04-queue.json (D-04 Queue Workers, 17 panels, uid=ixora-queue, Application folder, ixora-prometheus) | **Done** | `collector/grafana/provisioning/dashboards/application/d04-queue.json` |
+| P8.3-5 | Implement d06-scheduler.json (D-06 Scheduler, 17 panels, uid=ixora-scheduler, Application folder, ixora-prometheus) | **Done** | `collector/grafana/provisioning/dashboards/application/d06-scheduler.json` |
+| P8.3-6 | Extend validate.sh with Check 25 (UID uniqueness) and Check 26 (UID naming); verify 26/26 PASS + restart idempotency | **Done** | `collector/grafana/validate.sh` — 26/26 PASS (initial + restart) |
+| P8.3-7 | Write dashboard-d05-http.md, dashboard-d04-queue.md, dashboard-d06-scheduler.md | **Done** | `docs/specs/observability-foundation/mvp/` |
+| P8.3-8 | Update tasks.md, plan.md, README.md | **Done** | Roadmap files |
+| P8.3-9 | Git flow: commit → develop → staging → push → back to develop | **Done** | `feature/observability-application-dashboards` |
+
+**Phase 8.3 implementation notes:**
+
+- Three application dashboards provisioned: D-04 Queue Workers, D-05 HTTP API, D-06 Scheduler.
+- **Critical discrepancy found and documented:** `dashboard-requirements.md §8` (Phase 8.0) listed incorrect Scheduler metric names (`ixora.scheduler.execution.total`, `ixora.scheduler.dispatch.duration`) and outcome values (`dispatched`, `skipped_duplicate`). The actual implementation uses `ixora.scheduler.event.total` / `ixora.scheduler.event.duration` and outcomes from `SchedulerOutcome.php` (`success`, `failed`, `overlap_prevented`, etc.). All dashboards use the verified implementation values.
+- Dashboard-as-Code conventions documented in `dashboard-conventions.md` — covers UIDs, folders, datasources, refresh, variables, panel IDs (reserved ranges), JSON standards, and security.
+- Validation extended: Check 25 (UID uniqueness across all dirs), Check 26 (all UIDs start with `ixora-`). Both use single-assertion design to maintain 26 total pass count.
+- HTTP `status_code_class` label used (`2xx`, `4xx`, `5xx`) — individual status code isolation (401/403) requires Tempo drill-down. Documented in D-05 and conventions.
+- Queue `job_name` label (not `job` as dashboard-requirements.md stated). `ixora_queue_job_active` UpDownCounter available for active job count.
+- All three Application folder dashboards include navigation links to each other and to D-07 Infrastructure.
 - Validation: 24/24 checks pass on first start and after restart.
 - Dashboard UID `ixora-collector` establishes the standard for all future dashboards (see §5 of dashboard-d07-infrastructure.md).
 
