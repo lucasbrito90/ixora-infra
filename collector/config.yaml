@@ -329,10 +329,13 @@ exporters:
       job: true
       instance: false
       level: true
-    labels:
-      resource:
-        service.name: "service_name"
-        deployment.environment: "deployment_environment"
+    # Resource attribute → Loki stream label promotion:
+    # In OTel Collector 0.115+, the `labels.resource` key was removed from
+    # the Loki exporter. Resource attributes are promoted to Loki stream
+    # labels via `default_labels_enabled.job` (maps service.name → job label)
+    # and via the `loki.attribute.labels` hint set by the transform processor.
+    # The deployment_environment attribute flows as a log body field, which
+    # is sufficient for Loki filtering: {job="back_vibes-worker"} | json.
 
   # ----------------------------------------------------------
   # OTLP / TEMPO EXPORTER — Phase 6 (active)
