@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + **7B.4.9** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + **Business Telemetry Foundation Baseline**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + **8.0** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + **Dashboard Requirements**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -45,6 +45,7 @@
 | 7B.4.7 — Business Logging | 0 | 0 | 8 | 0 |
 | 7B.4.8 — Telemetry Validation & Architecture Review | 0 | 0 | 7 | 0 |
 | 7B.4.9 — Business Telemetry Foundation Baseline | 0 | 0 | 5 | 0 |
+| 8.0 — Dashboard Requirements Review | 0 | 0 | 4 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -733,9 +734,34 @@
 - Generalizes the validated Smart Home architecture (Phases 7B.4.1–7B.4.8) into platform-wide Business Telemetry standards.
 - No Smart Home-specific assumptions remain — all rules stated in domain-neutral terms with Smart Home as reference implementation only.
 - Future domains (Push Notifications, Marketplace, AI, Matter, Google Home, Alexa) can implement Business Telemetry by following this foundation without redefining architecture.
-- **Next:** Phase 7B.5 — Push Notifications.
+- **Next:** Phase 8.0 — Dashboard Requirements Review.
 
 **Branch:** `feature/observability-business-telemetry-foundation`
+
+---
+
+## Phase 8.0 — Dashboard Requirements Review
+
+**Prerequisite:** business-telemetry-foundation.md (Phase 7B.4.9), backend-business-telemetry-validation.md (Phase 7B.4.8), metrics-philosophy.md, logs-philosophy.md, traces-philosophy.md, telemetry-decision-guide.md.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.0-1 | Read all mandatory docs: business-telemetry-foundation, metrics-philosophy, logs-philosophy, traces-philosophy, telemetry-decision-guide, backend-business-telemetry-validation | **Done** | Docs listed in §1 of dashboard-requirements.md |
+| P8.0-2 | Produce dashboard inventory (D-01 → D-07) with audience, purpose, and implementation order | **Done** | `dashboard-requirements.md §1` |
+| P8.0-3 | Design every dashboard: panels, signals, drill-down workflows, refresh intervals, future expansion | **Done** | `dashboard-requirements.md §3–9` |
+| P8.0-4 | Document Metric → Trace → Log investigation workflows for every operational scenario + operational questions mapping | **Done** | `dashboard-requirements.md §10–11` |
+
+**Phase 8.0 implementation notes:**
+
+- Documentation-only phase — no Grafana JSON, no PromQL, no dashboard implementation.
+- Defined 7 dashboards (D-01 Platform Overview, D-02 Smart Home, D-03 Push Notifications, D-04 Queue Workers, D-05 HTTP API, D-06 Scheduler, D-07 Collector & Infrastructure).
+- Mapped all available signals (metrics, spans, logs) to dashboard panels.
+- Documented 6 investigation workflows covering every major operational scenario.
+- Identified deferred panels and their blockers (TD-2 `action_type` label, TD-3 guard-clause metric, Phase 7B.5 Push signals).
+- Phase 9 implementation checklist included in §15 for Grafana dashboard construction.
+- **Next:** Phase 7B.5 — Push Notifications Business Telemetry.
+
+**Branch:** `feature/observability-dashboard-requirements`
 
 ---
 
