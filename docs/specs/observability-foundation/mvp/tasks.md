@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + **8.1** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + **Grafana Foundation & Provisioning**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + **8.2** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + **D-07 Infrastructure Dashboard**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -47,6 +47,7 @@
 | 7B.4.9 — Business Telemetry Foundation Baseline | 0 | 0 | 5 | 0 |
 | 8.0 — Dashboard Requirements Review | 0 | 0 | 4 | 0 |
 | 8.1 — Grafana Foundation & Provisioning | 0 | 0 | 7 | 0 |
+| 8.2 — D-07 Infrastructure Dashboard | 0 | 0 | 7 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
 | 8 — Frontend SDK | 5 | 0 | 0 | 0 |
@@ -792,6 +793,34 @@
 - **Next:** Phase 8.2 — D-07 Collector & Infrastructure dashboard (first Grafana dashboard).
 
 **Branch:** `feature/observability-grafana-foundation`
+
+---
+
+## Phase 8.2 — D-07 Infrastructure Dashboard
+
+**Prerequisite:** grafana-foundation.md (Phase 8.1), dashboard-requirements.md §9 (Phase 8.0).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.2-1 | Architecture review: read ADRs 028–031, all observability docs, collector config, grafana-foundation, dashboard-requirements | **Done** | Architecture review in dashboard-d07-infrastructure.md §2 |
+| P8.2-2 | Fix 3 pre-existing Collector bugs (Loki exporter labels, missing endpoint env vars, Tempo port conflict) that blocked full-stack startup | **Done** | `collector/config.yaml`, `collector/docker-compose.yml`, `collector/.env`, `collector/.env.example` |
+| P8.2-3 | Implement d07-infrastructure.json (21 panels, uid=ixora-collector, Infrastructure folder, ixora-prometheus datasource only) | **Done** | `collector/grafana/provisioning/dashboards/infrastructure/d07-infrastructure.json` |
+| P8.2-4 | Extend validate.sh to 24 checks: folder names, JSON syntax, UID, provisioning, datasource binding, folder assignment | **Done** | `collector/grafana/validate.sh` — 24/24 PASS (initial + restart) |
+| P8.2-5 | Write dashboard-d07-infrastructure.md (architecture, ownership, panel descriptions, datasource usage, drill-down strategy, known limitations) | **Done** | `docs/specs/observability-foundation/mvp/dashboard-d07-infrastructure.md` |
+| P8.2-6 | Update tasks.md, plan.md, README.md | **Done** | Roadmap files |
+| P8.2-7 | Git flow: commit → develop → staging → push → back to develop | **Done** | `feature/observability-d07-infrastructure` |
+
+**Phase 8.2 implementation notes:**
+
+- D-07 `ixora-collector` dashboard provisioned automatically via file-based provider.
+- 21 panels: Platform Health (5 stats), Metric Export Pipeline (2 time series), Trace & Log Export (2 time series), Error Signals (3 stats), Prometheus Platform (2 stats + 2 time series).
+- All datasource references use `ixora-prometheus` UID — no name-based references.
+- Grafana 11.3 limitation: folder UIDs are auto-generated on first creation (folder **names** are stable). Documented in KL-1 of dashboard-d07-infrastructure.md.
+- Three pre-existing infrastructure bugs fixed: Loki exporter `labels` key removed (OTel 0.115.x), endpoint env vars added to docker-compose, Tempo host port changed to `14317` to avoid Collector OTLP port conflict.
+- Validation: 24/24 checks pass on first start and after restart.
+- Dashboard UID `ixora-collector` establishes the standard for all future dashboards (see §5 of dashboard-d07-infrastructure.md).
+
+**Branch:** `feature/observability-d07-infrastructure`
 
 ---
 

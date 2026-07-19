@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 8.1 complete — Grafana Foundation & Provisioning (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements also complete)  
+**Status:** Phase 8.2 complete — D-07 Infrastructure Dashboard (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -42,7 +42,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **Product observability (automation)** | ✅ Shipped — execution rows + worker logs ([ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md)) |
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
-| **Grafana** | ❌ Not deployed — Phase 9 |
+| **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2 |
 | **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard, documentation-only) — Phase 7B.4.9; ✅ Dashboard Requirements Review (7 dashboards defined, 6 investigation workflows, Phase 9 checklist, documentation-only) — Phase 8.0; ✅ Grafana Foundation & Provisioning (Grafana active, 3 datasources provisioned, stable UIDs, 4 folder providers, 12/12 validation checks, Tempo/Loki config fixes) — Phase 8.1 |bt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard generalized from Smart Home reference, documentation-only) — Phase 7B.4.9; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
@@ -741,7 +741,25 @@ No Smart Home-specific assumptions remain — Smart Home is the validated refere
 
 ---
 
-### Phase 7B.5 — Push Notifications (`back_vibes`)
+#### Phase 8.2 — D-07 Infrastructure Dashboard — **Complete**
+
+**Goal:** Implement the first production Grafana dashboard — D-07 Infrastructure. Validates Phase 8.1 foundation, establishes dashboard JSON standards for future dashboards.
+
+**Mandatory review (performed before implementation):** Read ADRs 028–031, all observability philosophy docs, collector config, grafana-foundation.md, dashboard-requirements.md §9, observability-playbook.md. Full architecture review in dashboard-d07-infrastructure.md §2.
+
+**Runtime changes:**
+- `collector/grafana/provisioning/dashboards/infrastructure/d07-infrastructure.json` — D-07 dashboard (21 panels, uid=`ixora-collector`, Infrastructure folder, `ixora-prometheus` datasource).
+- `collector/grafana/validate.sh` — Extended from 13 to 24 checks: folder names, JSON syntax, UID, provisioning, datasource binding, folder assignment.
+- `collector/config.yaml` — Removed invalid `labels:` block from Loki exporter (OTel Collector 0.115.x removed this key).
+- `collector/docker-compose.yml` — Added `PROMETHEUS_REMOTE_WRITE_ENDPOINT`, `LOKI_ENDPOINT`, `TEMPO_ENDPOINT` to Collector service environment block.
+- `collector/.env` — Added endpoint env vars and `TEMPO_OTLP_GRPC_PORT=14317`.
+- `collector/.env.example` — Updated `TEMPO_OTLP_GRPC_PORT` comment and default to `14317`.
+
+**Documentation:** [`dashboard-d07-infrastructure.md`](dashboard-d07-infrastructure.md) covering architecture review, available metrics, 3 pre-existing bugs fixed, dashboard design, 21 panels, datasource usage, UID convention table, validation results, 3 known limitations, and Phase 8.3 recommendations.
+
+**Validation:** `./grafana/validate.sh` → **24/24 PASS** (initial start + post-restart idempotency confirmation).
+
+**Branch:** `feature/observability-d07-infrastructure`
 
 **Goal:** Manual spans for push delivery, `ixora.push.*` metrics — no device tokens, Firebase UIDs, or notification body content in labels or attributes.
 

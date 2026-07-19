@@ -76,6 +76,10 @@ services:
       # Resource limits for memory_limiter processor.
       OTEL_MEMORY_LIMIT_MIB: "${OTEL_MEMORY_LIMIT_MIB:-512}"
       OTEL_MEMORY_SPIKE_LIMIT_MIB: "${OTEL_MEMORY_SPIKE_LIMIT_MIB:-128}"
+      # Backend exporter endpoints — Docker service DNS names (ADR-028).
+      PROMETHEUS_REMOTE_WRITE_ENDPOINT: "${PROMETHEUS_REMOTE_WRITE_ENDPOINT:-http://prometheus:9090/api/v1/write}"
+      LOKI_ENDPOINT: "${LOKI_ENDPOINT:-http://loki:3100/loki/api/v1/push}"
+      TEMPO_ENDPOINT: "${TEMPO_ENDPOINT:-http://tempo:4317}"
 
     volumes:
       # Collector configuration — read-only bind mount.
