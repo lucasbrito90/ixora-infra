@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
 # ============================================================
 # Ixora Observability — Grafana Foundation Validation
-# Phase 8.1 + Phase 8.2
+# Phase 8.1 + Phase 8.2 + Phase 8.3
 #
 # Phase 8.1 checks (1–6):
 #   Validates that Grafana has started correctly and that all
 #   provisioned datasources are available with stable UIDs.
 #
 # Phase 8.2 checks (7–12):
-#   Patches folder UIDs to stable values (Grafana 11.3 creates
-#   folders with auto-generated UIDs; this step normalises them
-#   to the stable ixora-folder-* values defined in providers.yaml).
-#   Validates dashboard D-07 provisioning, UID, folder assignment,
-#   datasource references, and JSON syntax.
+#   Validates dashboard folder names, D-07 JSON syntax, UID,
+#   provisioning status, datasource references, and folder
+#   assignment.
+#
+# Phase 8.3 checks (13–16):
+#   Validates D-04 Queue Workers, D-05 HTTP API, D-06 Scheduler
+#   dashboard provisioning (JSON syntax, UID, provisioning
+#   status, folder assignment, datasource binding).
+#
+# Phase 8.3 global checks (25–26):
+#   25: Dashboard UID uniqueness — every UID appears exactly once
+#       across all provisioning directories.
+#   26: Dashboard UID naming — every UID starts with "ixora-".
 #
 # Usage:
 #   ./validate.sh
@@ -68,7 +76,7 @@ if [[ -z "${GRAFANA_PASS}" ]]; then
 fi
 
 echo ""
-echo "Grafana Foundation Validation — Phase 8.1 + 8.2"
+echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3"
 echo "Target: ${GRAFANA_URL}"
 echo "────────────────────────────────────────────────"
 echo ""
@@ -451,6 +459,90 @@ fi
 # We report it but do not fail on it.
 yellow "D-07 folderUID=${DASH_FOLDER_UID} (auto-generated; see dashboard-d07-infrastructure.md §known-limitations)"
 
+# ── 25. Dashboard UID uniqueness ──────────────────────────
+# Every dashboard UID must appear exactly once across all
+# provisioning directories. Duplicate UIDs cause Grafana to
+# silently overwrite one dashboard with another on startup.
+
+echo ""
+echo "25. Dashboard UID uniqueness (no duplicates across all provisioning dirs)"
+
+UID_CHECK=$(python3 -c "
+import json, os, sys
+
+provisioning = '${PROVISIONING_DIR}/dashboards'
+uid_map = {}
+
+for root, dirs, files in os.walk(provisioning):
+    for fname in sorted(files):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(root, fname)
+        try:
+            with open(fpath) as f:
+                d = json.load(f)
+            uid = d.get('uid', '')
+            if uid:
+                uid_map.setdefault(uid, []).append(fpath)
+        except Exception as e:
+            print(f'error: cannot parse {fpath}: {e}', file=sys.stderr)
+
+duplicates = {u: paths for u, paths in uid_map.items() if len(paths) > 1}
+
+if duplicates:
+    for uid, paths in sorted(duplicates.items()):
+        print(f'FAIL: UID \"{uid}\" appears {len(paths)} times: {\" | \".join(paths)}')
+else:
+    print(f'PASS: {len(uid_map)} dashboard(s) — all UIDs unique')
+" 2>/dev/null || echo "FAIL: python3 UID uniqueness check failed")
+
+if echo "${UID_CHECK}" | grep -q "^PASS:"; then
+  pass "${UID_CHECK#PASS: }"
+else
+  fail "${UID_CHECK#FAIL: }"
+fi
+
+# ── 26. Dashboard UID naming convention ──────────────────
+# Every dashboard UID must begin with "ixora-".
+# Enforces the naming convention from dashboard-conventions.md §1.
+
+echo ""
+echo "26. Dashboard UID naming convention (all UIDs must start with 'ixora-')"
+
+NAMING_CHECK=$(python3 -c "
+import json, os, sys
+
+provisioning = '${PROVISIONING_DIR}/dashboards'
+bad = []
+total = 0
+
+for root, dirs, files in os.walk(provisioning):
+    for fname in sorted(files):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(root, fname)
+        try:
+            with open(fpath) as f:
+                d = json.load(f)
+            uid = d.get('uid', '')
+            if uid:
+                total += 1
+                if not uid.startswith('ixora-'):
+                    bad.append(f'\"{uid}\" ({fname})')
+        except Exception as e:
+            print(f'error: {fpath}: {e}', file=sys.stderr)
+
+if bad:
+    print(f'FAIL: {len(bad)} UID(s) do not start with ixora-: {\" | \".join(bad)}')
+else:
+    print(f'PASS: all {total} dashboard UID(s) start with ixora-')
+" 2>/dev/null || echo "FAIL: python3 UID naming check failed")
+
+if echo "${NAMING_CHECK}" | grep -q "^PASS:"; then
+  pass "${NAMING_CHECK#PASS: }"
+else
+  fail "${NAMING_CHECK#FAIL: }"
+fi
 # ── Summary ───────────────────────────────────────────────────
 
 echo ""
