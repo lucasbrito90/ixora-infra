@@ -53,17 +53,18 @@
 #       coexist: scheme A for D-01/D-02, section-range-start for
 #       D-04/D-05/D-06, legacy sequential for D-07).
 #
-# Phase 8.7 checks (49–57):
-#   D-03 Push Notifications dashboard:
-#   49: D-03 dashboard JSON file exists.
-#   50: UID equals ixora-push.
-#   51: Datasource UID is ixora-prometheus.
-#   52: Folder is Business.
-#   53: Dashboard contains navigation links (all 6 peers).
-#   54: Dashboard variables include $environment.
-#   55: Every non-row panel contains a description.
-#   56: No duplicate panel IDs within D-03.
-#   57: Panel IDs follow reserved ranges (rows 1–99, content 100–599).
+# Phase 8.8 checks (58–67):
+#   Alerting Foundation structural integrity:
+#   58: provisioning/alerting/ directory exists.
+#   59: provisioning/contact-points/ directory exists.
+#   60: provisioning/notification-policies/ directory exists.
+#   61: provisioning/mute-timings/ directory exists.
+#   62: provisioning/templates/ directory exists.
+#   63: docs/architecture/alerting-philosophy.md exists.
+#   64: docs/specs/observability-foundation/mvp/alerting-foundation.md exists.
+#   65: contact-points/contact-points.yaml is valid YAML.
+#   66: notification-policies/policies.yaml is valid YAML.
+#   67: mute-timings/mute-timings.yaml is valid YAML.
 #
 # Usage:
 #   ./validate.sh
@@ -119,7 +120,7 @@ if [[ -z "${GRAFANA_PASS}" ]]; then
 fi
 
 echo ""
-echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7"
+echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7 + 8.8"
 echo "Target: ${GRAFANA_URL}"
 echo "────────────────────────────────────────────────"
 echo ""
@@ -1496,6 +1497,188 @@ else:
   fi
 else
   fail "D-03 range check skipped — JSON file missing"
+fi
+
+# ── 58. Alerting provisioning directory exists ───────────────
+
+echo ""
+echo "58. Alerting provisioning directory exists (provisioning/alerting/)"
+
+ALERTING_DIR="${PROVISIONING_DIR}/alerting"
+
+if [ -d "${ALERTING_DIR}" ]; then
+  pass "provisioning/alerting/ directory exists"
+else
+  fail "provisioning/alerting/ directory missing — run: mkdir -p ${ALERTING_DIR}"
+fi
+
+# ── 59. Contact points directory exists ──────────────────────
+
+echo ""
+echo "59. Contact points provisioning directory exists"
+
+CONTACT_POINTS_DIR="${PROVISIONING_DIR}/contact-points"
+
+if [ -d "${CONTACT_POINTS_DIR}" ]; then
+  pass "provisioning/contact-points/ directory exists"
+else
+  fail "provisioning/contact-points/ directory missing — run: mkdir -p ${CONTACT_POINTS_DIR}"
+fi
+
+# ── 60. Notification policies directory exists ───────────────
+
+echo ""
+echo "60. Notification policies provisioning directory exists"
+
+POLICIES_DIR="${PROVISIONING_DIR}/notification-policies"
+
+if [ -d "${POLICIES_DIR}" ]; then
+  pass "provisioning/notification-policies/ directory exists"
+else
+  fail "provisioning/notification-policies/ directory missing — run: mkdir -p ${POLICIES_DIR}"
+fi
+
+# ── 61. Mute timings directory exists ────────────────────────
+
+echo ""
+echo "61. Mute timings provisioning directory exists"
+
+MUTE_DIR="${PROVISIONING_DIR}/mute-timings"
+
+if [ -d "${MUTE_DIR}" ]; then
+  pass "provisioning/mute-timings/ directory exists"
+else
+  fail "provisioning/mute-timings/ directory missing — run: mkdir -p ${MUTE_DIR}"
+fi
+
+# ── 62. Templates directory exists ───────────────────────────
+
+echo ""
+echo "62. Templates provisioning directory exists"
+
+TEMPLATES_DIR="${PROVISIONING_DIR}/templates"
+
+if [ -d "${TEMPLATES_DIR}" ]; then
+  pass "provisioning/templates/ directory exists"
+else
+  fail "provisioning/templates/ directory missing — run: mkdir -p ${TEMPLATES_DIR}"
+fi
+
+# ── 63. Alerting philosophy document exists ──────────────────
+
+echo ""
+echo "63. Alerting philosophy document exists (docs/architecture/alerting-philosophy.md)"
+
+SCRIPT_DIR_PARENT="$(dirname "$(dirname "${SCRIPT_DIR}")")"
+DOCS_DIR="${SCRIPT_DIR_PARENT}/docs"
+ALERTING_PHIL="${DOCS_DIR}/architecture/alerting-philosophy.md"
+
+if [ -f "${ALERTING_PHIL}" ]; then
+  pass "alerting-philosophy.md found"
+else
+  fail "alerting-philosophy.md not found at ${ALERTING_PHIL}"
+fi
+
+# ── 64. Alerting foundation specification exists ─────────────
+
+echo ""
+echo "64. Alerting foundation specification exists (alerting-foundation.md)"
+
+ALERTING_SPEC="${DOCS_DIR}/specs/observability-foundation/mvp/alerting-foundation.md"
+
+if [ -f "${ALERTING_SPEC}" ]; then
+  pass "alerting-foundation.md found"
+else
+  fail "alerting-foundation.md not found at ${ALERTING_SPEC}"
+fi
+
+# ── 65. contact-points.yaml is valid YAML ────────────────────
+
+echo ""
+echo "65. contact-points/contact-points.yaml is valid YAML"
+
+CONTACT_YAML="${CONTACT_POINTS_DIR}/contact-points.yaml"
+
+if [ -f "${CONTACT_YAML}" ]; then
+  YAML_CHECK=$(python3 -c "
+import yaml, sys
+try:
+    data = yaml.safe_load(open('${CONTACT_YAML}'))
+    if data is None:
+        print('FAIL: contact-points.yaml is empty')
+    elif 'contactPoints' not in data and 'apiVersion' not in data:
+        print('FAIL: contact-points.yaml missing expected keys')
+    else:
+        print('PASS: contact-points.yaml is valid YAML')
+except Exception as e:
+    print(f'FAIL: contact-points.yaml parse error: {e}')
+" 2>/dev/null || echo "FAIL: python3 yaml check failed")
+
+  if echo "${YAML_CHECK}" | grep -q "^PASS:"; then
+    pass "${YAML_CHECK#PASS: }"
+  else
+    fail "${YAML_CHECK#FAIL: }"
+  fi
+else
+  fail "contact-points/contact-points.yaml not found"
+fi
+
+# ── 66. policies.yaml is valid YAML ──────────────────────────
+
+echo ""
+echo "66. notification-policies/policies.yaml is valid YAML"
+
+POLICIES_YAML="${POLICIES_DIR}/policies.yaml"
+
+if [ -f "${POLICIES_YAML}" ]; then
+  YAML_CHECK=$(python3 -c "
+import yaml, sys
+try:
+    data = yaml.safe_load(open('${POLICIES_YAML}'))
+    if data is None:
+        print('FAIL: policies.yaml is empty')
+    else:
+        print('PASS: policies.yaml is valid YAML')
+except Exception as e:
+    print(f'FAIL: policies.yaml parse error: {e}')
+" 2>/dev/null || echo "FAIL: python3 yaml check failed")
+
+  if echo "${YAML_CHECK}" | grep -q "^PASS:"; then
+    pass "${YAML_CHECK#PASS: }"
+  else
+    fail "${YAML_CHECK#FAIL: }"
+  fi
+else
+  fail "notification-policies/policies.yaml not found"
+fi
+
+# ── 67. mute-timings.yaml is valid YAML ──────────────────────
+
+echo ""
+echo "67. mute-timings/mute-timings.yaml is valid YAML"
+
+MUTE_YAML="${MUTE_DIR}/mute-timings.yaml"
+
+if [ -f "${MUTE_YAML}" ]; then
+  YAML_CHECK=$(python3 -c "
+import yaml, sys
+try:
+    data = yaml.safe_load(open('${MUTE_YAML}'))
+    if data is None:
+        print('FAIL: mute-timings.yaml is empty')
+    else:
+        print('PASS: mute-timings.yaml is valid YAML')
+except Exception as e:
+    print(f'FAIL: mute-timings.yaml parse error: {e}')
+" 2>/dev/null || echo "FAIL: python3 yaml check failed")
+
+  if echo "${YAML_CHECK}" | grep -q "^PASS:"; then
+    pass "${YAML_CHECK#PASS: }"
+  else
+    fail "${YAML_CHECK#FAIL: }"
+  fi
+else
+  fail "mute-timings/mute-timings.yaml not found"
 fi
 
 # ── Summary ───────────────────────────────────────────────────

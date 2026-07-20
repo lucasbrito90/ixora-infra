@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + **8.7** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + Smart Home Business Dashboard (D-02) + Platform Overview Dashboard (D-01) + Dashboard Integration & Operational Validation + **D-03 Push Notifications Dashboard**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7 + **8.8** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + Smart Home Business Dashboard (D-02) + Platform Overview Dashboard (D-01) + Dashboard Integration & Operational Validation + D-03 Push Notifications Dashboard + **Alerting Foundation**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -971,6 +971,34 @@
 - Restart idempotency verified: `docker compose restart grafana` → 57/57 PASS (verified twice).
 
 **Branch:** `feature/observability-d03-push-dashboard`
+
+---
+
+## Phase 8.8 — Alerting Foundation
+
+**Prerequisite:** All Phase 8.x dashboards complete; dashboard-conventions.md established; validate.sh at 57/57.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.8-1 | Mandatory review: dashboard-conventions, operational-validation, grafana-foundation, dashboard-requirements, all philosophy docs, telemetry-availability-policy, ADR-028–031 | **Done** | All docs read before implementation |
+| P8.8-2 | Architecture review: integration with existing ecosystem, provisioning structure, existing alerting directory | **Done** | alerting/ already existed as .gitkeep; contact-points/notification-policies/mute-timings/templates did not exist |
+| P8.8-3 | Create docs/architecture/alerting-philosophy.md | **Done** | 27-section document covering purpose, severity model, Golden Signals, USE/RED, categories, fatigue, lifecycle, runbook standard, label/annotation conventions, naming, investigation workflow |
+| P8.8-4 | Create docs/specs/observability-foundation/mvp/alerting-foundation.md | **Done** | Implementation spec: provisioning hierarchy, category definitions (9 categories), contact points, notification policies, mute timings, templates, runbook standard, validation framework, Phase 9 readiness checklist |
+| P8.8-5 | Create provisioning scaffold: contact-points/, notification-policies/, mute-timings/, templates/ | **Done** | 4 new directories + 4 placeholder YAML files (all valid YAML) |
+| P8.8-6 | Extend validate.sh header + checks 58–67 | **Done** | 67/67 PASS |
+| P8.8-7 | Update grafana-foundation.md known limitation (alerting is Phase 10+ → Phase 9) | **Done** | docs/specs/observability-foundation/mvp/grafana-foundation.md |
+| P8.8-8 | Update tasks.md, plan.md, README.md | **Done** | Roadmap files |
+
+**Phase 8.8 implementation notes:**
+
+- **No runtime alert rules created.** validate.sh checks 58–67 verify structural integrity only — directories, documentation, YAML validity.
+- **Provisioning scaffold:** 4 new provisioning sub-directories. `contact-points.yaml` defines the `ixora-default` placeholder receiver (Grafana UI only). `policies.yaml` routes everything to `ixora-default`. `mute-timings.yaml` has an empty placeholder. `templates/` has Go template definitions for Phase 9 use.
+- **Philosophy document:** `alerting-philosophy.md` follows the same depth and structure as `metrics-philosophy.md`, `logs-philosophy.md`, and `traces-philosophy.md`. 27 sections covering the complete alerting lifecycle, alert maturity model (Levels 0–4), and review checklist.
+- **Alert maturity:** Current state is Level 0 (no alerts). Phase 9 targets Level 1 (threshold alerts). Phase 10 targets Level 2 (tuned alerts). Phase 11+ targets Level 3–4 (predictive + SLO).
+- **ADR-030 compliance enforced:** All label/annotation conventions explicitly prohibit PII. Contact point placeholder uses no credentials. Templates document the constraint.
+- **validate.sh check count:** 57 → 67 (10 new checks).
+
+**Branch:** `feature/observability-alerting-foundation`
 
 ---
 

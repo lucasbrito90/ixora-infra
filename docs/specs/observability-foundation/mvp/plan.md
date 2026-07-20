@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 8.7 complete — D-03 Push Notifications Dashboard (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards, 8.4 D-02 Smart Home Business Dashboard, 8.5 Platform Overview Dashboard D-01, 8.6 Dashboard Integration & Operational Validation also complete)  
+**Status:** Phase 8.8 complete — Alerting Foundation (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards, 8.4 D-02 Smart Home Business Dashboard, 8.5 Platform Overview Dashboard D-01, 8.6 Dashboard Integration & Operational Validation, 8.7 D-03 Push Notifications also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -42,7 +42,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **Product observability (automation)** | ✅ Shipped — execution rows + worker logs ([ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md)) |
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
-| **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2; ✅ D-04 Queue Workers + D-05 HTTP API + D-06 Scheduler — Phase 8.3; ✅ D-02 Smart Home Business — Phase 8.4; ✅ D-01 Platform Overview (32 panels, `ixora-platform`, 42/42 validation checks) — Phase 8.5; ✅ Dashboard Integration — bidirectional navigation mesh (30 links), Overview Dashboard Principles, 4 investigation workflows, 48/48 validation checks — Phase 8.6; ✅ D-03 Push Notifications (23 panels, `ixora-push`, queue-layer telemetry, 57/57 validation checks, 7-dashboard mesh 42 links) — Phase 8.7 |
+| **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2; ✅ D-04 Queue Workers + D-05 HTTP API + D-06 Scheduler — Phase 8.3; ✅ D-02 Smart Home Business — Phase 8.4; ✅ D-01 Platform Overview (32 panels, `ixora-platform`, 42/42 validation checks) — Phase 8.5; ✅ Dashboard Integration — bidirectional navigation mesh (30 links), Overview Dashboard Principles, 4 investigation workflows, 48/48 validation checks — Phase 8.6; ✅ D-03 Push Notifications (23 panels, `ixora-push`, queue-layer telemetry, 57/57 validation checks, 7-dashboard mesh 42 links) — Phase 8.7; ✅ Alerting Foundation — alerting-philosophy.md, alerting-foundation.md, provisioning scaffold (contact-points, notification-policies, mute-timings, templates), 67/67 validation checks — Phase 8.8 |
 | **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard, documentation-only) — Phase 7B.4.9; ✅ Dashboard Requirements Review (7 dashboards defined, 6 investigation workflows, Phase 9 checklist, documentation-only) — Phase 8.0; ✅ Grafana Foundation & Provisioning (Grafana active, 3 datasources provisioned, stable UIDs, 4 folder providers, 12/12 validation checks, Tempo/Loki config fixes) — Phase 8.1 |bt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard generalized from Smart Home reference, documentation-only) — Phase 7B.4.9; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
@@ -885,6 +885,24 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 **Result:** 57/57 PASS. Restart idempotency confirmed twice.
 
 **Branch:** `feature/observability-d03-push-dashboard`
+
+---
+
+#### Phase 8.8 — Alerting Foundation — **Complete**
+
+**Goal:** Establish the Alerting Foundation — architecture, philosophy, provisioning scaffold, naming conventions, severity model, alert categories, runbook standard, investigation workflow, and validation. No production alert rules.
+
+**Deliverables:**
+
+- **`alerting-philosophy.md`** (27 sections): Purpose of alerts; Dashboards vs Alerts; Metrics/Logs/Traces vs Alerts; Golden Signals, USE, RED methods; Business/Application/Infrastructure/Security alert categories; Severity model (Info/Warning/Critical/Emergency); Alert state lifecycle (Pending→Firing→Resolved + Silenced/Suppressed/Expired); Alert maturity model (Level 0–4); Alert fatigue, noise reduction, deduplication, grouping, inhibition; Escalation paths; Ownership; Review cycle; Retirement strategy; Label/annotation conventions; Naming convention; Investigation workflow standard.
+- **`alerting-foundation.md`** (17 sections): Integration with existing dashboard ecosystem (7 dashboard UIDs + metric inventory); Provisioning hierarchy (YAML structure templates for alert rules, contact points, policies, mute timings, templates); 9 alert categories with metric/severity/dashboard references; Contact point design (Phase 9 Slack/email scaffold); Notification policy routing tree (Phase 9 design); Mute timings; Message templates; Runbook standard (full template); Alert rule inventory placeholder (8 planned rules for Phase 9); Validation framework; Phase 9 readiness checklist; Known limitations.
+- **Provisioning scaffold:** 4 new directories + 4 placeholder YAML files: `contact-points/contact-points.yaml` (ixora-default receiver), `notification-policies/policies.yaml` (catch-all routing), `mute-timings/mute-timings.yaml` (placeholder), `templates/templates.yaml` (3 Go templates for title/body/resolved).
+- **validate.sh extended to 67 checks:** Checks 58–67 validate alerting directory structure (5 checks), documentation existence (2 checks), and YAML validity (3 checks).
+- **grafana-foundation.md updated:** Known limitation "Phase 10+" corrected to "Phase 9".
+
+**Result:** 67/67 PASS. No runtime alerts. No telemetry changes.
+
+**Branch:** `feature/observability-alerting-foundation`
 
 ---
 
