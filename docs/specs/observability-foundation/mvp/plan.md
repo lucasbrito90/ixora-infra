@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 8.6 complete — Dashboard Integration & Operational Validation (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards, 8.4 D-02 Smart Home Business Dashboard, 8.5 Platform Overview Dashboard D-01 also complete)  
+**Status:** Phase 8.7 complete — D-03 Push Notifications Dashboard (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards, 8.4 D-02 Smart Home Business Dashboard, 8.5 Platform Overview Dashboard D-01, 8.6 Dashboard Integration & Operational Validation also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -42,7 +42,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **Product observability (automation)** | ✅ Shipped — execution rows + worker logs ([ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md)) |
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
-| **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2; ✅ D-04 Queue Workers + D-05 HTTP API + D-06 Scheduler — Phase 8.3; ✅ D-02 Smart Home Business — Phase 8.4; ✅ D-01 Platform Overview (32 panels, `ixora-platform`, 42/42 validation checks) — Phase 8.5; ✅ Dashboard Integration — bidirectional navigation mesh (30 links), Overview Dashboard Principles, 4 investigation workflows, 48/48 validation checks — Phase 8.6 |
+| **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2; ✅ D-04 Queue Workers + D-05 HTTP API + D-06 Scheduler — Phase 8.3; ✅ D-02 Smart Home Business — Phase 8.4; ✅ D-01 Platform Overview (32 panels, `ixora-platform`, 42/42 validation checks) — Phase 8.5; ✅ Dashboard Integration — bidirectional navigation mesh (30 links), Overview Dashboard Principles, 4 investigation workflows, 48/48 validation checks — Phase 8.6; ✅ D-03 Push Notifications (23 panels, `ixora-push`, queue-layer telemetry, 57/57 validation checks, 7-dashboard mesh 42 links) — Phase 8.7 |
 | **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard, documentation-only) — Phase 7B.4.9; ✅ Dashboard Requirements Review (7 dashboards defined, 6 investigation workflows, Phase 9 checklist, documentation-only) — Phase 8.0; ✅ Grafana Foundation & Provisioning (Grafana active, 3 datasources provisioned, stable UIDs, 4 folder providers, 12/12 validation checks, Tempo/Loki config fixes) — Phase 8.1 |bt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard generalized from Smart Home reference, documentation-only) — Phase 7B.4.9; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
@@ -863,6 +863,28 @@ No Smart Home-specific assumptions remain — Smart Home is the validated refere
 **Result:** 48/48 PASS. Restart idempotency confirmed twice.
 
 **Branch:** `feature/observability-dashboard-integration`
+
+---
+
+#### Phase 8.7 — D-03 Push Notifications Dashboard — **Complete**
+
+**Goal:** Implement D-03 Push Notifications Dashboard using the available push telemetry layer. Integrate into the navigation mesh. Extend validate.sh to 57 checks.
+
+**Architecture finding — Phase 7B.5 not complete:**
+Architecture review found that `ixora.push.delivery.total` does not exist. `PushNotificationJob` emits only logs. D-03 is built on `ixora_queue_job_total{queue="push"}` — the existing queue telemetry layer. This provides real operational observability. Per-notification-type and per-provider panels are deferred to Phase 7B.5.
+
+**Deliverables:**
+
+- **D-03 Push Notifications Dashboard:** 23 panels (4 sections: Platform Health, Business Throughput, Failures, Performance). UID `ixora-push`. Business folder. Refresh 1 minute. Built on `ixora_queue_job_*{queue="push"}` metrics.
+- **Navigation mesh expanded:** D-03 inserted at position 3 (D-01→D-02→**D-03**→D-04→D-05→D-06→D-07). All 6 existing dashboards updated. Total links: 42 (7×6).
+- **Phase 7B.5 readiness:** `$provider` (fcm, noop) and `$notification_type` (4 types) as static variables, ready to convert to `label_values()` when `ixora_push_delivery_total` ships.
+- **validate.sh extended to 57 checks:** Check 44 ordering updated. Checks 49–57 validate D-03 file, UID, provisioning, datasource, links, variables, descriptions, duplicate IDs, and panel ranges.
+- **dashboard-d03-push.md created:** Purpose, metrics, panel inventory, navigation, investigation workflow, architecture review, known limitations, future improvements.
+- **dashboard-conventions.md updated:** D-03 status in UID table; §12.1 ordering table extended to 7 positions.
+
+**Result:** 57/57 PASS. Restart idempotency confirmed twice.
+
+**Branch:** `feature/observability-d03-push-dashboard`
 
 ---
 
