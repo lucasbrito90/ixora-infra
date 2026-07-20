@@ -42,6 +42,15 @@
       "icon": "external link",
       "keepTime": true,
       "targetBlank": false,
+      "title": "D-03 Push Notifications",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-push"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
       "title": "D-05 HTTP API",
       "tooltip": "",
       "type": "link",

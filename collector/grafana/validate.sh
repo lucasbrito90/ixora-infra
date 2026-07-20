@@ -53,6 +53,18 @@
 #       coexist: scheme A for D-01/D-02, section-range-start for
 #       D-04/D-05/D-06, legacy sequential for D-07).
 #
+# Phase 8.7 checks (49–57):
+#   D-03 Push Notifications dashboard:
+#   49: D-03 dashboard JSON file exists.
+#   50: UID equals ixora-push.
+#   51: Datasource UID is ixora-prometheus.
+#   52: Folder is Business.
+#   53: Dashboard contains navigation links (all 6 peers).
+#   54: Dashboard variables include $environment.
+#   55: Every non-row panel contains a description.
+#   56: No duplicate panel IDs within D-03.
+#   57: Panel IDs follow reserved ranges (rows 1–99, content 100–599).
+#
 # Usage:
 #   ./validate.sh
 #   GRAFANA_URL=http://localhost:3000 ./validate.sh
@@ -107,7 +119,7 @@ if [[ -z "${GRAFANA_PASS}" ]]; then
 fi
 
 echo ""
-echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6"
+echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7"
 echo "Target: ${GRAFANA_URL}"
 echo "────────────────────────────────────────────────"
 echo ""
@@ -965,7 +977,7 @@ fi
 #   /d/ixora-http, /d/ixora-scheduler, /d/ixora-collector
 
 echo ""
-echo "44. Dashboard links follow standard ordering (D-01→D-02→D-04→D-05→D-06→D-07)"
+echo "44. Dashboard links follow standard ordering (D-01→D-02→D-03→D-04→D-05→D-06→D-07)"
 
 ORDER_CHECK=$(python3 -c "
 import json, os, sys
@@ -975,6 +987,7 @@ provisioning = '${PROVISIONING_DIR}/dashboards'
 STANDARD_ORDER = [
     '/d/ixora-platform',
     '/d/ixora-smart-home',
+    '/d/ixora-push',
     '/d/ixora-queue',
     '/d/ixora-http',
     '/d/ixora-scheduler',
@@ -1005,7 +1018,7 @@ for root, dirs, files in os.walk(provisioning):
 if bad:
     print('FAIL: incorrect link ordering: ' + ' | '.join(bad))
 else:
-    print('PASS: all 6 dashboards follow standard link ordering')
+    print('PASS: all 7 dashboards follow standard link ordering')
 " 2>/dev/null || echo "FAIL: python3 order check failed")
 
 if echo "${ORDER_CHECK}" | grep -q "^PASS:"; then
@@ -1157,7 +1170,7 @@ fi
 # IDs constitute a defect.
 
 echo ""
-echo "48. Panel ID integrity (no duplicates, positive IDs) — all 6 dashboards"
+echo "48. Panel ID integrity (no duplicates, positive IDs) — all 7 dashboards"
 
 PANEL_INTEGRITY=$(python3 -c "
 import json, os, sys
@@ -1207,6 +1220,282 @@ if echo "${PANEL_INTEGRITY}" | grep -q "^PASS:"; then
   pass "${PANEL_INTEGRITY#PASS: }"
 else
   fail "${PANEL_INTEGRITY#FAIL: }"
+fi
+
+# ── 49. D-03 Push Notifications — JSON file exists ───────────
+
+echo ""
+echo "49. D-03 Push Notifications dashboard JSON file exists"
+
+D03_PATH="${PROVISIONING_DIR}/dashboards/business/d03-push.json"
+
+if [ -f "${D03_PATH}" ]; then
+  pass "D-03 Push Notifications JSON file found: d03-push.json"
+else
+  fail "D-03 Push Notifications JSON file not found: ${D03_PATH}"
+fi
+
+# ── 50. D-03 UID equals ixora-push ────────────────────────────
+
+echo ""
+echo "50. D-03 Push Notifications UID equals ixora-push"
+
+if [ -f "${D03_PATH}" ]; then
+  D03_UID=$(python3 -c "import json; print(json.load(open('${D03_PATH}')).get('uid','MISSING'))" 2>/dev/null || echo "PARSE_ERROR")
+  if [ "${D03_UID}" = "ixora-push" ]; then
+    pass "D-03 Push Notifications JSON file: uid=ixora-push (stable)"
+  else
+    fail "D-03 Push Notifications: uid='${D03_UID}' (expected ixora-push)"
+  fi
+else
+  fail "D-03 Push Notifications: cannot check UID — JSON file missing"
+fi
+
+# ── 51. D-03 provisioned in Grafana — Business folder ────────
+
+echo ""
+echo "51. D-03 Push Notifications provisioned in Grafana (Business folder)"
+
+D03_API=$(curl -sf -u "admin:${GF_ADMIN_PASSWORD}" "${GRAFANA_URL}/api/dashboards/uid/ixora-push" 2>/dev/null || echo '{}')
+D03_PROVISIONED=$(echo "${D03_API}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('meta',{}).get('provisioned',False))" 2>/dev/null || echo "false")
+D03_FOLDER=$(echo "${D03_API}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('meta',{}).get('folderTitle','MISSING'))" 2>/dev/null || echo "MISSING")
+
+if [ "${D03_PROVISIONED}" = "True" ] && [ "${D03_FOLDER}" = "Business" ]; then
+  pass "ixora-push provisioned=true in Business folder"
+elif [ "${D03_PROVISIONED}" = "True" ]; then
+  fail "ixora-push provisioned but folder='${D03_FOLDER}' (expected Business)"
+else
+  fail "ixora-push not found or not provisioned (check Grafana container + volume)"
+fi
+
+# ── 52. D-03 datasource UID references ────────────────────────
+
+echo ""
+echo "52. D-03 datasource UID references (ixora-prometheus, no name-only)"
+
+if [ -f "${D03_PATH}" ]; then
+  D03_DS_CHECK=$(python3 -c "
+import json, sys
+
+with open('${D03_PATH}') as f:
+    d = json.load(f)
+
+bad = []
+has_prom = False
+
+def check_ds(obj, path):
+    global has_prom
+    if isinstance(obj, dict):
+        if 'datasource' in obj and isinstance(obj['datasource'], dict):
+            ds = obj['datasource']
+            if 'uid' not in ds and ds.get('type') not in ('grafana',):
+                bad.append(f'missing uid at {path}')
+            if ds.get('uid','') == 'ixora-prometheus':
+                has_prom = True
+        for k, v in obj.items():
+            check_ds(v, f'{path}.{k}')
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            check_ds(item, f'{path}[{i}]')
+
+check_ds(d, 'root')
+
+if bad:
+    print('FAIL: datasource objects missing uid: ' + ' | '.join(bad[:5]))
+elif not has_prom:
+    print('FAIL: ixora-prometheus not referenced in D-03')
+else:
+    print('PASS: all datasource references use UID, ixora-prometheus present')
+" 2>/dev/null || echo "FAIL: python3 datasource check failed")
+
+  if echo "${D03_DS_CHECK}" | grep -q "^PASS:"; then
+    pass "${D03_DS_CHECK#PASS: }"
+  else
+    fail "${D03_DS_CHECK#FAIL: }"
+  fi
+else
+  fail "D-03 datasource check skipped — JSON file missing"
+fi
+
+# ── 53. D-03 contains dashboard-level navigation links ────────
+
+echo ""
+echo "53. D-03 contains navigation links to all 6 peer dashboards"
+
+if [ -f "${D03_PATH}" ]; then
+  D03_LINKS=$(python3 -c "
+import json, sys
+
+with open('${D03_PATH}') as f:
+    d = json.load(f)
+
+EXPECTED = [
+    '/d/ixora-platform',
+    '/d/ixora-smart-home',
+    '/d/ixora-queue',
+    '/d/ixora-http',
+    '/d/ixora-scheduler',
+    '/d/ixora-collector',
+]
+
+actual_urls = [l.get('url','') for l in d.get('links', []) if isinstance(l, dict)]
+missing = [u for u in EXPECTED if u not in actual_urls]
+
+if missing:
+    print(f'FAIL: D-03 missing navigation links: {missing}')
+else:
+    print(f'PASS: D-03 contains all 6 peer navigation links')
+" 2>/dev/null || echo "FAIL: python3 link check failed")
+
+  if echo "${D03_LINKS}" | grep -q "^PASS:"; then
+    pass "${D03_LINKS#PASS: }"
+  else
+    fail "${D03_LINKS#FAIL: }"
+  fi
+else
+  fail "D-03 navigation link check skipped — JSON file missing"
+fi
+
+# ── 54. D-03 variables include $environment ───────────────────
+
+echo ""
+echo "54. D-03 dashboard variables include \$environment"
+
+if [ -f "${D03_PATH}" ]; then
+  D03_VARS=$(python3 -c "
+import json, sys
+
+with open('${D03_PATH}') as f:
+    d = json.load(f)
+
+var_names = [v.get('name','') for v in d.get('templating', {}).get('list', [])]
+
+if 'environment' not in var_names:
+    print(f'FAIL: \$environment variable missing from D-03 (found: {var_names})')
+else:
+    print(f'PASS: D-03 variables include \$environment (all vars: {var_names})')
+" 2>/dev/null || echo "FAIL: python3 variable check failed")
+
+  if echo "${D03_VARS}" | grep -q "^PASS:"; then
+    pass "${D03_VARS#PASS: }"
+  else
+    fail "${D03_VARS#FAIL: }"
+  fi
+else
+  fail "D-03 variable check skipped — JSON file missing"
+fi
+
+# ── 55. D-03 every non-row panel has a description ────────────
+
+echo ""
+echo "55. D-03 every non-row panel contains a description"
+
+if [ -f "${D03_PATH}" ]; then
+  D03_DESC=$(python3 -c "
+import json, sys
+
+with open('${D03_PATH}') as f:
+    d = json.load(f)
+
+missing = []
+for p in d.get('panels', []):
+    if p.get('type') == 'row':
+        continue
+    desc = p.get('description', '').strip()
+    if not desc:
+        missing.append(f'id={p.get(\"id\",\"?\")} title=\"{p.get(\"title\",\"\")}\"')
+
+if missing:
+    print(f'FAIL: panels missing description: ' + ' | '.join(missing))
+else:
+    count = sum(1 for p in d.get('panels',[]) if p.get('type') != 'row')
+    print(f'PASS: all {count} non-row panels have a description')
+" 2>/dev/null || echo "FAIL: python3 description check failed")
+
+  if echo "${D03_DESC}" | grep -q "^PASS:"; then
+    pass "${D03_DESC#PASS: }"
+  else
+    fail "${D03_DESC#FAIL: }"
+  fi
+else
+  fail "D-03 description check skipped — JSON file missing"
+fi
+
+# ── 56. D-03 no duplicate panel IDs ──────────────────────────
+
+echo ""
+echo "56. D-03 no duplicate panel IDs"
+
+if [ -f "${D03_PATH}" ]; then
+  D03_DEDUP=$(python3 -c "
+import json, sys
+
+with open('${D03_PATH}') as f:
+    d = json.load(f)
+
+ids = [p.get('id') for p in d.get('panels', []) if 'id' in p]
+seen = {}
+for pid in ids:
+    seen[pid] = seen.get(pid, 0) + 1
+dupes = [pid for pid, c in seen.items() if c > 1]
+
+if dupes:
+    print(f'FAIL: duplicate panel IDs in D-03: {dupes}')
+else:
+    print(f'PASS: {len(ids)} panel IDs — all unique')
+" 2>/dev/null || echo "FAIL: python3 duplicate check failed")
+
+  if echo "${D03_DEDUP}" | grep -q "^PASS:"; then
+    pass "${D03_DEDUP#PASS: }"
+  else
+    fail "${D03_DEDUP#FAIL: }"
+  fi
+else
+  fail "D-03 duplicate ID check skipped — JSON file missing"
+fi
+
+# ── 57. D-03 panel IDs follow reserved ranges ─────────────────
+# Row panels: 1–99
+# Content panels: 100–599
+
+echo ""
+echo "57. D-03 panel IDs follow reserved ranges (rows 1–99, content 100–599)"
+
+if [ -f "${D03_PATH}" ]; then
+  D03_RANGES=$(python3 -c "
+import json, sys
+
+with open('${D03_PATH}') as f:
+    d = json.load(f)
+
+bad = []
+for p in d.get('panels', []):
+    pid = p.get('id')
+    ptype = p.get('type', '')
+    if pid is None:
+        bad.append(f'panel missing id (type={ptype})')
+        continue
+    if ptype == 'row':
+        if not (1 <= pid <= 99):
+            bad.append(f'row panel id={pid} (expected 1–99)')
+    else:
+        if not (100 <= pid <= 599):
+            bad.append(f'content panel id={pid} (expected 100–599)')
+
+if bad:
+    print('FAIL: panel ID range violations: ' + ' | '.join(bad))
+else:
+    total = len(d.get('panels', []))
+    print(f'PASS: all {total} panels have IDs within reserved ranges (rows 1–99, content 100–599)')
+" 2>/dev/null || echo "FAIL: python3 range check failed")
+
+  if echo "${D03_RANGES}" | grep -q "^PASS:"; then
+    pass "${D03_RANGES#PASS: }"
+  else
+    fail "${D03_RANGES#FAIL: }"
+  fi
+else
+  fail "D-03 range check skipped — JSON file missing"
 fi
 
 # ── Summary ───────────────────────────────────────────────────
