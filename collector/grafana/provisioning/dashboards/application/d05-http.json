@@ -3,7 +3,10 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -17,6 +20,24 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-01 Platform Overview",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-platform"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-02 Smart Home",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-smart-home"
+    },
     {
       "icon": "external link",
       "keepTime": true,
@@ -48,40 +69,67 @@
   "panels": [
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
       "title": "Health",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "Total HTTP request rate (all outcomes). Healthy: matches expected traffic for the environment. A sudden drop may indicate the API is not receiving traffic or the Collector is down (check D-07).",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null}
+              {
+                "color": "green",
+                "value": null
+              }
             ]
           },
           "unit": "reqps"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
       "id": 101,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "textMode": "auto"
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "sum(rate(ixora_http_server_request_total{environment=~\"$environment\"}[5m]))",
           "instant": true,
@@ -94,36 +142,64 @@
       "type": "stat"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "Fraction of HTTP requests resulting in 5xx server errors. Healthy: < 1% (0.01). Above 5% is critical — use Tempo to identify the failing route and child span, then Loki for exception context.",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 0.01},
-              {"color": "red", "value": 0.05}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
             ]
           },
           "unit": "percentunit"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
       "id": 102,
       "options": {
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "textMode": "value_and_name"
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "sum(rate(ixora_http_server_request_total{environment=~\"$environment\",outcome=\"server_error\"}[5m])) / sum(rate(ixora_http_server_request_total{environment=~\"$environment\"}[5m]))",
           "instant": true,
@@ -136,36 +212,64 @@
       "type": "stat"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "95th percentile HTTP response latency across all routes (milliseconds). Healthy: < 500 ms. Above 2000 ms warrants investigation. Note: this is the application processing time measured at the middleware boundary — excludes network transit time.",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 500},
-              {"color": "red", "value": 2000}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 2000
+              }
             ]
           },
           "unit": "ms"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
       "id": 103,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "textMode": "auto"
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "histogram_quantile(0.95, sum by(le) (rate(ixora_http_server_duration_bucket{environment=~\"$environment\"}[5m])))",
           "instant": true,
@@ -178,36 +282,64 @@
       "type": "stat"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "Fraction of HTTP requests resulting in 4xx client errors (bad requests, auth failures, not found). Healthy: depends on traffic mix. Sustained rise in 4xx without corresponding traffic increase may indicate malformed clients or auth issues. Note: individual 401/403 breakdown requires Tempo drill-down (status_code_class label only; see dashboard-conventions.md §known-limitations).",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 0.05},
-              {"color": "red", "value": 0.20}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.2
+              }
             ]
           },
           "unit": "percentunit"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
       "id": 104,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "textMode": "auto"
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "sum(rate(ixora_http_server_request_total{environment=~\"$environment\",outcome=\"client_error\"}[5m])) / sum(rate(ixora_http_server_request_total{environment=~\"$environment\"}[5m]))",
           "instant": true,
@@ -221,31 +353,54 @@
     },
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "id": 200,
       "title": "Throughput",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "HTTP request rate over time, segmented by status class (2xx, 4xx, 5xx). Use to identify traffic spikes, sudden drops, or error class shifts. A rising 5xx line while 2xx falls indicates a service degradation.",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "palette-classic"},
+          "color": {
+            "mode": "palette-classic"
+          },
           "unit": "reqps"
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
       "id": 201,
       "options": {
         "fillOpacity": 10,
-        "legend": {"displayMode": "table", "placement": "bottom"},
-        "tooltip": {"mode": "multi"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "sum by(status_code_class) (rate(ixora_http_server_request_total{environment=~\"$environment\"}[5m]))",
           "instant": false,
@@ -258,25 +413,43 @@
       "type": "timeseries"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "HTTP request rate over time, segmented by HTTP method (GET, POST, PUT, DELETE, PATCH). Shifts in method distribution may indicate client-side behavioral changes or misconfiguration.",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "palette-classic"},
+          "color": {
+            "mode": "palette-classic"
+          },
           "unit": "reqps"
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
       "id": 202,
       "options": {
         "fillOpacity": 10,
-        "legend": {"displayMode": "table", "placement": "bottom"},
-        "tooltip": {"mode": "multi"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "sum by(http_method) (rate(ixora_http_server_request_total{environment=~\"$environment\"}[5m]))",
           "instant": false,
@@ -290,31 +463,55 @@
     },
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
       "id": 300,
       "title": "Errors",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "5xx server error rate over time (requests/s). Healthy: 0. Any non-zero value deserves investigation. Drill-down: use Tempo to find error spans on the affected route, then Loki for exception_class.",
       "fieldConfig": {
         "defaults": {
-          "color": {"fixedColor": "red", "mode": "fixed"},
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
           "unit": "reqps"
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
       "id": 301,
       "options": {
         "fillOpacity": 15,
-        "legend": {"displayMode": "table", "placement": "bottom"},
-        "tooltip": {"mode": "multi"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "sum by(http_route) (rate(ixora_http_server_request_total{environment=~\"$environment\",outcome=\"server_error\"}[5m]))",
           "instant": false,
@@ -327,25 +524,44 @@
       "type": "timeseries"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "4xx client error rate over time by route. High 4xx on auth endpoints (e.g. /api/auth/*) may indicate expired tokens. High 4xx on business endpoints may indicate malformed client requests or stale data references.",
       "fieldConfig": {
         "defaults": {
-          "color": {"fixedColor": "orange", "mode": "fixed"},
+          "color": {
+            "fixedColor": "orange",
+            "mode": "fixed"
+          },
           "unit": "reqps"
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
       "id": 302,
       "options": {
         "fillOpacity": 15,
-        "legend": {"displayMode": "table", "placement": "bottom"},
-        "tooltip": {"mode": "multi"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "sum by(http_route) (rate(ixora_http_server_request_total{environment=~\"$environment\",outcome=\"client_error\"}[5m]))",
           "instant": false,
@@ -358,7 +574,10 @@
       "type": "timeseries"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "Top routes ranked by 5xx server error count in the selected time window. Use to identify the worst-offending route during an incident. Clicking a route leads to Tempo → filter by http_route + ERROR span status.",
       "fieldConfig": {
         "defaults": {
@@ -366,24 +585,43 @@
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "Value"},
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
             "properties": [
-              {"id": "displayName", "value": "5xx errors"},
-              {"id": "unit", "value": "short"}
+              {
+                "id": "displayName",
+                "value": "5xx errors"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              }
             ]
           }
         ]
       },
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 23},
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
       "id": 303,
       "options": {
         "cellHeight": "sm",
-        "footer": {"show": false},
+        "footer": {
+          "show": false
+        },
         "showHeader": true
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "topk(15, sum by(http_route) (increase(ixora_http_server_request_total{environment=~\"$environment\",outcome=\"server_error\"}[$__range])))",
           "format": "table",
@@ -395,48 +633,92 @@
       ],
       "title": "Top Error Routes (5xx, selected window)",
       "transformations": [
-        {"id": "organize", "options": {"excludeByName": {"Time": true}, "renameByName": {"http_route": "Route", "Value": "5xx Errors"}}}
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "http_route": "Route",
+              "Value": "5xx Errors"
+            }
+          }
+        }
       ],
       "type": "table"
     },
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 31},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
       "id": 400,
       "title": "Performance",
       "type": "row"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "Median (p50) HTTP response latency across all routes (ms). This is the typical user experience. Healthy: < 100 ms for most API endpoints.",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 200},
-              {"color": "red", "value": 1000}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
             ]
           },
           "unit": "ms"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 32},
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 32
+      },
       "id": 401,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "textMode": "auto"
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "histogram_quantile(0.50, sum by(le) (rate(ixora_http_server_duration_bucket{environment=~\"$environment\"}[5m])))",
           "instant": true,
@@ -449,36 +731,64 @@
       "type": "stat"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "95th percentile HTTP response latency (ms). 95% of requests are faster than this value. Healthy: < 500 ms. Above 2000 ms indicates a performance issue on either specific routes or the application as a whole.",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 500},
-              {"color": "red", "value": 2000}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 2000
+              }
             ]
           },
           "unit": "ms"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 32},
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 32
+      },
       "id": 402,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "textMode": "auto"
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "histogram_quantile(0.95, sum by(le) (rate(ixora_http_server_duration_bucket{environment=~\"$environment\"}[5m])))",
           "instant": true,
@@ -491,36 +801,64 @@
       "type": "stat"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "99th percentile HTTP response latency (ms). 99% of requests are faster than this. Use to identify tail-latency issues affecting a small fraction of users. A p99 >> p95 indicates high variance on specific slow routes.",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 1000},
-              {"color": "red", "value": 5000}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 5000
+              }
             ]
           },
           "unit": "ms"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 32},
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 32
+      },
       "id": 403,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "textMode": "auto"
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "histogram_quantile(0.99, sum by(le) (rate(ixora_http_server_duration_bucket{environment=~\"$environment\"}[5m])))",
           "instant": true,
@@ -533,25 +871,43 @@
       "type": "stat"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "Request latency percentiles over time (p50, p95, p99). Use to detect latency regressions and correlate them with traffic or error rate changes. A diverging p99/p95 gap indicates high tail-latency variance.",
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "palette-classic"},
+          "color": {
+            "mode": "palette-classic"
+          },
           "unit": "ms"
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 36},
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
       "id": 404,
       "options": {
         "fillOpacity": 5,
-        "legend": {"displayMode": "table", "placement": "bottom"},
-        "tooltip": {"mode": "multi"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "histogram_quantile(0.50, sum by(le) (rate(ixora_http_server_duration_bucket{environment=~\"$environment\"}[5m])))",
           "instant": false,
@@ -560,7 +916,10 @@
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "histogram_quantile(0.95, sum by(le) (rate(ixora_http_server_duration_bucket{environment=~\"$environment\"}[5m])))",
           "instant": false,
@@ -569,7 +928,10 @@
           "refId": "B"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "histogram_quantile(0.99, sum by(le) (rate(ixora_http_server_duration_bucket{environment=~\"$environment\"}[5m])))",
           "instant": false,
@@ -582,7 +944,10 @@
       "type": "timeseries"
     },
     {
-      "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
       "description": "Top 15 slowest routes by p95 latency in the selected time window. Use to identify which routes are contributing most to tail latency. Drill-down: Tempo → filter by http_route + high-duration spans.",
       "fieldConfig": {
         "defaults": {
@@ -590,24 +955,43 @@
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "Value"},
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
             "properties": [
-              {"id": "displayName", "value": "p95 latency (ms)"},
-              {"id": "unit", "value": "ms"}
+              {
+                "id": "displayName",
+                "value": "p95 latency (ms)"
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              }
             ]
           }
         ]
       },
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 44},
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
       "id": 405,
       "options": {
         "cellHeight": "sm",
-        "footer": {"show": false},
+        "footer": {
+          "show": false
+        },
         "showHeader": true
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
           "editorMode": "code",
           "expr": "topk(15, histogram_quantile(0.95, sum by(le, http_route) (rate(ixora_http_server_duration_bucket{environment=~\"$environment\"}[5m]))))",
           "format": "table",
@@ -619,18 +1003,39 @@
       ],
       "title": "Top Slow Routes (p95)",
       "transformations": [
-        {"id": "organize", "options": {"excludeByName": {"Time": true, "le": true}, "renameByName": {"http_route": "Route", "Value": "p95 ms"}}}
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "le": true
+            },
+            "renameByName": {
+              "http_route": "Route",
+              "Value": "p95 ms"
+            }
+          }
+        }
       ],
       "type": "table"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["application", "http", "api", "d-05"],
+  "tags": [
+    "application",
+    "http",
+    "api",
+    "d-05"
+  ],
   "templating": {
     "list": [
       {
-        "current": {"selected": true, "text": "staging", "value": "staging"},
+        "current": {
+          "selected": true,
+          "text": "staging",
+          "value": "staging"
+        },
         "description": "Deployment environment — applied to all panel queries.",
         "hide": 0,
         "includeAll": false,
@@ -638,9 +1043,21 @@
         "multi": false,
         "name": "environment",
         "options": [
-          {"selected": false, "text": "development", "value": "development"},
-          {"selected": true,  "text": "staging",     "value": "staging"},
-          {"selected": false, "text": "production",  "value": "production"}
+          {
+            "selected": false,
+            "text": "development",
+            "value": "development"
+          },
+          {
+            "selected": true,
+            "text": "staging",
+            "value": "staging"
+          },
+          {
+            "selected": false,
+            "text": "production",
+            "value": "production"
+          }
         ],
         "query": "development,staging,production",
         "skipUrlSync": false,
@@ -648,7 +1065,10 @@
       },
       {
         "current": {},
-        "datasource": {"type": "prometheus", "uid": "ixora-prometheus"},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "ixora-prometheus"
+        },
         "definition": "label_values(ixora_http_server_request_total{environment=\"$environment\"}, http_route)",
         "description": "HTTP route filter — use to drill into a specific route's metrics.",
         "hide": 0,
@@ -669,7 +1089,10 @@
       }
     ]
   },
-  "time": {"from": "now-1h", "to": "now"},
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "D-05 — HTTP API",

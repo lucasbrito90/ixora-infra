@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 8.5 complete — Platform Overview Dashboard D-01 (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards, 8.4 D-02 Smart Home Business Dashboard also complete)  
+**Status:** Phase 8.6 complete — Dashboard Integration & Operational Validation (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards, 8.4 D-02 Smart Home Business Dashboard, 8.5 Platform Overview Dashboard D-01 also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -42,7 +42,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **Product observability (automation)** | ✅ Shipped — execution rows + worker logs ([ADR-024](../../../decisions/ADR-024-automation-notifications-and-observability.md)) |
 | **OpenTelemetry Collector** | ✅ Shipped — Phases 3–6 |
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
-| **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2; ✅ D-04 Queue Workers + D-05 HTTP API + D-06 Scheduler — Phase 8.3 |
+| **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2; ✅ D-04 Queue Workers + D-05 HTTP API + D-06 Scheduler — Phase 8.3; ✅ D-02 Smart Home Business — Phase 8.4; ✅ D-01 Platform Overview (32 panels, `ixora-platform`, 42/42 validation checks) — Phase 8.5; ✅ Dashboard Integration — bidirectional navigation mesh (30 links), Overview Dashboard Principles, 4 investigation workflows, 48/48 validation checks — Phase 8.6 |
 | **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard, documentation-only) — Phase 7B.4.9; ✅ Dashboard Requirements Review (7 dashboards defined, 6 investigation workflows, Phase 9 checklist, documentation-only) — Phase 8.0; ✅ Grafana Foundation & Provisioning (Grafana active, 3 datasources provisioned, stable UIDs, 4 folder providers, 12/12 validation checks, Tempo/Loki config fixes) — Phase 8.1 |bt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard generalized from Smart Home reference, documentation-only) — Phase 7B.4.9; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
@@ -845,7 +845,28 @@ No Smart Home-specific assumptions remain — Smart Home is the validated refere
 
 ---
 
-**Goal:** Manual spans/metrics for outbound calls to external providers not already covered by generic HTTP-client auto-instrumentation (Phase 7A) — provider-specific outcome classification, no credentials or PII exported.
+#### Phase 8.6 — Dashboard Integration & Operational Validation — **Complete**
+
+**Goal:** Finalize the dashboard ecosystem as a cohesive operational platform. No new telemetry, metrics, or infrastructure changes.
+
+**Deliverables:**
+
+- **Bidirectional navigation mesh:** All 5 specialized dashboards (D-02, D-04, D-05, D-06, D-07) now link back to D-01. D-07 had zero links; now has all 5. Total navigation links: 30 (6 × 5 peers).
+- **Standard link order:** D-01 → D-02 → D-04 → D-05 → D-06 → D-07 (self excluded). Enforced by check 44.
+- **Overview Dashboard Principles:** New permanent architectural section in `dashboard-conventions.md §13`. Documents what overview dashboards must not and should do.
+- **Navigation conventions §12 rewritten:** Replaces per-folder subsets with full bidirectional mesh standard. Adds `targetBlank: false` rule (§12.3).
+- **Operational investigation workflows:** 4 complete end-to-end scenarios documented (HTTP Server Error → D-01/D-05/D-07/Tempo/Loki; Scheduler Failure → D-01/D-06/D-07/Tempo; Queue Backlog → D-01/D-04/D-07/Loki; Smart Home Failure → D-01/D-02/Tempo/Loki).
+- **Dashboard navigation matrix:** Full FROM → TO matrix documenting all 30 links.
+- **validate.sh extended to 48 checks:** New checks 43–47 (back-link to D-01, link order, no duplicates, keepTime, no targetBlank) and check 48 (panel ID integrity across all 6 dashboards).
+- **dashboard-operational-validation.md created:** Purpose, methodology, navigation matrix, investigation workflows, usability review, architecture review, known limitations, future improvements.
+
+**Result:** 48/48 PASS. Restart idempotency confirmed twice.
+
+**Branch:** `feature/observability-dashboard-integration`
+
+---
+
+
 
 ---
 
