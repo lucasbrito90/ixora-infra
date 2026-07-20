@@ -1,0 +1,65 @@
+# ============================================================
+# Ixora Observability Platform — Grafana Contact Points
+# Phase 8.8 — Alerting Foundation (placeholder)
+#
+# This file provisions Grafana contact points (alert receivers).
+#
+# STATUS: PLACEHOLDER — no real receivers are configured.
+# Phase 9 will add Slack, email, or other receivers here.
+#
+# SECURITY (ADR-030):
+#   - Webhook URLs and email addresses MUST NOT be hardcoded.
+#   - Use environment variables injected at runtime.
+#   - Example: url: "${SLACK_WEBHOOK_CRITICAL}"
+#   - Never commit credentials to the repository.
+#
+# STRUCTURE REFERENCE: alerting-foundation.md §5
+# PHILOSOPHY REFERENCE: alerting-philosophy.md §1–4
+# ============================================================
+
+apiVersion: 1
+
+contactPoints:
+  # Default contact point — Grafana UI notifications only.
+  # Phase 9: replace or supplement with Slack/email receivers.
+  - orgId: 1
+    name: ixora-default
+    receivers:
+      - uid: ixora-receiver-default
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: ""
+        # Phase 9: set addresses via environment variable
+        # settings:
+        #   addresses: "${ALERT_EMAIL_ADDRESS}"
+
+  # Phase 9 template — Critical alerts (Slack)
+  # Uncomment and configure in Phase 9.
+  #
+  # - orgId: 1
+  #   name: ixora-slack-critical
+  #   receivers:
+  #     - uid: ixora-receiver-slack-critical
+  #       type: slack
+  #       disableResolveMessage: false
+  #       settings:
+  #         url: "${SLACK_WEBHOOK_CRITICAL}"
+  #         channel: "#on-call-alerts"
+  #         title: '{{ template "ixora-alert-title" . }}'
+  #         text: '{{ template "ixora-alert-body" . }}'
+
+  # Phase 9 template — Warning alerts (Slack)
+  # Uncomment and configure in Phase 9.
+  #
+  # - orgId: 1
+  #   name: ixora-slack-warnings
+  #   receivers:
+  #     - uid: ixora-receiver-slack-warnings
+  #       type: slack
+  #       disableResolveMessage: false
+  #       settings:
+  #         url: "${SLACK_WEBHOOK_WARNINGS}"
+  #         channel: "#infra-alerts"
+  #         title: '{{ template "ixora-alert-title" . }}'
+  #         text: '{{ template "ixora-alert-body" . }}'
