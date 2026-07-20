@@ -28,8 +28,8 @@ Dashboard UIDs are **immutable and version-controlled**. They must never be auto
 | Dashboard | UID | Folder | Status |
 | --- | --- | --- | --- |
 | D-01 Platform Overview | `ixora-platform` | Overview | Phase 8.5 ✅ |
-| D-02 Smart Home | `ixora-smart-home` | Business | Phase 8.4 |
-| D-03 Push Notifications | `ixora-push` | Business | Phase 7B.5+ |
+| D-02 Smart Home | `ixora-smart-home` | Business | Phase 8.4 ✅ |
+| D-03 Push Notifications | `ixora-push` | Business | Phase 8.7 ✅ |
 | D-04 Queue Workers | `ixora-queue` | Application | Phase 8.3 ✅ |
 | D-05 HTTP API | `ixora-http` | Application | Phase 8.3 ✅ |
 | D-06 Scheduler | `ixora-scheduler` | Application | Phase 8.3 ✅ |
@@ -363,10 +363,11 @@ All dashboards link to all other dashboards in the following fixed order (self e
 | --- | --- | --- | --- |
 | 1 | D-01 Platform Overview | `ixora-platform` | `/d/ixora-platform` |
 | 2 | D-02 Smart Home | `ixora-smart-home` | `/d/ixora-smart-home` |
-| 3 | D-04 Queue Workers | `ixora-queue` | `/d/ixora-queue` |
-| 4 | D-05 HTTP API | `ixora-http` | `/d/ixora-http` |
-| 5 | D-06 Scheduler | `ixora-scheduler` | `/d/ixora-scheduler` |
-| 6 | D-07 Infrastructure | `ixora-collector` | `/d/ixora-collector` |
+| 3 | D-03 Push Notifications | `ixora-push` | `/d/ixora-push` |
+| 4 | D-04 Queue Workers | `ixora-queue` | `/d/ixora-queue` |
+| 5 | D-05 HTTP API | `ixora-http` | `/d/ixora-http` |
+| 6 | D-06 Scheduler | `ixora-scheduler` | `/d/ixora-scheduler` |
+| 7 | D-07 Infrastructure | `ixora-collector` | `/d/ixora-collector` |
 
 Standard link object template:
 
@@ -382,15 +383,16 @@ Standard link object template:
 }
 ```
 
-Example — links array for D-04 Queue Workers (self excluded at position 3):
+Example — links array for D-04 Queue Workers (self excluded at position 4):
 
 ```json
 "links": [
-  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-01 Platform Overview", "tooltip": "", "type": "link", "url": "/d/ixora-platform"},
-  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-02 Smart Home",        "tooltip": "", "type": "link", "url": "/d/ixora-smart-home"},
-  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-05 HTTP API",          "tooltip": "", "type": "link", "url": "/d/ixora-http"},
-  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-06 Scheduler",         "tooltip": "", "type": "link", "url": "/d/ixora-scheduler"},
-  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-07 Infrastructure",    "tooltip": "", "type": "link", "url": "/d/ixora-collector"}
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-01 Platform Overview",  "tooltip": "", "type": "link", "url": "/d/ixora-platform"},
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-02 Smart Home",         "tooltip": "", "type": "link", "url": "/d/ixora-smart-home"},
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-03 Push Notifications", "tooltip": "", "type": "link", "url": "/d/ixora-push"},
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-05 HTTP API",           "tooltip": "", "type": "link", "url": "/d/ixora-http"},
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-06 Scheduler",          "tooltip": "", "type": "link", "url": "/d/ixora-scheduler"},
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-07 Infrastructure",     "tooltip": "", "type": "link", "url": "/d/ixora-collector"}
 ]
 ```
 
@@ -489,4 +491,5 @@ An overview dashboard is the **default landing page** for operators. Its purpose
 | [dashboard-d02-smart-home.md](dashboard-d02-smart-home.md) | Phase 8.4 — D-02 implementation |
 | [dashboard-d01-platform-overview.md](dashboard-d01-platform-overview.md) | Phase 8.5 — D-01 implementation; establishes overview tier |
 | [dashboard-operational-validation.md](dashboard-operational-validation.md) | Phase 8.6 — navigation mesh validation, investigation workflows, navigation matrix |
+| [dashboard-d03-push.md](dashboard-d03-push.md) | Phase 8.7 — D-03 Push Notifications implementation |
 | [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) | Canonical metric/span names verified in this document |

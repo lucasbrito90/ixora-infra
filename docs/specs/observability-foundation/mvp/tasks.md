@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + **8.6** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + Smart Home Business Dashboard (D-02) + Platform Overview Dashboard (D-01) + **Dashboard Integration & Operational Validation**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + **8.7** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + Smart Home Business Dashboard (D-02) + Platform Overview Dashboard (D-01) + Dashboard Integration & Operational Validation + **D-03 Push Notifications Dashboard**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -943,6 +943,34 @@
 - Restart idempotency verified: `docker compose restart grafana` → 48/48 PASS (verified twice).
 
 **Branch:** `feature/observability-dashboard-integration`
+
+---
+
+## Phase 8.7 — D-03 Push Notifications Dashboard
+
+**Prerequisite:** D-01 (Phase 8.5), D-02 (Phase 8.4), D-04/D-05/D-06 (Phase 8.3), D-07 (Phase 8.2), dashboard-conventions.md (Phase 8.6).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.7-1 | Mandatory review: dashboard-conventions, dashboard-requirements, operational-validation, grafana-foundation, philosophy docs, push spec | **Done** | All docs read before implementation |
+| P8.7-2 | Architecture review: verify push telemetry availability, UID map, folder, variables | **Done** | Phase 7B.5 not complete — build on queue layer (see notes) |
+| P8.7-3 | Implement d03-push.json (23 panels: Platform Health, Business Throughput, Failures, Performance) | **Done** | `collector/grafana/provisioning/dashboards/business/d03-push.json` |
+| P8.7-4 | Update all 6 existing dashboards to insert D-03 in navigation mesh at position 3 | **Done** | All 6 dashboard JSON files updated |
+| P8.7-5 | Update validate.sh check 44 (new standard ordering includes D-03) + add checks 49–57 | **Done** | `collector/grafana/validate.sh` — 57/57 PASS (initial + restart) |
+| P8.7-6 | Update dashboard-conventions.md §1.2 (D-03 status), §12.1 (new ordering table + example) | **Done** | `docs/specs/observability-foundation/mvp/dashboard-conventions.md` |
+| P8.7-7 | Create dashboard-d03-push.md | **Done** | `docs/specs/observability-foundation/mvp/dashboard-d03-push.md` |
+| P8.7-8 | Update tasks.md, plan.md, README.md | **Done** | Roadmap files |
+
+**Phase 8.7 implementation notes:**
+
+- **Phase 7B.5 not complete:** Architecture review found that `ixora.push.delivery.total` (the push-specific metric) does not exist in `back_vibes`. `PushNotificationJob` emits only logs, no custom metrics. D-03 is built on `ixora_queue_job_total{queue="push"}` and `ixora_queue_job_duration_bucket{queue="push"}` — the existing queue telemetry layer. This is real, production-ready observability at the queue level.
+- **Navigation mesh expanded:** D-03 inserted at position 3 (D-01 → D-02 → D-03 → D-04 → D-05 → D-06 → D-07). All 6 existing dashboards updated. Total navigation links now: **42** (7 × 6).
+- **Phase 7B.5 readiness:** `$provider` and `$notification_type` variables defined as static custom variables. Notification type values sourced from `PushNotificationEvents.php`: `smart_home_action_failed`, `schedule_execution_failed`, `smart_home_provider_unreachable`, `account_security_notice`. Providers: `fcm`, `noop`. These become `label_values()` queries when `ixora_push_delivery_total` ships.
+- **validate.sh:** Check 44 ordering updated (was 6 dashboards, now 7). All count messages updated. Checks 49–57 validate D-03 JSON, UID, folder, datasource, links, variables, descriptions, duplicate IDs, and panel ranges.
+- Validation extended: Checks 49–57 (D-03 file, UID, Grafana provisioning+folder, datasource, links, variables, descriptions, duplicates, ranges). Total: **57/57 PASS**.
+- Restart idempotency verified: `docker compose restart grafana` → 57/57 PASS (verified twice).
+
+**Branch:** `feature/observability-d03-push-dashboard`
 
 ---
 
