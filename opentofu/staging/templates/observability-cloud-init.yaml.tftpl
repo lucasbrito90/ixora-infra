@@ -1,0 +1,109 @@
+#cloud-config
+# Ixora Observability Host — cloud-init bootstrap (Phase 8.8.5)
+# Non-secret only. Secrets (collector/.env) are delivered in a separate secure step.
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - jq
+  - unattended-upgrades
+  - wget
+
+write_files:
+  - path: /etc/ixora-observability-host
+    permissions: "0644"
+    owner: root:root
+    content: |
+      IXORA_OBSERVABILITY_HOST=1
+      IXORA_DEPLOY_PATH=${deploy_path}
+      IXORA_ENVIRONMENT=staging
+
+  - path: /etc/caddy/Caddyfile
+    permissions: "0644"
+    owner: root:root
+    content: |
+      # Grafana — HTTPS reverse proxy to localhost-only Grafana (:3000)
+      ${grafana_hostname} {
+          reverse_proxy 127.0.0.1:3000
+      }
+
+      # OTLP HTTP — HTTPS reverse proxy to Collector (:4318)
+      # App Platform and mobile clients use this hostname with Bearer auth at the Collector.
+      ${otel_hostname} {
+          reverse_proxy 127.0.0.1:4318
+      }
+
+  - path: /etc/systemd/system/ixora-observability.service
+    permissions: "0644"
+    owner: root:root
+    content: |
+      [Unit]
+      Description=Ixora Observability Stack (Docker Compose)
+      Documentation=https://github.com/lucasbrito90/ixora-infra/tree/develop/collector
+      After=docker.service network-online.target caddy.service
+      Wants=network-online.target
+      Requires=docker.service
+      ConditionPathExists=${deploy_path}/collector/docker-compose.yml
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=${deploy_path}/collector
+      ExecStart=/usr/bin/docker compose up -d
+      ExecStop=/usr/bin/docker compose stop
+      ExecReload=/usr/bin/docker compose up -d
+      TimeoutStartSec=600
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /usr/local/sbin/ixora-observability-preflight.sh
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      DEPLOY_PATH="${deploy_path}"
+      ENV_FILE="$${DEPLOY_PATH}/collector/.env"
+      if [[ ! -f "$${ENV_FILE}" ]]; then
+        echo "ERROR: $${ENV_FILE} missing — run bootstrap-collector-env.sh first" >&2
+        exit 1
+      fi
+      if [[ "$(stat -c '%a' "$${ENV_FILE}")" != "600" ]]; then
+        echo "ERROR: $${ENV_FILE} must be chmod 600" >&2
+        exit 1
+      fi
+      if grep -q 'REPLACE_WITH_STRONG' "$${ENV_FILE}"; then
+        echo "ERROR: placeholder secrets remain in $${ENV_FILE}" >&2
+        exit 1
+      fi
+      if grep -q '^GF_SERVER_ROOT_URL=http://localhost' "$${ENV_FILE}"; then
+        echo "ERROR: GF_SERVER_ROOT_URL still points to localhost — set staging HTTPS URL" >&2
+        exit 1
+      fi
+      echo "Preflight OK"
+
+runcmd:
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  - bash -lc 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list'
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  - systemctl enable --now docker
+  - usermod -aG docker root
+  - apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
+  - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+  - apt-get update
+  - apt-get install -y caddy
+  - systemctl enable --now caddy
+  - mkdir -p ${deploy_path}
+  - chmod 755 ${deploy_path}
+  - systemctl daemon-reload
+  - systemctl enable ixora-observability.service
+
+final_message: "Ixora observability host bootstrap complete. Deploy ixora-infra to ${deploy_path}, create collector/.env securely, then run scripts/deploy-observability.sh"

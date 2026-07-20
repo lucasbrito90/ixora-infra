@@ -48,14 +48,35 @@ global:
     cluster: ixora-observability-staging
 
 # ============================================================
-# ALERTING (Phase 10+ — reserved; do not enable until Phase 10)
+# RECORDING RULES (Phase 9 — uncomment to activate)
+#
+# Recording rules pre-compute expensive PromQL expressions at
+# evaluation_interval (30 s) and store results as new time series.
+# This improves dashboard query performance and enables SLO
+# burn-rate calculations.
+#
+# ACTIVATION CHECKLIST (Phase 9):
+#   1. Uncomment rule_files block below.
+#   2. Mount rules directory in docker-compose.yml:
+#        volumes:
+#          - ./prometheus/rules:/etc/prometheus/rules:ro
+#   3. Restart Prometheus.
+#   4. Verify: curl http://localhost:9090/-/rules | grep ixora
+#   5. Check Prometheus UI: Status → Rules
+#
+# PHILOSOPHY: docs/architecture/recording-rules-philosophy.md
+# CATALOG:    docs/specs/observability-foundation/mvp/recording-rules-foundation.md
+# ============================================================
+# rule_files:
+#   - /etc/prometheus/rules/recording/*.rules.yml
+
+# ============================================================
+# ALERTING (Phase 9 — uncomment to activate with Grafana Alertmanager)
 # ============================================================
 # alerting:
 #   alertmanagers:
 #     - static_configs:
 #         - targets: []
-#
-# rule_files: []
 
 # ============================================================
 # SCRAPE CONFIGS

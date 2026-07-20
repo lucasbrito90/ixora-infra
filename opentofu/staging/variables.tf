@@ -291,3 +291,83 @@ variable "api_source_dir" {
   type        = string
   default     = "/"
 }
+
+# ── Observability host (Phase 8.8.5) ─────────────────────────────────────────
+
+variable "observability_enabled" {
+  description = "When true, provisions the dedicated observability Droplet and Cloud Firewall in the staging VPC."
+  type        = bool
+  default     = true
+}
+
+variable "observability_droplet_size" {
+  description = "DigitalOcean Droplet size slug for the observability host. Default s-4vcpu-8gb = 4 vCPU, 8 GB RAM, 160 GB SSD — matches infrastructure-review.md §10 baseline."
+  type        = string
+  default     = "s-4vcpu-8gb"
+}
+
+variable "observability_droplet_image" {
+  description = "Droplet base image slug. Ubuntu 24.04 LTS unless the repository establishes a different standard."
+  type        = string
+  default     = "ubuntu-24-04-x64"
+}
+
+variable "observability_ssh_key_ids" {
+  description = "DigitalOcean SSH key IDs or fingerprints for observability Droplet access. Required when observability_enabled is true."
+  type        = list(string)
+  default     = []
+}
+
+variable "observability_ssh_allowed_cidrs" {
+  description = "CIDR blocks allowed to connect to the observability Droplet on TCP/22. Restrict to operator IPs — never 0.0.0.0/0."
+  type        = list(string)
+  default     = []
+}
+
+variable "observability_grafana_hostname" {
+  description = "Public HTTPS hostname for Grafana (Caddy reverse proxy). DNS must point to the Droplet public IP before TLS succeeds."
+  type        = string
+  default     = "grafana-staging.ixora-app.app"
+}
+
+variable "observability_otel_hostname" {
+  description = "Public HTTPS hostname for OTLP HTTP ingestion (Caddy reverse proxy to Collector :4318)."
+  type        = string
+  default     = "otel-staging.ixora-app.app"
+}
+
+variable "observability_https_allowed_cidrs" {
+  description = "CIDR blocks allowed inbound on TCP/443 (Caddy — Grafana + OTLP HTTP). Default 0.0.0.0/0 for App Platform and mobile clients."
+  type        = list(string)
+  default     = ["0.0.0.0/0", "::/0"]
+}
+
+variable "observability_prevent_destroy" {
+  description = "Documentation flag — lifecycle prevent_destroy is hardcoded true on the Droplet (OpenTofu requires a literal). Set false in tfvars only as intent; to allow destroy, temporarily remove prevent_destroy from observability.tf."
+  type        = bool
+  default     = true
+}
+
+variable "observability_enable_monitoring" {
+  description = "Enable DigitalOcean Droplet monitoring agent (not Node Exporter)."
+  type        = bool
+  default     = true
+}
+
+variable "observability_deploy_path" {
+  description = "Absolute path on the observability host where ixora-infra is deployed."
+  type        = string
+  default     = "/opt/ixora-observability"
+}
+
+variable "observability_use_block_volume" {
+  description = "When true, attach a dedicated DigitalOcean block volume for Docker/observability data. Default false uses Droplet root disk (Strategy A — staging limitation documented)."
+  type        = bool
+  default     = false
+}
+
+variable "observability_volume_size_gib" {
+  description = "Block volume size in GiB when observability_use_block_volume is true. Ignored otherwise."
+  type        = number
+  default     = 128
+}
