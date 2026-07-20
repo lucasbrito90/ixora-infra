@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # Ixora Observability — Grafana Foundation Validation
-# Phase 8.1 + Phase 8.2 + Phase 8.3 + Phase 8.4 + Phase 8.5
+# Phase 8.1 + Phase 8.2 + Phase 8.3 + Phase 8.4 + Phase 8.5 + Phase 8.6
 #
 # Phase 8.1 checks (1–6):
 #   Validates that Grafana has started correctly and that all
@@ -37,6 +37,21 @@
 #   40: D-01 panel IDs respect reserved ranges (1–599).
 #   41: Every non-row panel in D-01 contains a description.
 #   42: Every non-row panel in D-01 contains a datasource UID.
+#
+# Phase 8.6 checks (43–48):
+#   Navigation mesh and link quality checks:
+#   43: Every specialized dashboard (D-02/D-04/D-05/D-06/D-07)
+#       contains a link back to /d/ixora-platform.
+#   44: All dashboard links follow the standard ordering
+#       (D-01, D-02, D-04, D-05, D-06, D-07 — self excluded).
+#   45: No duplicate dashboard links within any dashboard.
+#   46: All dashboard-level links use keepTime=true.
+#   47: No dashboard-level navigation link uses targetBlank=true.
+#   48: Panel ID integrity — no duplicates, no non-positive IDs,
+#       across all 6 provisioned dashboards. Range compliance is
+#       documented in dashboard-conventions.md §8 (three schemes
+#       coexist: scheme A for D-01/D-02, section-range-start for
+#       D-04/D-05/D-06, legacy sequential for D-07).
 #
 # Usage:
 #   ./validate.sh
@@ -92,7 +107,7 @@ if [[ -z "${GRAFANA_PASS}" ]]; then
 fi
 
 echo ""
-echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5"
+echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6"
 echo "Target: ${GRAFANA_URL}"
 echo "────────────────────────────────────────────────"
 echo ""
@@ -896,6 +911,302 @@ if echo "${PANEL_DS}" | grep -q "^PASS:"; then
   pass "${PANEL_DS#PASS: }"
 else
   fail "${PANEL_DS#FAIL: }"
+fi
+
+# ── 43. Back-link to D-01 in every specialized dashboard ─────
+# D-02, D-04, D-05, D-06, D-07 must each contain a navigation link
+# pointing to /d/ixora-platform.
+# D-01 itself is excluded (it IS the Platform Overview).
+
+echo ""
+echo "43. Every specialized dashboard contains a back-link to /d/ixora-platform"
+
+BACKLINK_CHECK=$(python3 -c "
+import json, os, sys
+
+provisioning = '${PROVISIONING_DIR}/dashboards'
+missing = []
+
+# Map file basename -> uid for all specialized dashboards
+for root, dirs, files in os.walk(provisioning):
+    for fname in sorted(files):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(root, fname)
+        try:
+            with open(fpath) as f:
+                d = json.load(f)
+        except Exception as e:
+            missing.append(f'cannot parse {fname}: {e}')
+            continue
+        uid = d.get('uid', '')
+        if uid == 'ixora-platform':
+            continue  # D-01 excluded
+        links = d.get('links', [])
+        urls = [l.get('url','') for l in links if isinstance(l, dict)]
+        if '/d/ixora-platform' not in urls:
+            missing.append(f'uid={uid} ({fname})')
+
+if missing:
+    print('FAIL: missing D-01 back-link: ' + ' | '.join(missing))
+else:
+    print('PASS: all 5 specialized dashboards link back to /d/ixora-platform')
+" 2>/dev/null || echo "FAIL: python3 back-link check failed")
+
+if echo "${BACKLINK_CHECK}" | grep -q "^PASS:"; then
+  pass "${BACKLINK_CHECK#PASS: }"
+else
+  fail "${BACKLINK_CHECK#FAIL: }"
+fi
+
+# ── 44. Dashboard links follow standard ordering ─────────────
+# Standard order (self excluded):
+#   /d/ixora-platform, /d/ixora-smart-home, /d/ixora-queue,
+#   /d/ixora-http, /d/ixora-scheduler, /d/ixora-collector
+
+echo ""
+echo "44. Dashboard links follow standard ordering (D-01→D-02→D-04→D-05→D-06→D-07)"
+
+ORDER_CHECK=$(python3 -c "
+import json, os, sys
+
+provisioning = '${PROVISIONING_DIR}/dashboards'
+
+STANDARD_ORDER = [
+    '/d/ixora-platform',
+    '/d/ixora-smart-home',
+    '/d/ixora-queue',
+    '/d/ixora-http',
+    '/d/ixora-scheduler',
+    '/d/ixora-collector',
+]
+
+bad = []
+
+for root, dirs, files in os.walk(provisioning):
+    for fname in sorted(files):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(root, fname)
+        try:
+            with open(fpath) as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        uid = d.get('uid', '')
+        self_url = f'/d/{uid}' if uid else None
+        links = d.get('links', [])
+        actual_urls = [l.get('url','') for l in links if isinstance(l, dict)]
+        # Expected: STANDARD_ORDER minus self
+        expected = [u for u in STANDARD_ORDER if u != self_url]
+        if actual_urls != expected:
+            bad.append(f'uid={uid} ({fname}): got {actual_urls}, expected {expected}')
+
+if bad:
+    print('FAIL: incorrect link ordering: ' + ' | '.join(bad))
+else:
+    print('PASS: all 6 dashboards follow standard link ordering')
+" 2>/dev/null || echo "FAIL: python3 order check failed")
+
+if echo "${ORDER_CHECK}" | grep -q "^PASS:"; then
+  pass "${ORDER_CHECK#PASS: }"
+else
+  fail "${ORDER_CHECK#FAIL: }"
+fi
+
+# ── 45. No duplicate dashboard links ─────────────────────────
+
+echo ""
+echo "45. No duplicate dashboard links within any dashboard"
+
+DEDUP_CHECK=$(python3 -c "
+import json, os, sys
+
+provisioning = '${PROVISIONING_DIR}/dashboards'
+bad = []
+
+for root, dirs, files in os.walk(provisioning):
+    for fname in sorted(files):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(root, fname)
+        try:
+            with open(fpath) as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        uid = d.get('uid', '')
+        links = d.get('links', [])
+        urls = [l.get('url','') for l in links if isinstance(l, dict)]
+        seen = {}
+        for u in urls:
+            seen[u] = seen.get(u, 0) + 1
+        dupes = [u for u, c in seen.items() if c > 1]
+        if dupes:
+            bad.append(f'uid={uid} ({fname}): duplicate urls {dupes}')
+
+if bad:
+    print('FAIL: duplicate links found: ' + ' | '.join(bad))
+else:
+    print('PASS: no duplicate dashboard links in any dashboard')
+" 2>/dev/null || echo "FAIL: python3 dedup check failed")
+
+if echo "${DEDUP_CHECK}" | grep -q "^PASS:"; then
+  pass "${DEDUP_CHECK#PASS: }"
+else
+  fail "${DEDUP_CHECK#FAIL: }"
+fi
+
+# ── 46. All dashboard links use keepTime=true ─────────────────
+
+echo ""
+echo "46. All dashboard-level links use keepTime=true"
+
+KEEPTIME_CHECK=$(python3 -c "
+import json, os, sys
+
+provisioning = '${PROVISIONING_DIR}/dashboards'
+bad = []
+
+for root, dirs, files in os.walk(provisioning):
+    for fname in sorted(files):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(root, fname)
+        try:
+            with open(fpath) as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        uid = d.get('uid', '')
+        links = d.get('links', [])
+        for l in links:
+            if not isinstance(l, dict):
+                continue
+            if not l.get('keepTime', False):
+                bad.append(f'uid={uid} ({fname}): link \"{l.get(\"title\",\"\")}\" has keepTime=false/missing')
+
+if bad:
+    print('FAIL: links missing keepTime=true: ' + ' | '.join(bad))
+else:
+    total = sum(len(json.load(open(os.path.join(r,f))).get('links',[])) for r,_,fs in os.walk(provisioning) for f in fs if f.endswith('.json') and os.path.isfile(os.path.join(r,f)))
+    print(f'PASS: all dashboard-level links use keepTime=true')
+" 2>/dev/null || echo "FAIL: python3 keepTime check failed")
+
+if echo "${KEEPTIME_CHECK}" | grep -q "^PASS:"; then
+  pass "${KEEPTIME_CHECK#PASS: }"
+else
+  fail "${KEEPTIME_CHECK#FAIL: }"
+fi
+
+# ── 47. No navigation link uses targetBlank=true ─────────────
+
+echo ""
+echo "47. No dashboard navigation link uses targetBlank=true"
+
+TARGETBLANK_CHECK=$(python3 -c "
+import json, os, sys
+
+provisioning = '${PROVISIONING_DIR}/dashboards'
+bad = []
+
+for root, dirs, files in os.walk(provisioning):
+    for fname in sorted(files):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(root, fname)
+        try:
+            with open(fpath) as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        uid = d.get('uid', '')
+        links = d.get('links', [])
+        for l in links:
+            if not isinstance(l, dict):
+                continue
+            if l.get('targetBlank', False):
+                bad.append(f'uid={uid} ({fname}): link \"{l.get(\"title\",\"\")}\" has targetBlank=true')
+
+if bad:
+    print('FAIL: dashboard navigation links with targetBlank=true: ' + ' | '.join(bad))
+else:
+    print('PASS: no dashboard navigation link uses targetBlank=true')
+" 2>/dev/null || echo "FAIL: python3 targetBlank check failed")
+
+if echo "${TARGETBLANK_CHECK}" | grep -q "^PASS:"; then
+  pass "${TARGETBLANK_CHECK#PASS: }"
+else
+  fail "${TARGETBLANK_CHECK#FAIL: }"
+fi
+
+# ── 48. Panel ID integrity across all dashboards ─────────────
+# Checks for every provisioned dashboard JSON file:
+#   a) No duplicate panel IDs within any dashboard.
+#   b) No panel ID <= 0.
+#
+# Range compliance notes (per dashboard-conventions.md §8):
+#   - D-01, D-02: row IDs 1–5 (scheme A), content IDs 100–599.
+#   - D-04, D-05, D-06: row IDs are section-range starts
+#     (1 for Health, 200/300/400/500 for other sections) — this
+#     is the "section-range-start" scheme explicitly allowed in
+#     dashboard-conventions.md §8.
+#   - D-07: predates the ID convention (Phase 8.2). Uses sequential
+#     IDs 1–44. Legacy behaviour — duplicate check only.
+# All three schemes are valid. Only duplicates and non-positive
+# IDs constitute a defect.
+
+echo ""
+echo "48. Panel ID integrity (no duplicates, positive IDs) — all 6 dashboards"
+
+PANEL_INTEGRITY=$(python3 -c "
+import json, os, sys
+
+provisioning = '${PROVISIONING_DIR}/dashboards'
+bad = []
+total_dashboards = 0
+
+for root, dirs, files in os.walk(provisioning):
+    for fname in sorted(files):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(root, fname)
+        try:
+            with open(fpath) as f:
+                d = json.load(f)
+        except Exception as e:
+            bad.append(f'cannot parse {fname}: {e}')
+            continue
+
+        total_dashboards += 1
+        uid = d.get('uid', fname)
+        panels = d.get('panels', [])
+
+        # Rule a: no duplicate IDs within dashboard
+        ids = [p.get('id') for p in panels if 'id' in p]
+        seen = {}
+        for pid in ids:
+            seen[pid] = seen.get(pid, 0) + 1
+        dupes = [pid for pid, c in seen.items() if c > 1]
+        if dupes:
+            bad.append(f'{fname} (uid={uid}): duplicate panel IDs {dupes}')
+
+        # Rule b: no ID <= 0
+        for p in panels:
+            pid = p.get('id')
+            if pid is not None and pid <= 0:
+                bad.append(f'{fname} (uid={uid}): non-positive panel ID {pid}')
+
+if bad:
+    print('FAIL: panel ID issues: ' + ' | '.join(bad))
+else:
+    print(f'PASS: panel IDs valid across all {total_dashboards} dashboards (no duplicates, all IDs positive)')
+" 2>/dev/null || echo "FAIL: python3 panel integrity check failed")
+
+if echo "${PANEL_INTEGRITY}" | grep -q "^PASS:"; then
+  pass "${PANEL_INTEGRITY#PASS: }"
+else
+  fail "${PANEL_INTEGRITY#FAIL: }"
 fi
 
 # ── Summary ───────────────────────────────────────────────────

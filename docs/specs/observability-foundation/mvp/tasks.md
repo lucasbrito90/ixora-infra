@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + 8.4 + **8.5** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + Smart Home Business Dashboard (D-02) + **Platform Overview Dashboard (D-01)**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + **8.6** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + Smart Home Business Dashboard (D-02) + Platform Overview Dashboard (D-01) + **Dashboard Integration & Operational Validation**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -914,7 +914,39 @@
 
 ---
 
-**Prerequisite:** Phase 7B.1 (HTTP + Routing).
+## Phase 8.6 — Dashboard Integration & Operational Validation
+
+**Prerequisite:** D-01 (Phase 8.5), D-02 (Phase 8.4), D-04/D-05/D-06 (Phase 8.3), D-07 (Phase 8.2).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.6-1 | Mandatory review: all dashboard docs, conventions, requirements, philosophy docs | **Done** | All docs read before implementation |
+| P8.6-2 | Part 1: Add D-01 back-link to D-02, D-04, D-05, D-06, D-07 | **Done** | 5 dashboard JSON files updated |
+| P8.6-3 | Part 2: Review + fix all link arrays (duplicates, order, broken, titles) | **Done** | All 30 links validated; D-02/D-04/D-05/D-06 also received D-02 cross-links; D-07 received all 5 links |
+| P8.6-4 | Part 3: Extend dashboard-conventions.md with Overview Dashboard Principles (§13) | **Done** | `docs/specs/observability-foundation/mvp/dashboard-conventions.md` |
+| P8.6-5 | Part 4: Document 4 operational investigation workflows | **Done** | `dashboard-operational-validation.md §6` |
+| P8.6-6 | Part 5: Dashboard navigation matrix | **Done** | `dashboard-operational-validation.md §4` |
+| P8.6-7 | Part 6: Extend validate.sh with checks 43–48; verify 48/48 PASS + restart idempotency | **Done** | `collector/grafana/validate.sh` — 48/48 PASS (initial + restart) |
+| P8.6-8 | Part 7: Create dashboard-operational-validation.md | **Done** | `docs/specs/observability-foundation/mvp/dashboard-operational-validation.md` |
+| P8.6-9 | Part 8: Architecture review (responsibilities, navigation, conventions, docs) | **Done** | `dashboard-operational-validation.md §7` |
+| P8.6-10 | Update tasks.md, plan.md, README.md | **Done** | Roadmap files |
+
+**Phase 8.6 implementation notes:**
+
+- **Navigation mesh completed:** Phase 8.6 identified 5 dashboards with missing back-links (D-02: missing D-01; D-04/D-05/D-06: missing D-01 and D-02; D-07: **zero links**). All 30 navigation links (6 × 5 peers) are now present and validated.
+- **Standard order established:** D-01 → D-02 → D-04 → D-05 → D-06 → D-07 (self excluded) enforced in all 6 dashboards and checked by validate.sh #44.
+- **Overview Dashboard Principles:** New permanent architectural rule added to `dashboard-conventions.md §13`. Documents what overview dashboards must not and should do. Enforced by validate.sh checks 43–47.
+- **Operational validation:** 4 complete investigation workflows documented (HTTP Server Error, Scheduler Failure, Queue Backlog, Smart Home Failure). Each includes navigation flow, evidence, usability observations, and recommendations.
+- **Panel ID note (Check 48):** D-07 uses legacy sequential IDs (1–44, predating the convention). D-04/D-05/D-06 use section-range-start row IDs (200, 300, 400, 500 for row panels) — explicitly allowed by `dashboard-conventions.md §8`. Check 48 validates no duplicates + all IDs positive (the universally enforceable subset).
+- **Navigation conventions §12 rewritten:** Phase 8.5 §12.1 documented per-folder link subsets. Phase 8.6 replaces this with the full bidirectional mesh standard, including `targetBlank: false` rule documented as §12.3.
+- Validation extended: Checks 43–48 (back-link to D-01, link order, no duplicates, keepTime, no targetBlank, panel ID integrity). Total: **48/48 PASS**.
+- Restart idempotency verified: `docker compose restart grafana` → 48/48 PASS (verified twice).
+
+**Branch:** `feature/observability-dashboard-integration`
+
+---
+
+
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |

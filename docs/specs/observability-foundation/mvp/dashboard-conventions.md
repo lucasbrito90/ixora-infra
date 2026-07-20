@@ -353,35 +353,119 @@ Every dashboard provisioned in `grafana/provisioning/dashboards/` is automatical
 
 ## 12. Navigation Convention
 
-Every dashboard must include dashboard-level links to related dashboards. Use the `links` array at the top level of the JSON.
+Every dashboard must include dashboard-level links to all other dashboards. Use the `links` array at the top level of the JSON.
 
-### 12.1 Standard links by folder
+### 12.1 Standard link order (Phase 8.6 — bidirectional mesh)
 
-**Application dashboards (D-04, D-05, D-06):**
+All dashboards link to all other dashboards in the following fixed order (self excluded):
+
+| Position | Dashboard | UID | URL |
+| --- | --- | --- | --- |
+| 1 | D-01 Platform Overview | `ixora-platform` | `/d/ixora-platform` |
+| 2 | D-02 Smart Home | `ixora-smart-home` | `/d/ixora-smart-home` |
+| 3 | D-04 Queue Workers | `ixora-queue` | `/d/ixora-queue` |
+| 4 | D-05 HTTP API | `ixora-http` | `/d/ixora-http` |
+| 5 | D-06 Scheduler | `ixora-scheduler` | `/d/ixora-scheduler` |
+| 6 | D-07 Infrastructure | `ixora-collector` | `/d/ixora-collector` |
+
+Standard link object template:
+
+```json
+{
+  "icon": "external link",
+  "keepTime": true,
+  "targetBlank": false,
+  "title": "D-XX <Name>",
+  "tooltip": "",
+  "type": "link",
+  "url": "/d/ixora-<slug>"
+}
+```
+
+Example — links array for D-04 Queue Workers (self excluded at position 3):
+
 ```json
 "links": [
-  {"title": "D-04 Queue Workers",  "url": "/d/ixora-queue",     "type": "link", "icon": "external link", "keepTime": true, "targetBlank": false},
-  {"title": "D-05 HTTP API",       "url": "/d/ixora-http",      "type": "link", "icon": "external link", "keepTime": true, "targetBlank": false},
-  {"title": "D-06 Scheduler",      "url": "/d/ixora-scheduler", "type": "link", "icon": "external link", "keepTime": true, "targetBlank": false},
-  {"title": "D-07 Infrastructure", "url": "/d/ixora-collector", "type": "link", "icon": "external link", "keepTime": true, "targetBlank": false}
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-01 Platform Overview", "tooltip": "", "type": "link", "url": "/d/ixora-platform"},
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-02 Smart Home",        "tooltip": "", "type": "link", "url": "/d/ixora-smart-home"},
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-05 HTTP API",          "tooltip": "", "type": "link", "url": "/d/ixora-http"},
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-06 Scheduler",         "tooltip": "", "type": "link", "url": "/d/ixora-scheduler"},
+  {"icon": "external link", "keepTime": true, "targetBlank": false, "title": "D-07 Infrastructure",    "tooltip": "", "type": "link", "url": "/d/ixora-collector"}
 ]
 ```
 
-**Business dashboards (D-02, D-03):**
-```json
-"links": [
-  {"title": "D-04 Queue Workers",  "url": "/d/ixora-queue",     "type": "link", "icon": "external link", "keepTime": true, "targetBlank": false},
-  {"title": "D-07 Infrastructure", "url": "/d/ixora-collector", "type": "link", "icon": "external link", "keepTime": true, "targetBlank": false}
-]
-```
+**Rules:**
+- Every dashboard must link to every other deployed dashboard (full bidirectional mesh).
+- Self-links are prohibited.
+- Link order must match the standard table above (position order, skip self).
+- No duplicate links.
+- `validate.sh` checks 43–47 enforce this standard.
 
 ### 12.2 `keepTime: true`
 
 Always set `keepTime: true` so navigating to a related dashboard preserves the current time range. This is critical for incident investigation — switching dashboards must not change the time window.
 
+### 12.3 `targetBlank: false`
+
+Always set `targetBlank: false` for dashboard-level navigation links. Dashboard navigation must stay in the same tab to preserve Grafana's time range and variable state. Use `targetBlank: true` only for external investigation links (Tempo Explore, Loki Explore, documentation URLs) in panel-level links.
+
 ---
 
-## 13. Known Limitations
+## 13. Overview Dashboard Principles
+
+> **Established:** Phase 8.6 — permanent architectural rule. Applies to D-01 and any future overview-tier dashboard.
+
+### 13.1 What an overview dashboard is
+
+An overview dashboard is the **default landing page** for operators. Its purpose is to answer "Is the system healthy?" in under 30 seconds without navigating to any specialized dashboard.
+
+### 13.2 Overview dashboards MUST NOT
+
+| Prohibited | Rationale |
+| --- | --- |
+| Duplicate operational charts from specialized dashboards | Creates maintenance burden and false sense of coverage |
+| Expose raw PromQL to end users | Panels must communicate health status, not query syntax |
+| Expose troubleshooting-only panels | Root-cause investigation belongs in specialized dashboards |
+| Expose high-cardinality dimensions (e.g. per-route, per-job breakdowns) | High-cardinality panels belong in specialized dashboards |
+| Become a general-purpose operational dashboard | Overview dashboards must remain summaries |
+| Use `targetBlank: true` for dashboard navigation links | Breaks time range and variable state preservation |
+
+### 13.3 Overview dashboards SHOULD
+
+| Principle | Implementation guidance |
+| --- | --- |
+| Summarize | Show aggregated rates, not per-entity breakdowns |
+| Aggregate | Combine multiple labels into a single health indicator (e.g. success rate over all outcomes) |
+| Highlight anomalies | Use stat panels with threshold-based color coding (green/yellow/red) |
+| Provide navigation | Every panel links to the specialized dashboard for drill-down |
+| Fit on one screen | All health indicators visible without scrolling where practical |
+| Remain the default landing page | Grafana home page should be set to the overview dashboard |
+| Use instant queries for health stat panels | Avoid time series overload; status should be a single current value |
+
+### 13.4 Overview dashboard panel budget
+
+| Section | Max panels | Rationale |
+| --- | --- | --- |
+| Platform Health (stat cards) | 4–8 | One card per domain; must fit one row |
+| Business Summary | 4–6 | KPI-level only; one trend time series allowed |
+| Application Summary | 4–8 | Rate + error rate per domain |
+| Infrastructure Summary | 4–6 | Process status + export health |
+| Navigation | 4–8 | Text links to all specialized dashboards |
+
+**Total panel budget: ≤ 40 panels.** Exceeding this indicates that the dashboard has drifted into operational territory.
+
+### 13.5 Validation
+
+`validate.sh` enforces:
+- Check 43: Every specialized dashboard contains a link back to D-01 (`/d/ixora-platform`).
+- Check 44: Dashboard links follow the standard ordering (§12.1).
+- Check 45: No duplicate dashboard links.
+- Check 46: All dashboard links use `keepTime: true`.
+- Check 47: No dashboard navigation link uses `targetBlank: true`.
+
+---
+
+## 14. Known Limitations
 
 | Limitation | Impact | Resolution |
 | --- | --- | --- |
@@ -392,14 +476,17 @@ Always set `keepTime: true` so navigating to a related dashboard preserves the c
 
 ---
 
-## Related Documents
+## 15. Related Documents
 
 | Document | Relationship |
 | --- | --- |
 | [grafana-foundation.md](grafana-foundation.md) | Phase 8.1 — provisioning foundation these conventions build on |
 | [dashboard-requirements.md](dashboard-requirements.md) | Phase 8.0 — panel inventory (source of truth for panel design, subject to implementation verification) |
 | [dashboard-d07-infrastructure.md](dashboard-d07-infrastructure.md) | Phase 8.2 — first implementation, established UID/JSON conventions applied here |
-| [dashboard-d04-http.md](dashboard-d04-http.md) | Phase 8.3 — D-04 implementation |
-| [dashboard-d05-queue.md](dashboard-d05-queue.md) | Phase 8.3 — D-05 implementation |
+| [dashboard-d04-queue.md](dashboard-d04-queue.md) | Phase 8.3 — D-04 implementation |
+| [dashboard-d05-http.md](dashboard-d05-http.md) | Phase 8.3 — D-05 implementation |
 | [dashboard-d06-scheduler.md](dashboard-d06-scheduler.md) | Phase 8.3 — D-06 implementation |
+| [dashboard-d02-smart-home.md](dashboard-d02-smart-home.md) | Phase 8.4 — D-02 implementation |
+| [dashboard-d01-platform-overview.md](dashboard-d01-platform-overview.md) | Phase 8.5 — D-01 implementation; establishes overview tier |
+| [dashboard-operational-validation.md](dashboard-operational-validation.md) | Phase 8.6 — navigation mesh validation, investigation workflows, navigation matrix |
 | [telemetry-naming-convention.md](../../../architecture/telemetry-naming-convention.md) | Canonical metric/span names verified in this document |
