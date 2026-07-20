@@ -64,6 +64,20 @@ api_env_general = {
 
 nuxt_public_api_base_url = "https://staging-api.ixora-app.app/api"
 
+# ── Observability host (Phase 8.8.5) ─────────────────────────────────────────
+# Required before `tofu apply` when observability_enabled = true (default).
+#
+# observability_enabled             = true
+# observability_droplet_size        = "s-4vcpu-8gb"   # 4 vCPU, 8 GB RAM, 160 GB SSD
+# observability_ssh_key_ids         = ["YOUR_DO_SSH_KEY_ID"]
+# observability_ssh_allowed_cidrs   = ["YOUR.PUBLIC.IP/32"]
+# observability_grafana_hostname    = "grafana-staging.ixora-app.app"
+# observability_otel_hostname       = "otel-staging.ixora-app.app"
+# observability_use_block_volume    = false          # Strategy A: root disk (default)
+#
+# After apply: point DNS A records for grafana-staging + otel-staging to observability_public_ipv4 output.
+# Then SSH to host, clone ixora-infra, run scripts/bootstrap-collector-env.sh, scripts/deploy-observability.sh
+
 # nuxt_public_firebase_api_key             = "AIza..."
 # nuxt_public_firebase_auth_domain         = "your-app.firebaseapp.com"
 # nuxt_public_firebase_project_id          = "your-project"

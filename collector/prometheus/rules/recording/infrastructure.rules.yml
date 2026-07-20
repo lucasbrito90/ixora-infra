@@ -1,0 +1,53 @@
+# ============================================================
+# Ixora Observability Platform — Infrastructure Recording Rules
+# Phase 8.9 — Recording Rules Foundation (placeholder)
+#
+# STATUS: PLACEHOLDER — no active recording rules.
+# Phase 9 will activate rules defined here.
+#
+# SCOPE: Collector, Prometheus, Loki, Tempo, Telemetry Export
+# OWNER: SRE team
+#
+# CATALOG: recording-rules-foundation.md §4
+# PHILOSOPHY: docs/architecture/recording-rules-philosophy.md
+# ============================================================
+
+groups:
+
+  # ----------------------------------------------------------
+  # Collector & observability stack (REC-003, REC-017, REC-018)
+  # Consumers: D-07, D-01, alert rules (Phase 9)
+  # ----------------------------------------------------------
+  - name: ixora_infrastructure_collector
+    interval: 30s
+    rules: []
+    # Phase 9 — uncomment rules:
+    #
+    # - record: ixora:collector:availability
+    #   expr: |
+    #     avg by (environment) (up{job="otel-collector"})
+    #
+    # - record: ixora:collector:export_failure_rate:5m
+    #   expr: |
+    #     sum by (environment) (rate(otelcol_exporter_send_failed_metric_points_total{service_name="otelcol-contrib"}[5m]))
+    #     / (
+    #       sum by (environment) (rate(otelcol_exporter_sent_metric_points_total{service_name="otelcol-contrib"}[5m]))
+    #       + sum by (environment) (rate(otelcol_exporter_send_failed_metric_points_total{service_name="otelcol-contrib"}[5m]))
+    #     )
+    #
+    # - record: ixora:telemetry:export_failure_rate:1h
+    #   expr: |
+    #     sum by (deployment_environment) (increase(ixora_telemetry_export_failed_total[1h]))
+
+  # ----------------------------------------------------------
+  # Prometheus self-monitoring (REC-019)
+  # Consumers: D-07
+  # ----------------------------------------------------------
+  - name: ixora_infrastructure_prometheus
+    interval: 30s
+    rules: []
+    # Phase 9 — uncomment rules:
+    #
+    # - record: ixora:prometheus:availability
+    #   expr: |
+    #     up{job="prometheus"}

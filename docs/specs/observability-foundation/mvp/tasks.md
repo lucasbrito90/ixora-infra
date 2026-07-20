@@ -1,6 +1,6 @@
 # Observability Foundation MVP — task checklist
 
-**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7 + **8.8** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + Smart Home Business Dashboard (D-02) + Platform Overview Dashboard (D-01) + Dashboard Integration & Operational Validation + D-03 Push Notifications Dashboard + **Alerting Foundation**  
+**Status:** Phase 1 + 1.5 + 2 + 2.5 + 9.5 + 3 + 3.5 + 3.75 + 4 + 5 + 5.5 + 6 + 6.5 + 7A + 7B.1 + 7B.2 + 7B.3 + 7B.4.1 + 7B.4.2 + 7B.4.3 + 7B.4.4 + 7B.4.5 + 7B.4.6 + 7B.4.7 + 7B.4.8 + 7B.4.9 + 8.0 + 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7 + 8.8 + **8.9** complete — ADRs + Spec + Infra + Security + Guides + Collector + Validation + Metrics Philosophy + Prometheus + Loki + Logs Philosophy + Tempo + Traces Philosophy + Backend SDK Foundation + HTTP + Routing Instrumentation + Queue + Console Instrumentation + Generic Scheduler Instrumentation + Business Telemetry Domain Execution Review (discovery only) + Smart Home Dispatch Boundary + Smart Home Action Execution + Smart Home Provider Boundary + Business Failure Semantics + Business Metrics + Business Logging + Business Telemetry Foundation Baseline + Dashboard Requirements + Grafana Foundation & Provisioning + D-07 Infrastructure Dashboard + Application Dashboards (D-04 Queue, D-05 HTTP, D-06 Scheduler) + Smart Home Business Dashboard (D-02) + Platform Overview Dashboard (D-01) + Dashboard Integration & Operational Validation + D-03 Push Notifications Dashboard + Alerting Foundation + **Recording Rules & SLO Foundation**  
 **Spec:** [`spec.md`](spec.md)  
 **Plan:** [`plan.md`](plan.md)  
 **Feature ID:** `observability-foundation/mvp`
@@ -1002,7 +1002,61 @@
 
 ---
 
+## Phase 8.9 — Recording Rules & SLO Foundation
 
+**Prerequisite:** Alerting Foundation complete (Phase 8.8); 67/67 validation checks; full dashboard ecosystem; Prometheus operational.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.9-1 | Mandatory review: metrics/logs/traces/alerting philosophy, telemetry docs, dashboard ecosystem, ADR-028–031 | **Done** | Architecture review before implementation |
+| P8.9-2 | Architecture review: duplicate PromQL patterns, SLI candidates, dashboard/alert consumers | **Done** | 13 high-priority recording rule candidates identified |
+| P8.9-3 | Create docs/architecture/recording-rules-philosophy.md | **Done** | 19 sections: purpose, benefits, when/when-not, naming, lifecycle, dashboard/alert/SLO relationships |
+| P8.9-4 | Create docs/architecture/slo-philosophy.md | **Done** | 16 sections: SLI/SLO/SLA, error budget, Golden Signals, RED/USE, multi-window, burn rate concepts |
+| P8.9-5 | Create docs/specs/observability-foundation/mvp/recording-rules-foundation.md | **Done** | Catalog (REC-001–027), 8 SLI definitions, SLO examples, error budget, migration strategy |
+| P8.9-6 | Create prometheus/rules/recording/ placeholder YAML files | **Done** | application, business, infrastructure, slo — valid YAML, empty rules arrays |
+| P8.9-7 | Extend validate.sh checks 68–78 | **Done** | 78/78 PASS |
+| P8.9-8 | Update tasks.md, plan.md, README.md | **Done** | Roadmap files |
+
+**Phase 8.9 implementation notes:**
+
+- **No active recording rules.** `rule_files` remains commented out in `prometheus.yml`. Placeholder groups have `rules: []` with Phase 9 templates commented inline.
+- **Architecture review:** 13 duplicate PromQL patterns identified across 7 dashboards (~40+ redundant evaluations per refresh). REC-001 through REC-020 catalogued with dashboard and alert consumer mappings.
+- **SLI definitions:** 8 SLIs documented (SLI-001 through SLI-008) with formulas, source metrics, recording rule references, and example SLO targets.
+- **SLO philosophy:** Error budget policy, multi-window and burn rate concepts documented without runtime implementation. SLO maturity model Level 1 achieved.
+- **Integration:** Dashboard migration strategy (Phase 9b–9c) and alert integration mapping documented. Alert rules will consume recording rules instead of raw PromQL.
+- **validate.sh check count:** 67 → 78 (11 new checks).
+
+**Branch:** `feature/observability-recording-rules-slo-foundation`
+
+---
+
+## Phase 8.8.5 — Observability Infrastructure Provisioning
+
+**Prerequisite:** Full observability stack in `collector/` (Phases 3–8.9); staging VPC exists in OpenTofu.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.85-1 | Mandatory review: collector/, opentofu/staging/, infrastructure-review, security-review, ADR-028–031 | **Done** | Architecture review before implementation |
+| P8.85-2 | Create `observability.tf` — Droplet, firewall, optional volume | **Done** | `opentofu/staging/observability.tf` |
+| P8.85-3 | Create cloud-init template (Docker, Compose v2, Caddy, systemd) — no secrets | **Done** | `templates/observability-cloud-init.yaml.tftpl` |
+| P8.85-4 | Add observability variables and outputs | **Done** | `variables.tf`, `outputs.tf`, `terraform.tfvars.example` |
+| P8.85-5 | Create `bootstrap-collector-env.sh` and `deploy-observability.sh` | **Done** | `scripts/` |
+| P8.85-6 | Create provisioning doc and operational runbook | **Done** | `observability-infrastructure-provisioning.md`, `runbooks/observability-host.md` |
+| P8.85-7 | Update collector/README.md, plan.md, tasks.md, docs/README.md, infrastructure-review.md | **Done** | Roadmap files |
+| P8.85-8 | Static validation: tofu fmt/validate/plan, compose config, shellcheck | **Done** | See implementation report |
+
+**Phase 8.8.5 implementation notes:**
+
+- **Gap closed:** Previous `tofu plan` showed `0 to add` because no Droplet existed in OpenTofu. Now adds `digitalocean_droplet.observability` + `digitalocean_firewall.observability`.
+- **Storage:** Strategy A (root disk) default; Strategy B (block volume) optional via `observability_use_block_volume`.
+- **Network:** Public HTTPS (443) via Caddy only; internal backends on 127.0.0.1; OTLP via `https://otel-staging.ixora-app.app`.
+- **Secrets:** Separate from OpenTofu — `bootstrap-collector-env.sh` with env vars; never in cloud-init or outputs.
+- **App Platform OTEL:** Documented manual step; not wired in OpenTofu to avoid env churn.
+- **No `tofu apply`:** IaC prepared only; host deployment is manual post-apply.
+
+**Branch:** `feature/observability-infrastructure-provisioning`
+
+---
 
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
