@@ -371,7 +371,7 @@ Architectural expectations only — **not** final Droplet SKU. Final sizing conf
 | --- | --- |
 | Laravel configures Prometheus remote_write | Laravel sets `OTEL_EXPORTER_OTLP_ENDPOINT` only |
 | Grafana provisions Collector | Collector config lives outside Grafana |
-| OpenTofu manages observability VM in Phase 2 | **Deferred** — Phase 3 may use manual Droplet or future IaC ADR |
+| OpenTofu manages observability VM in Phase 2 | **Implemented** — Phase 8.8.5 (`opentofu/staging/observability.tf`); Docker Compose remains runtime source of truth |
 | App Platform runs Collector | Collector on dedicated VM — isolates telemetry blast radius from app tier |
 
 ---

@@ -1,0 +1,71 @@
+# ============================================================
+# Ixora Observability Platform — Business Recording Rules
+# Phase 8.9 — Recording Rules Foundation (placeholder)
+#
+# STATUS: PLACEHOLDER — no active recording rules.
+# Phase 9 will activate rules defined here.
+#
+# SCOPE: Smart Home, Push Notifications, Automation Pipeline
+# OWNER: Product / Backend team
+#
+# CATALOG: recording-rules-foundation.md §4
+# PHILOSOPHY: docs/architecture/recording-rules-philosophy.md
+# ============================================================
+
+groups:
+
+  # ----------------------------------------------------------
+  # Smart Home recording rules (REC-005, REC-013, REC-014)
+  # Consumers: D-01, D-02, alert rules (Phase 9)
+  # ----------------------------------------------------------
+  - name: ixora_business_smart_home
+    interval: 30s
+    rules: []
+    # Phase 9 — uncomment rules:
+    #
+    # - record: ixora:smart_home:success_rate:5m
+    #   expr: |
+    #     sum by (environment) (rate(ixora_smart_home_action_total{outcome="success"}[5m]))
+    #     / sum by (environment) (rate(ixora_smart_home_action_total[5m]))
+    #
+    # - record: ixora:smart_home:failure_rate:5m
+    #   expr: |
+    #     sum by (environment) (rate(ixora_smart_home_action_total{outcome=~"failure|unknown"}[5m]))
+    #     / sum by (environment) (rate(ixora_smart_home_action_total[5m]))
+    #
+    # - record: ixora:smart_home:p95_latency:5m
+    #   expr: |
+    #     histogram_quantile(0.95,
+    #       sum by (le, environment) (rate(ixora_smart_home_action_duration_bucket[5m]))
+    #     )
+
+  # ----------------------------------------------------------
+  # Push Notifications recording rules (REC-015, REC-016)
+  # Consumers: D-03, alert rules (Phase 9)
+  # Built on queue telemetry (queue="push") until Phase 7B.5
+  # ----------------------------------------------------------
+  - name: ixora_business_push
+    interval: 30s
+    rules: []
+    # Phase 9 — uncomment rules:
+    #
+    # - record: ixora:push:success_rate:5m
+    #   expr: |
+    #     sum by (environment) (rate(ixora_queue_job_total{queue="push",outcome="success"}[5m]))
+    #     / sum by (environment) (rate(ixora_queue_job_total{queue="push"}[5m]))
+    #
+    # - record: ixora:push:failure_rate:5m
+    #   expr: |
+    #     sum by (environment) (rate(ixora_queue_job_total{queue="push",outcome="failed"}[5m]))
+    #     / sum by (environment) (rate(ixora_queue_job_total{queue="push"}[5m]))
+    #
+    # - record: ixora:push:queue_backlog
+    #   expr: |
+    #     sum by (environment) (ixora_queue_job_active{queue="push"})
+    #
+    # Phase 10 — after Phase 7B.5 (ixora_push_delivery_total):
+    #
+    # - record: ixora:push:delivery_success_rate:5m
+    #   expr: |
+    #     sum by (environment, notification_type) (rate(ixora_push_delivery_total{outcome="success"}[5m]))
+    #     / sum by (environment, notification_type) (rate(ixora_push_delivery_total[5m]))

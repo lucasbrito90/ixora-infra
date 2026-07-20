@@ -9,4 +9,8 @@ locals {
 
   # CDN-style public URL pattern for Spaces (public reads still require ACL/CORS policy as needed).
   spaces_cdn_host = "${var.spaces_bucket_name}.${var.spaces_region}.cdn.digitaloceanspaces.com"
+
+  # Observability host naming (Phase 8.8.5)
+  observability_droplet_name  = "${local.project}-observability-${local.environment}"
+  observability_firewall_name = "${local.project}-observability-${local.environment}-fw"
 }

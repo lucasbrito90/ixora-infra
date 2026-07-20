@@ -53,18 +53,19 @@
 #       coexist: scheme A for D-01/D-02, section-range-start for
 #       D-04/D-05/D-06, legacy sequential for D-07).
 #
-# Phase 8.8 checks (58–67):
-#   Alerting Foundation structural integrity:
-#   58: provisioning/alerting/ directory exists.
-#   59: provisioning/contact-points/ directory exists.
-#   60: provisioning/notification-policies/ directory exists.
-#   61: provisioning/mute-timings/ directory exists.
-#   62: provisioning/templates/ directory exists.
-#   63: docs/architecture/alerting-philosophy.md exists.
-#   64: docs/specs/observability-foundation/mvp/alerting-foundation.md exists.
-#   65: contact-points/contact-points.yaml is valid YAML.
-#   66: notification-policies/policies.yaml is valid YAML.
-#   67: mute-timings/mute-timings.yaml is valid YAML.
+# Phase 8.9 checks (68–78):
+#   Recording Rules & SLO Foundation structural integrity:
+#   68: prometheus/rules/recording/ directory exists.
+#   69: application.rules.yml exists and is valid YAML.
+#   70: business.rules.yml exists and is valid YAML.
+#   71: infrastructure.rules.yml exists and is valid YAML.
+#   72: slo.rules.yml exists and is valid YAML.
+#   73: docs/architecture/recording-rules-philosophy.md exists.
+#   74: docs/architecture/slo-philosophy.md exists.
+#   75: docs/specs/observability-foundation/mvp/recording-rules-foundation.md exists.
+#   76: Catalog documented (REC-001 in foundation spec).
+#   77: SLI definitions documented (SLI-001 in foundation spec).
+#   78: Naming convention documented (ixora:http:error_rate:5m).
 #
 # Usage:
 #   ./validate.sh
@@ -120,7 +121,7 @@ if [[ -z "${GRAFANA_PASS}" ]]; then
 fi
 
 echo ""
-echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7 + 8.8"
+echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7 + 8.8 + 8.9"
 echo "Target: ${GRAFANA_URL}"
 echo "────────────────────────────────────────────────"
 echo ""
@@ -1679,6 +1680,213 @@ except Exception as e:
   fi
 else
   fail "mute-timings/mute-timings.yaml not found"
+fi
+
+# ── 68. Recording rules directory exists ─────────────────────
+
+echo ""
+echo "68. Recording rules directory exists (prometheus/rules/recording/)"
+
+COLLECTOR_DIR="$(dirname "${SCRIPT_DIR}")"
+RECORDING_RULES_DIR="${COLLECTOR_DIR}/prometheus/rules/recording"
+
+if [ -d "${RECORDING_RULES_DIR}" ]; then
+  pass "prometheus/rules/recording/ directory exists"
+else
+  fail "prometheus/rules/recording/ directory missing — run: mkdir -p ${RECORDING_RULES_DIR}"
+fi
+
+# ── 69. application.rules.yml is valid YAML ──────────────────
+
+echo ""
+echo "69. application.rules.yml exists and is valid YAML"
+
+APP_RULES="${RECORDING_RULES_DIR}/application.rules.yml"
+
+if [ -f "${APP_RULES}" ]; then
+  YAML_CHECK=$(python3 -c "
+import yaml
+try:
+    data = yaml.safe_load(open('${APP_RULES}'))
+    if data is None or 'groups' not in data:
+        print('FAIL: application.rules.yml missing groups key')
+    else:
+        print('PASS: application.rules.yml is valid YAML with groups')
+except Exception as e:
+    print(f'FAIL: application.rules.yml parse error: {e}')
+" 2>/dev/null || echo "FAIL: python3 yaml check failed")
+
+  if echo "${YAML_CHECK}" | grep -q "^PASS:"; then
+    pass "${YAML_CHECK#PASS: }"
+  else
+    fail "${YAML_CHECK#FAIL: }"
+  fi
+else
+  fail "application.rules.yml not found"
+fi
+
+# ── 70. business.rules.yml is valid YAML ─────────────────────
+
+echo ""
+echo "70. business.rules.yml exists and is valid YAML"
+
+BIZ_RULES="${RECORDING_RULES_DIR}/business.rules.yml"
+
+if [ -f "${BIZ_RULES}" ]; then
+  YAML_CHECK=$(python3 -c "
+import yaml
+try:
+    data = yaml.safe_load(open('${BIZ_RULES}'))
+    if data is None or 'groups' not in data:
+        print('FAIL: business.rules.yml missing groups key')
+    else:
+        print('PASS: business.rules.yml is valid YAML with groups')
+except Exception as e:
+    print(f'FAIL: business.rules.yml parse error: {e}')
+" 2>/dev/null || echo "FAIL: python3 yaml check failed")
+
+  if echo "${YAML_CHECK}" | grep -q "^PASS:"; then
+    pass "${YAML_CHECK#PASS: }"
+  else
+    fail "${YAML_CHECK#FAIL: }"
+  fi
+else
+  fail "business.rules.yml not found"
+fi
+
+# ── 71. infrastructure.rules.yml is valid YAML ───────────────
+
+echo ""
+echo "71. infrastructure.rules.yml exists and is valid YAML"
+
+INFRA_RULES="${RECORDING_RULES_DIR}/infrastructure.rules.yml"
+
+if [ -f "${INFRA_RULES}" ]; then
+  YAML_CHECK=$(python3 -c "
+import yaml
+try:
+    data = yaml.safe_load(open('${INFRA_RULES}'))
+    if data is None or 'groups' not in data:
+        print('FAIL: infrastructure.rules.yml missing groups key')
+    else:
+        print('PASS: infrastructure.rules.yml is valid YAML with groups')
+except Exception as e:
+    print(f'FAIL: infrastructure.rules.yml parse error: {e}')
+" 2>/dev/null || echo "FAIL: python3 yaml check failed")
+
+  if echo "${YAML_CHECK}" | grep -q "^PASS:"; then
+    pass "${YAML_CHECK#PASS: }"
+  else
+    fail "${YAML_CHECK#FAIL: }"
+  fi
+else
+  fail "infrastructure.rules.yml not found"
+fi
+
+# ── 72. slo.rules.yml is valid YAML ──────────────────────────
+
+echo ""
+echo "72. slo.rules.yml exists and is valid YAML"
+
+SLO_RULES="${RECORDING_RULES_DIR}/slo.rules.yml"
+
+if [ -f "${SLO_RULES}" ]; then
+  YAML_CHECK=$(python3 -c "
+import yaml
+try:
+    data = yaml.safe_load(open('${SLO_RULES}'))
+    if data is None or 'groups' not in data:
+        print('FAIL: slo.rules.yml missing groups key')
+    else:
+        print('PASS: slo.rules.yml is valid YAML with groups')
+except Exception as e:
+    print(f'FAIL: slo.rules.yml parse error: {e}')
+" 2>/dev/null || echo "FAIL: python3 yaml check failed")
+
+  if echo "${YAML_CHECK}" | grep -q "^PASS:"; then
+    pass "${YAML_CHECK#PASS: }"
+  else
+    fail "${YAML_CHECK#FAIL: }"
+  fi
+else
+  fail "slo.rules.yml not found"
+fi
+
+# ── 63/73 helpers: docs paths (reuse if not yet set) ─────────
+
+SCRIPT_DIR_PARENT="$(dirname "$(dirname "${SCRIPT_DIR}")")"
+DOCS_DIR="${SCRIPT_DIR_PARENT}/docs"
+
+# ── 73. Recording rules philosophy document exists ───────────
+
+echo ""
+echo "73. Recording rules philosophy document exists (recording-rules-philosophy.md)"
+
+RR_PHIL="${DOCS_DIR}/architecture/recording-rules-philosophy.md"
+
+if [ -f "${RR_PHIL}" ]; then
+  pass "recording-rules-philosophy.md found"
+else
+  fail "recording-rules-philosophy.md not found at ${RR_PHIL}"
+fi
+
+# ── 74. SLO philosophy document exists ───────────────────────
+
+echo ""
+echo "74. SLO philosophy document exists (slo-philosophy.md)"
+
+SLO_PHIL="${DOCS_DIR}/architecture/slo-philosophy.md"
+
+if [ -f "${SLO_PHIL}" ]; then
+  pass "slo-philosophy.md found"
+else
+  fail "slo-philosophy.md not found at ${SLO_PHIL}"
+fi
+
+# ── 75. Recording rules foundation specification exists ────
+
+echo ""
+echo "75. Recording rules foundation specification exists (recording-rules-foundation.md)"
+
+RR_SPEC="${DOCS_DIR}/specs/observability-foundation/mvp/recording-rules-foundation.md"
+
+if [ -f "${RR_SPEC}" ]; then
+  pass "recording-rules-foundation.md found"
+else
+  fail "recording-rules-foundation.md not found at ${RR_SPEC}"
+fi
+
+# ── 76. Catalog documented (REC-001) ─────────────────────────
+
+echo ""
+echo "76. Recording rule catalog documented (REC-001)"
+
+if [ -f "${RR_SPEC}" ] && grep -q "REC-001" "${RR_SPEC}"; then
+  pass "REC-001 catalog entry found in recording-rules-foundation.md"
+else
+  fail "REC-001 not found in recording-rules-foundation.md"
+fi
+
+# ── 77. SLI definitions documented (SLI-001) ─────────────────
+
+echo ""
+echo "77. SLI definitions documented (SLI-001)"
+
+if [ -f "${RR_SPEC}" ] && grep -q "SLI-001" "${RR_SPEC}"; then
+  pass "SLI-001 definition found in recording-rules-foundation.md"
+else
+  fail "SLI-001 not found in recording-rules-foundation.md"
+fi
+
+# ── 78. Naming convention documented ─────────────────────────
+
+echo ""
+echo "78. Naming convention documented (ixora:http:error_rate:5m)"
+
+if [ -f "${RR_SPEC}" ] && grep -q "ixora:http:error_rate:5m" "${RR_SPEC}"; then
+  pass "ixora:http:error_rate:5m naming convention documented"
+else
+  fail "ixora:http:error_rate:5m not found in recording-rules-foundation.md"
 fi
 
 # ── Summary ───────────────────────────────────────────────────

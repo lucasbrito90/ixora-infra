@@ -1,13 +1,14 @@
-# Ixora Observability — Collector + Prometheus + Loki + Tempo
+# Ixora Observability — Collector + Prometheus + Loki + Tempo + Grafana
 
-**Phase:** 6 — Tempo Trace Backend  
-**Stack:** OpenTelemetry Collector (contrib) + Prometheus + Loki + Tempo via Docker Compose  
-**VM:** DigitalOcean Droplet `observability-staging` (tor1) — [infrastructure-review.md](../docs/specs/observability-foundation/mvp/infrastructure-review.md)
+**Phase:** 8.8.5 — Observability Infrastructure Provisioning (runtime); Phases 3–8.9 (stack)  
+**Stack:** OpenTelemetry Collector (contrib) + Prometheus + Loki + Tempo + Grafana via Docker Compose  
+**Host:** DigitalOcean Droplet `ixora-observability-staging` — provisioned by OpenTofu (`opentofu/staging/observability.tf`); runtime source of truth is **`docker-compose.yml` in this directory**
 
-> This directory contains the **complete Collector + Prometheus + Loki + Tempo deployment** for the Ixora Observability Platform.  
-> Grafana (Phase 9) is stubbed and will be enabled in Phase 9.  
+> **OpenTofu provisions the host. Docker Compose runs the stack.** Service definitions are not duplicated in OpenTofu.  
 > **Collector is the only ingestion point for all signals.** Applications export OTLP to the Collector only. Prometheus, Loki, and Tempo never receive data from applications directly.  
-> **Debug exporter fully removed** — all three pipelines export to their respective backends.
+> **Grafana is active** (Phase 8.1+) with provisioning, 7 dashboards, alerting scaffold, and 78/78 validate.sh checks.  
+> **Internal backends** (Prometheus, Loki, Tempo, Grafana direct) bind to `127.0.0.1`. Public access is via **Caddy HTTPS** on the host (`grafana-staging.ixora-app.app`, `otel-staging.ixora-app.app`).  
+> **Secrets** live in `collector/.env` (chmod 600) — created by `scripts/bootstrap-collector-env.sh`, never committed.
 
 ---
 
@@ -16,15 +17,23 @@
 ```
 collector/
 ├── config.yaml                  ← OpenTelemetry Collector configuration
-├── docker-compose.yml           ← Compose file (Collector + Prometheus + Loki + Tempo active)
+├── docker-compose.yml           ← Runtime source of truth (5 services)
 ├── .env.example                 ← Environment variable template (NEVER commit .env)
 ├── prometheus/
-│   └── prometheus.yml           ← Prometheus configuration (Phase 4)
+│   ├── prometheus.yml           ← Prometheus configuration
+│   └── rules/                   ← Recording rules scaffold (Phase 8.9)
 ├── loki/
-│   └── loki.yaml                ← Loki configuration (Phase 5)
+│   └── loki.yaml
 ├── tempo/
-│   └── tempo.yaml               ← Tempo configuration (Phase 6)
+│   └── tempo.yaml
+├── grafana/
+│   ├── provisioning/            ← Datasources, dashboards, alerting scaffold
+│   └── validate.sh              ← 78 validation checks
 └── README.md                    ← This file
+
+../scripts/
+├── bootstrap-collector-env.sh   ← Secure .env creation (secrets from env vars)
+└── deploy-observability.sh      ← Idempotent docker compose deploy + health checks
 ```
 
 ---
@@ -40,37 +49,38 @@ collector/
 
 ---
 
-## Quick start
+## Quick start (observability host)
+
+Infrastructure is provisioned by OpenTofu. See [observability-infrastructure-provisioning.md](../docs/specs/observability-foundation/mvp/observability-infrastructure-provisioning.md).
 
 ```bash
-# 1. Clone / pull ixora-infra on the observability VM
+# 1. Clone ixora-infra on the observability host (after tofu apply + DNS)
+git clone git@github.com:lucasbrito90/ixora-infra.git /opt/ixora-observability
 cd /opt/ixora-observability
 
-# 2. Create .env from template
-cp collector/.env.example collector/.env
-# Edit .env — fill OTEL_INGEST_API_KEY_BACKEND and OTEL_INGEST_API_KEY_MOBILE
-# with strong random keys (openssl rand -hex 32)
-chmod 600 collector/.env
+# 2. Bootstrap secrets (export in shell — never commit)
+export OTEL_INGEST_API_KEY_BACKEND="$(openssl rand -hex 32)"
+export OTEL_INGEST_API_KEY_MOBILE="$(openssl rand -hex 32)"
+export GF_ADMIN_PASSWORD="$(openssl rand -base64 24)"
+export GF_SERVER_ROOT_URL="https://grafana-staging.ixora-app.app"
+./scripts/bootstrap-collector-env.sh
 
-# 3. Start Collector + Prometheus + Loki + Tempo (Phase 6)
-cd collector
-docker compose up -d collector prometheus loki tempo
+# 3. Deploy full stack (collector, prometheus, loki, tempo, grafana)
+./scripts/deploy-observability.sh
 
-# 4. Verify Collector
-docker compose ps
+# 4. Verify (internal — from host)
+cd collector && docker compose ps
 curl http://127.0.0.1:13133/health
-
-# 5. Verify Prometheus
 curl http://127.0.0.1:9090/-/healthy
-curl http://127.0.0.1:9090/-/ready
-
-# 6. Verify Loki
 curl http://127.0.0.1:3100/ready
-
-# 7. Verify Tempo
 curl http://127.0.0.1:3200/ready
-curl http://127.0.0.1:3200/metrics | grep tempo_ingester
+curl http://127.0.0.1:3000/api/health
+
+# 5. Verify external (after DNS + Caddy TLS)
+curl https://grafana-staging.ixora-app.app/api/health
 ```
+
+**Operational runbook:** [docs/runbooks/observability-host.md](../docs/runbooks/observability-host.md)
 
 Expected health responses:
 

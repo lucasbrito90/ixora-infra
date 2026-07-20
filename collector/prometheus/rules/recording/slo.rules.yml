@@ -1,0 +1,77 @@
+# ============================================================
+# Ixora Observability Platform — SLO Recording Rules
+# Phase 8.9 — Recording Rules Foundation (placeholder)
+#
+# STATUS: PLACEHOLDER — no active SLO recording rules.
+# Phase 10 will activate SLI aggregation and error budget rules.
+#
+# SCOPE: SLI 30-day aggregates, error budget remaining, burn rates
+# OWNER: SRE team
+#
+# CATALOG: recording-rules-foundation.md §6 (SLI definitions)
+# PHILOSOPHY: docs/architecture/slo-philosophy.md
+#
+# IMPORTANT: SLO rules depend on application/business/infrastructure
+# recording rules being active first (Phase 9 prerequisite).
+# ============================================================
+
+groups:
+
+  # ----------------------------------------------------------
+  # SLI 30-day rolling aggregates (Phase 10)
+  # These rules compute long-window SLI values for SLO tracking.
+  # ----------------------------------------------------------
+  - name: ixora_slo_slis
+    interval: 5m
+    rules: []
+    # Phase 10 — uncomment rules:
+    #
+    # - record: ixora:slo:http:success_rate:30d
+    #   expr: |
+    #     avg_over_time(ixora:http:availability:5m[30d])
+    #
+    # - record: ixora:slo:queue:success_rate:30d
+    #   expr: |
+    #     avg_over_time(ixora:queue:success_rate:5m[30d])
+    #
+    # - record: ixora:slo:smart_home:success_rate:30d
+    #   expr: |
+    #     avg_over_time(ixora:smart_home:success_rate:5m[30d])
+    #
+    # - record: ixora:slo:push:success_rate:30d
+    #   expr: |
+    #     avg_over_time(ixora:push:success_rate:5m[30d])
+    #
+    # - record: ixora:slo:scheduler:success_rate:30d
+    #   expr: |
+    #     avg_over_time(ixora:scheduler:success_rate:5m[30d])
+
+  # ----------------------------------------------------------
+  # Error budget remaining (Phase 10)
+  # budget_remaining = 1 - (1 - sli) / (1 - slo_target)
+  # ----------------------------------------------------------
+  - name: ixora_slo_error_budget
+    interval: 5m
+    rules: []
+    # Phase 10 — uncomment rules (example for 99.5% HTTP SLO):
+    #
+    # - record: ixora:slo:http:error_budget_remaining:30d
+    #   expr: |
+    #     1 - ((1 - ixora:slo:http:success_rate:30d) / 0.005)
+
+  # ----------------------------------------------------------
+  # Multi-window burn rate (Phase 11+)
+  # DO NOT activate before SLI and error budget rules are stable.
+  # ----------------------------------------------------------
+  - name: ixora_slo_burn_rate
+    interval: 1m
+    rules: []
+    # Phase 11 — uncomment rules:
+    #
+    # - record: ixora:slo:http:burn_rate:5m
+    #   expr: |
+    #     (1 - ixora:http:availability:5m) / 0.005
+    #
+    # - record: ixora:slo:http:burn_rate:1h
+    #   expr: |
+    #     (1 - avg_over_time(ixora:http:availability:5m[1h])) / 0.005
