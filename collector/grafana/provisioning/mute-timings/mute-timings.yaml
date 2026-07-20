@@ -1,0 +1,44 @@
+# ============================================================
+# Ixora Observability Platform — Mute Timings
+# Phase 8.8 — Alerting Foundation (placeholder)
+#
+# This file provisions planned maintenance windows.
+# Alerts matching a mute timing will be suppressed for the
+# duration of the defined interval.
+#
+# STATUS: PLACEHOLDER — no active mute timings.
+# Phase 9 will activate maintenance windows.
+#
+# USAGE:
+#   - Apply mute timings to notification policies via the
+#     `mute_time_intervals` field on a route.
+#   - For ad-hoc maintenance: use Grafana UI silences instead.
+#   - For recurring maintenance: define here and reference in policies.yaml.
+#
+# STRUCTURE REFERENCE: alerting-foundation.md §7
+# PHILOSOPHY REFERENCE: alerting-philosophy.md §16 (noise reduction)
+# ============================================================
+
+apiVersion: 1
+
+muteTimes:
+  # Weekly maintenance window — Sunday 02:00–04:00 UTC
+  # Phase 9: uncomment and apply to notification policies.
+  #
+  # - orgId: 1
+  #   name: weekly-maintenance-window
+  #   time_intervals:
+  #     - weekdays: ["sunday"]
+  #       times:
+  #         - start_time: "02:00"
+  #           end_time: "04:00"
+
+  # Deploy window — applied manually via Grafana UI silence during deploys.
+  # No recurring definition needed here; use Grafana silence API:
+  #   POST /api/alertmanager/grafana/api/v2/silences
+  # with matchers: environment=staging and duration matching deploy window.
+
+  # Placeholder entry to keep YAML valid
+  - orgId: 1
+    name: ixora-placeholder-mute
+    time_intervals: []

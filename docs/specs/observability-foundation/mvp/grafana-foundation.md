@@ -555,7 +555,7 @@ All datasource UIDs, connectivity, and count remain identical after container re
 | Single Grafana instance | No HA for Grafana (single VM) | Phase 10 production planning |
 | Basic auth only (no OAuth) | All users share admin credentials or must be created manually | Post-MVP RBAC phase |
 | Grafana admin password in `.env` | `.env` is gitignored but present on VM in plaintext | Phase 10: use DO secrets or Vault |
-| No alert provisioning | `provisioning/alerting/` is empty — alerting is Phase 10+ | Phase 10 |
+| No alert rules | `provisioning/alerting/` has no rules — alerting foundation complete (Phase 8.8); alert rules are Phase 9 | Phase 9 |
 
 ---
 
