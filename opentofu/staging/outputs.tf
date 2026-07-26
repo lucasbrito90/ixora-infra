@@ -87,8 +87,18 @@ output "observability_droplet_id" {
 }
 
 output "observability_public_ipv4" {
-  description = "Public IPv4 address of the observability Droplet. Point grafana-staging and otel-staging DNS A records here."
+  description = "Public IPv4 address of the observability Droplet (Reserved IP when observability_use_reserved_ip = true, Droplet ephemeral IP otherwise). Point grafana-staging and otel-staging DNS A records here."
+  value       = local.observability_public_ipv4
+}
+
+output "observability_droplet_ipv4" {
+  description = "Ephemeral public IPv4 of the Droplet itself (always the Droplet IP, regardless of Reserved IP). Useful for SSH when Reserved IP assignment is in progress."
   value       = var.observability_enabled ? digitalocean_droplet.observability[0].ipv4_address : null
+}
+
+output "observability_reserved_ip_enabled" {
+  description = "Whether a DigitalOcean Reserved IP is allocated and assigned to the observability Droplet. When true, observability_public_ipv4 returns the Reserved IP address."
+  value       = var.observability_use_reserved_ip
 }
 
 output "observability_private_ipv4" {
@@ -97,18 +107,54 @@ output "observability_private_ipv4" {
 }
 
 output "observability_grafana_url" {
-  description = "Public Grafana URL (HTTPS via Caddy). Requires DNS + collector/.env + deploy script after apply."
-  value       = var.observability_enabled ? "https://${var.observability_grafana_hostname}" : null
+  description = "Public Grafana HTTPS URL (Caddy reverse proxy → Grafana :3000). Requires DNS A record pointing to observability_public_ipv4, collector/.env populated, and deploy-observability.sh run after apply."
+  value = (
+    var.observability_enabled && var.observability_grafana_hostname != null
+    ? "https://${var.observability_grafana_hostname}"
+    : null
+  )
 }
 
 output "observability_otlp_http_url" {
-  description = "Public OTLP HTTP endpoint for App Platform and mobile (HTTPS via Caddy → Collector :4318)."
-  value       = var.observability_enabled ? "https://${var.observability_otel_hostname}" : null
+  description = "Public OTLP HTTP endpoint (Caddy → Collector :4318). Used by App Platform and mobile clients. Requires DNS A record pointing to observability_public_ipv4 after apply."
+  value = (
+    var.observability_enabled && var.observability_otel_hostname != null
+    ? "https://${var.observability_otel_hostname}"
+    : null
+  )
 }
 
 output "observability_ssh_command" {
-  description = "Example SSH command for operators (replace user if not root)."
-  value       = var.observability_enabled ? "ssh root@${digitalocean_droplet.observability[0].ipv4_address}" : null
+  description = "Example SSH command for operators. Uses Reserved IP when observability_use_reserved_ip = true."
+  value       = var.observability_enabled ? "ssh root@${local.observability_public_ipv4}" : null
+}
+
+output "observability_dns_requirements" {
+  description = <<-EOT
+    DNS A records that must exist before Caddy can obtain TLS certificates.
+    When observability_manage_dns = true, OpenTofu creates these automatically.
+    When observability_manage_dns = false, create them manually at your DNS provider.
+    The 'name' field is relative to observability_dns_zone_name when configured,
+    otherwise it is the full FQDN. The 'value' field is the Droplet public IPv4.
+  EOT
+  value = var.observability_enabled ? {
+    grafana = {
+      type    = "A"
+      name    = local.obs_grafana_record_name
+      fqdn    = var.observability_grafana_hostname
+      value   = local.observability_public_ipv4
+      ttl     = var.observability_dns_ttl
+      purpose = "Grafana HTTPS endpoint"
+    }
+    otel = {
+      type    = "A"
+      name    = local.obs_otel_record_name
+      fqdn    = var.observability_otel_hostname
+      value   = local.observability_public_ipv4
+      ttl     = var.observability_dns_ttl
+      purpose = "OTLP HTTP HTTPS endpoint"
+    }
+  } : null
 }
 
 output "observability_deploy_path" {
