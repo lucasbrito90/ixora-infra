@@ -96,13 +96,15 @@ services:
       #   read_only: true
 
     ports:
-      # ---- Public (exposed by firewall / reverse proxy) ----
-      # OTLP gRPC — backend clients (back_vibes-api, back_vibes-worker).
-      - "${OTEL_GRPC_PORT:-4317}:4317"
-      # OTLP HTTP — backend clients + mobile fallback.
-      - "${OTEL_HTTP_PORT:-4318}:4318"
-      # OTLP HTTP — mobile-dedicated port.
-      - "${OTEL_HTTP_MOBILE_PORT:-4319}:4319"
+      # ---- Host-local only (Caddy proxies 4318 externally; 4317/4319 internal only) ----
+      # OTLP gRPC — backend clients via internal network; not publicly exposed.
+      # Bound to 127.0.0.1: Caddy does not proxy gRPC; firewall blocks 4317 externally.
+      - "127.0.0.1:${OTEL_GRPC_PORT:-4317}:4317"
+      # OTLP HTTP — Caddy proxies otel-staging.ixora-app.app -> 127.0.0.1:4318.
+      # Bound to 127.0.0.1 for defense-in-depth; firewall blocks direct port access.
+      - "127.0.0.1:${OTEL_HTTP_PORT:-4318}:4318"
+      # OTLP HTTP mobile-dedicated port — internal only; not exposed via Caddy.
+      - "127.0.0.1:${OTEL_HTTP_MOBILE_PORT:-4319}:4319"
 
       # ---- Internal / ops only (bind to 127.0.0.1) ----
       # Collector self-metrics scrape endpoint.
