@@ -371,3 +371,29 @@ variable "observability_volume_size_gib" {
   type        = number
   default     = 128
 }
+
+variable "observability_use_reserved_ip" {
+  description = "When true, allocate a DigitalOcean Reserved IP (floating IP) and assign it to the observability Droplet. Provides DNS stability when the Droplet is replaced (Phase 8.8.6). Disabled by default — the Droplet ephemeral IP is used."
+  type        = bool
+  default     = false
+}
+
+# ── Observability DNS (Phase 8.8.6) ──────────────────────────────────────────
+
+variable "observability_manage_dns" {
+  description = "When true, create DigitalOcean DNS A records for observability_grafana_hostname and observability_otel_hostname pointing to the Droplet public IP. Requires observability_dns_zone_name to be set and the DNS zone to exist in DigitalOcean DNS. When false, use observability_dns_requirements output for manual DNS steps."
+  type        = bool
+  default     = false
+}
+
+variable "observability_dns_zone_name" {
+  description = "DigitalOcean DNS zone name in which to create observability A records (e.g. ixora-app.app). Required when observability_manage_dns = true. Must be an existing zone managed by DigitalOcean DNS."
+  type        = string
+  default     = null
+}
+
+variable "observability_dns_ttl" {
+  description = "TTL in seconds for observability DNS A records managed by OpenTofu. Applies to both grafana and otel records."
+  type        = number
+  default     = 300
+}

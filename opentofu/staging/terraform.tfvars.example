@@ -64,7 +64,7 @@ api_env_general = {
 
 nuxt_public_api_base_url = "https://staging-api.ixora-app.app/api"
 
-# ── Observability host (Phase 8.8.5) ─────────────────────────────────────────
+# ── Observability host (Phase 8.8.5 / 8.8.6) ─────────────────────────────────
 # Required before `tofu apply` when observability_enabled = true (default).
 #
 # observability_enabled             = true
@@ -74,9 +74,22 @@ nuxt_public_api_base_url = "https://staging-api.ixora-app.app/api"
 # observability_grafana_hostname    = "grafana-staging.ixora-app.app"
 # observability_otel_hostname       = "otel-staging.ixora-app.app"
 # observability_use_block_volume    = false          # Strategy A: root disk (default)
+# observability_use_reserved_ip     = false          # Reserve a floating IP for DNS stability
 #
-# After apply: point DNS A records for grafana-staging + otel-staging to observability_public_ipv4 output.
-# Then SSH to host, clone ixora-infra, run scripts/bootstrap-collector-env.sh, scripts/deploy-observability.sh
+# ── Observability DNS (Phase 8.8.6) ──────────────────────────────────────────
+# Option A — DigitalOcean DNS manages the records automatically:
+#   observability_manage_dns      = true
+#   observability_dns_zone_name   = "ixora-app.app"   # must exist in DO DNS
+#   observability_dns_ttl         = 300
+#
+# Option B — External DNS (Cloudflare, Route 53, registrar, etc.):
+#   observability_manage_dns      = false             # default
+#   # After apply, run:
+#   #   tofu output observability_dns_requirements
+#   # and create the A records shown at your DNS provider.
+#
+# After apply: if using Option B, create DNS A records, then SSH to the host,
+# clone ixora-infra, run scripts/bootstrap-collector-env.sh + scripts/deploy-observability.sh
 
 # nuxt_public_firebase_api_key             = "AIza..."
 # nuxt_public_firebase_auth_domain         = "your-app.firebaseapp.com"

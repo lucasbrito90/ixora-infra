@@ -1,6 +1,7 @@
 # Observability Infrastructure Provisioning — Phase 8.8.5
 
 **Status:** Complete (IaC + deployment path — host not yet applied)  
+**Hardening:** [observability-hardening.md](observability-hardening.md) (Phase 8.8.6)  
 **Repo:** `ixora-infra`  
 **OpenTofu:** `opentofu/staging/`  
 **Runtime:** `collector/docker-compose.yml` (source of truth)  
@@ -176,10 +177,12 @@ Result: `collector/.env` with `chmod 600`.
 ```bash
 ssh root@<observability-ip>
 git clone git@github.com:lucasbrito90/ixora-infra.git /opt/ixora-observability
-cd /opt/ixora-observability && git checkout develop
+cd /opt/ixora-observability && git checkout release-2026.07.20
 ```
 
-**Alternatives:** CI rsync/scp from pipeline; manual first deploy + `git pull` for updates.
+> **Deployment model (Phase 8.8.6):** Use **immutable release tags**, not rolling `develop`. See [deployment-strategy.md](deployment-strategy.md).
+
+**Alternatives:** CI rsync/scp from pipeline; manual first deploy + release checkout for updates.
 
 ---
 
@@ -217,9 +220,12 @@ curl -sf https://grafana-staging.ixora-app.app/api/health
 
 ```bash
 cd /opt/ixora-observability
-git pull origin develop
-./scripts/deploy-observability.sh
+git fetch --tags origin
+git checkout release-2026.07.20
+IXORA_GIT_REF=release-2026.07.20 ./scripts/deploy-observability.sh
 ```
+
+See [deployment-strategy.md](deployment-strategy.md) for release naming and rollback.
 
 **Never run:** `docker compose down -v` (destroys named volumes).
 
@@ -243,12 +249,12 @@ git pull origin develop
 | Container restart | ✅ | Automatic |
 | `docker compose up -d` | ✅ | Volumes preserved |
 | Host reboot | ✅ | systemd + Docker restart |
-| Droplet destroy (Strategy A) | ❌ | Re-provision + restore from backup (not implemented) |
+| Droplet destroy (Strategy A) | ❌ | Re-provision + restore from backup ([backup-strategy.md](backup-strategy.md) — not implemented) |
 | Grafana config | ✅ in git | Re-clone + provisioning reload |
 | `collector/.env` | ❌ in git | Recreate via bootstrap script |
 | Prometheus/Loki/Tempo TSDB | ❌ on Droplet destroy | No backup in MVP — accept gap or add snapshots (future) |
 
-**No backup coverage is implemented in Phase 8.8.5.**
+**Backup architecture designed in Phase 8.8.6 — implementation deferred.** See [backup-strategy.md](backup-strategy.md).
 
 ---
 
@@ -257,12 +263,14 @@ git pull origin develop
 | ID | Limitation |
 | --- | --- |
 | KL-INFRA-1 | DNS manual — TLS fails until A records propagate |
-| KL-INFRA-2 | App Platform OTEL env not wired in OpenTofu (documented manual step) |
-| KL-INFRA-3 | Strategy A — data lost on Droplet destroy |
-| KL-INFRA-4 | cloud-init changes do not re-run on existing Droplet |
-| KL-INFRA-5 | Block volume mount script not automated (optional Strategy B) |
+| KL-INFRA-2 | App Platform OTEL env not wired in OpenTofu — see [app-platform-otel-integration.md](app-platform-otel-integration.md) |
+| KL-INFRA-3 | Strategy A — data lost on Droplet destroy — see [storage-strategy.md](storage-strategy.md) |
+| KL-INFRA-4 | cloud-init changes do not re-run — see [cloud-init-review.md](cloud-init-review.md) |
+| KL-INFRA-5 | Block volume mount not automated (Strategy B) |
 | KL-INFRA-6 | Node Exporter deferred |
 | KL-INFRA-7 | Recording rules files exist but `rule_files` still commented in prometheus.yml |
+| KL-INFRA-8 | Reserved IP optional (`observability_use_reserved_ip`, default false) |
+| KL-INFRA-9 | Backups designed but not implemented |
 
 ---
 
@@ -274,4 +282,8 @@ git pull origin develop
 | [collector-deployment.md](collector-deployment.md) | Collector config reference |
 | [grafana-foundation.md](grafana-foundation.md) | Grafana provisioning |
 | [runbooks/observability-host.md](../../../runbooks/observability-host.md) | Operational runbook |
+| [observability-hardening.md](observability-hardening.md) | Phase 8.8.6 hardening index |
+| [deployment-strategy.md](deployment-strategy.md) | Release-oriented deployments |
+| [backup-strategy.md](backup-strategy.md) | Backup architecture (design only) |
+| [storage-strategy.md](storage-strategy.md) | Strategy A/B + Reserved IP |
 | [collector/README.md](../../../../collector/README.md) | Runtime quick start |

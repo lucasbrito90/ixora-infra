@@ -1,10 +1,11 @@
 # Collector Hardening Checklist
 
-**Status:** Active operational checklist — apply at Phase 3 deployment  
+**Status:** Phase 3.5 complete — validation sign-off recorded  
 **Scope:** OpenTelemetry Collector on observability staging VM  
+**Validation report:** [collector-validation-report.md](../specs/observability-foundation/mvp/collector-validation-report.md)  
 **References:** [security-review.md](../specs/observability-foundation/mvp/security-review.md) · [infrastructure-review.md](../specs/observability-foundation/mvp/infrastructure-review.md) · [observability-operational-limits.md](../architecture/observability-operational-limits.md) · [collector-hardening source ADR-030](../../decisions/ADR-030-observability-security-and-privacy.md)
 
-> **Purpose:** Pre-flight and post-deploy verification so Collector deployment is **mechanical** after Phase 2.5. Check each item during Phase 3; re-run after any Collector upgrade.
+> **Purpose:** Pre-flight and post-deploy verification so Collector deployment is **mechanical** after Phase 2.5. Phase 3.5 records pass/fail for each item. Re-run after any Collector upgrade.
 
 ---
 
@@ -123,15 +124,61 @@
 
 ---
 
-## 11. Validation tests (Phase 3)
+## 11. Validation tests (Phase 3 + 3.5)
 
-| # | Test | Expected |
+| # | Test | Expected | Phase 3.5 |
+| --- | --- | --- | --- |
+| 11.1 | Valid key + test span | Accepted; appears in debug output (Phase 3–3.5) / Tempo (Phase 6+) | **PASS** |
+| 11.2 | Invalid key | 401; no data stored | **PASS** |
+| 11.3 | Span with `Authorization` attribute | Redacted or dropped | **PASS** |
+| 11.4 | Collector stopped | `back_vibes` health still OK ([telemetry-availability-policy.md](../architecture/telemetry-availability-policy.md)) | **Deferred** (Phase 11 QA) |
+| 11.5 | Flood test (manual) | Collector drops; VM stays up | **Deferred** (VM deploy) |
+
+---
+
+## 13. Phase 3.5 validation sign-off (2026-07-05)
+
+Full report: [collector-validation-report.md](../specs/observability-foundation/mvp/collector-validation-report.md)
+
+### Configuration fixes applied during validation
+
+| Fix | File |
+| --- | --- |
+| Auth moved to protocol level (`protocols.grpc/http.auth`) | `collector/config.yaml` |
+| Image tag corrected to `0.115.1` | `collector/docker-compose.yml`, `.env.example` |
+| Invalid feature gate removed | `collector/docker-compose.yml` |
+| Docker healthcheck disabled (distroless); host curl documented | `collector/docker-compose.yml` |
+| Internal endpoints bind `0.0.0.0` inside container; host restricted to `127.0.0.1` | `collector/config.yaml` |
+
+### Checklist item status
+
+| # | Check | Phase 3.5 |
 | --- | --- | --- |
-| 11.1 | Valid key + test span | Accepted; appears in Tempo/Loki after backends up |
-| 11.2 | Invalid key | 401; no data stored |
-| 11.3 | Span with `Authorization` attribute | Redacted or dropped |
-| 11.4 | Collector stopped | `back_vibes` health still OK ([telemetry-availability-policy.md](../architecture/telemetry-availability-policy.md)) |
-| 11.5 | Flood test (manual) | Collector drops; VM stays up |
+| 1.1 | Threat model reviewed | **PASS** |
+| 1.2 | Ports documented | **PASS** |
+| 1.3 | API keys generated | **PASS** (test keys; prod keys at VM deploy) |
+| 1.4 | TLS certificates | **Deferred** (reverse proxy on VM) |
+| 1.5 | VM sizing | **Deferred** (VM not provisioned) |
+| 2.1–2.5 | Firewall | **Deferred** (VM deploy) |
+| 3.1 | OTLP TLS enabled | **Deferred** (local plain HTTP; TLS at proxy) |
+| 3.2–3.4 | TLS/Grafana | **N/A** / **Deferred** |
+| 4.1–4.4 | Authentication | **PASS** |
+| 5.1–5.4 | Receivers | **PASS** |
+| 6.1–6.5 | Processors | **PASS** |
+| 7.1 | Only required exporters | **EXCEPTION** — `debug` active until Phase 4 |
+| 7.2 | Debug off in steady state | **Pending Phase 4** |
+| 7.3 | Localhost backend URLs | **PASS** (stubs use `127.0.0.1`) |
+| 7.4 | Retry + timeout | **N/A** (no backends yet) |
+| 8.1–8.4 | Health / metrics / logging | **PASS** |
+| 9.1 | Non-root user | **PASS** (distroless `otelcol-contrib`) |
+| 9.2 | Disk permissions | **PASS** (`.env` chmod 600) |
+| 9.3–9.4 | OS updates / restart | **Deferred** (VM) / **PASS** (compose `unless-stopped`) |
+| 9.5–9.6 | Least privilege / defaults | **PASS** |
+| 10.1–10.4 | Backups / recovery | **PASS** (config in git) / **Deferred** (VM snapshot) |
+| 11.1–11.3 | Validation tests | **PASS** |
+| 11.4–11.5 | App isolation / flood | **Deferred** |
+
+**Phase 3.5 verdict:** Collector passes all testable hardening items. **Ready for Phase 4** after removing `debug` exporter and deploying TLS + firewall on VM.
 
 ---
 
@@ -154,4 +201,4 @@
 | Backend lead | Auth + redaction spot check |
 | Security | ADR-030 sample telemetry review |
 
-**Related:** [observability-playbook.md](observability-playbook.md) · [plan.md](../specs/observability-foundation/mvp/plan.md) Phase 3
+**Related:** [observability-playbook.md](observability-playbook.md) · [collector-validation-report.md](../specs/observability-foundation/mvp/collector-validation-report.md) · [plan.md](../specs/observability-foundation/mvp/plan.md) Phase 3.5

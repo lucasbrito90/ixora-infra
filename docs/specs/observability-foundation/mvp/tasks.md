@@ -1058,6 +1058,33 @@
 
 ---
 
+## Phase 8.8.6 — Observability Infrastructure Hardening
+
+**Prerequisite:** Phase 8.8.5 complete; observability host IaC and deploy scripts exist.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P8.86-1 | Mandatory review: all Phase 8.8.5 files + ADR compliance | **Done** | Architecture review before implementation |
+| P8.86-2 | Create deployment-strategy.md (immutable release deployments) | **Done** | Replaces git pull develop as recommended workflow |
+| P8.86-3 | Create backup-strategy.md (architecture only) | **Done** | No scripts or cron |
+| P8.86-4 | Create storage-strategy.md (Strategy B + Reserved IP) | **Done** | Strategy A unchanged as default |
+| P8.86-5 | Create future-cicd.md and app-platform-otel-integration.md | **Done** | Design only — no CI/CD or App Platform changes |
+| P8.86-6 | Create cloud-init-review.md + observability-hardening.md index | **Done** | OpenTofu lifecycle review included |
+| P8.86-7 | Optional Reserved IP in OpenTofu (`observability_use_reserved_ip`) | **Done** | Default false — no breaking changes |
+| P8.86-8 | Update deploy script for IXORA_GIT_REF; extend validate.sh 79–90 | **Done** | 90/90 checks |
+| P8.86-9 | Update provisioning doc, runbook, collector/README, plan, tasks, docs/README | **Done** | Cross-references validated |
+
+**Phase 8.8.6 implementation notes:**
+
+- **No runtime changes** to Collector, Prometheus, Loki, Tempo, Grafana, or docker-compose.yml.
+- **No backups, CI/CD, Ansible, or App Platform** implementation — architecture documented only.
+- **Reserved IP** optional via `observability_use_reserved_ip = false` (default).
+- **validate.sh:** 78 → 90 checks (documentation integrity).
+
+**Branch:** `feature/observability-infrastructure-hardening`
+
+---
+
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
 | P7B5-1 | Manual spans: push delivery | **Pending** | Uses `App\Telemetry\Contracts\Tracer` only |
