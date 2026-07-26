@@ -67,6 +67,21 @@
 #   77: SLI definitions documented (SLI-001 in foundation spec).
 #   78: Naming convention documented (ixora:http:error_rate:5m).
 #
+# Phase 8.8.6 checks (79–90):
+#   Observability Infrastructure Hardening documentation integrity:
+#   79: observability-hardening.md exists.
+#   80: deployment-strategy.md exists.
+#   81: backup-strategy.md exists.
+#   82: storage-strategy.md exists.
+#   83: future-cicd.md exists.
+#   84: cloud-init-review.md exists.
+#   85: app-platform-otel-integration.md exists.
+#   86: Release deployment strategy documented (release-YYYY.MM.DD pattern).
+#   87: Backup architecture covers Prometheus, Loki, Tempo, Grafana.
+#   88: Hardening doc cross-references provisioning doc.
+#   89: Reserved IP variable documented (observability_use_reserved_ip).
+#   90: Single deploy script referenced (deploy-observability.sh).
+#
 # Usage:
 #   ./validate.sh
 #   GRAFANA_URL=http://localhost:3000 ./validate.sh
@@ -1887,6 +1902,167 @@ if [ -f "${RR_SPEC}" ] && grep -q "ixora:http:error_rate:5m" "${RR_SPEC}"; then
   pass "ixora:http:error_rate:5m naming convention documented"
 else
   fail "ixora:http:error_rate:5m not found in recording-rules-foundation.md"
+fi
+
+# ── Phase 8.8.6: Observability Infrastructure Hardening ─────
+
+HARDENING_DIR="${DOCS_DIR}/specs/observability-foundation/mvp"
+
+# ── 79. observability-hardening.md exists ───────────────────
+
+echo ""
+echo "79. Observability hardening index document exists (observability-hardening.md)"
+
+HARDENING_DOC="${HARDENING_DIR}/observability-hardening.md"
+
+if [ -f "${HARDENING_DOC}" ]; then
+  pass "observability-hardening.md found"
+else
+  fail "observability-hardening.md not found at ${HARDENING_DOC}"
+fi
+
+# ── 80. deployment-strategy.md exists ───────────────────────
+
+echo ""
+echo "80. Deployment strategy document exists (deployment-strategy.md)"
+
+DEPLOY_DOC="${HARDENING_DIR}/deployment-strategy.md"
+
+if [ -f "${DEPLOY_DOC}" ]; then
+  pass "deployment-strategy.md found"
+else
+  fail "deployment-strategy.md not found at ${DEPLOY_DOC}"
+fi
+
+# ── 81. backup-strategy.md exists ───────────────────────────
+
+echo ""
+echo "81. Backup strategy document exists (backup-strategy.md)"
+
+BACKUP_DOC="${HARDENING_DIR}/backup-strategy.md"
+
+if [ -f "${BACKUP_DOC}" ]; then
+  pass "backup-strategy.md found"
+else
+  fail "backup-strategy.md not found at ${BACKUP_DOC}"
+fi
+
+# ── 82. storage-strategy.md exists ──────────────────────────
+
+echo ""
+echo "82. Storage strategy document exists (storage-strategy.md)"
+
+STORAGE_DOC="${HARDENING_DIR}/storage-strategy.md"
+
+if [ -f "${STORAGE_DOC}" ]; then
+  pass "storage-strategy.md found"
+else
+  fail "storage-strategy.md not found at ${STORAGE_DOC}"
+fi
+
+# ── 83. future-cicd.md exists ───────────────────────────────
+
+echo ""
+echo "83. Future CI/CD architecture document exists (future-cicd.md)"
+
+CICD_DOC="${HARDENING_DIR}/future-cicd.md"
+
+if [ -f "${CICD_DOC}" ]; then
+  pass "future-cicd.md found"
+else
+  fail "future-cicd.md not found at ${CICD_DOC}"
+fi
+
+# ── 84. cloud-init-review.md exists ─────────────────────────
+
+echo ""
+echo "84. Cloud-init review document exists (cloud-init-review.md)"
+
+CLOUDINIT_DOC="${HARDENING_DIR}/cloud-init-review.md"
+
+if [ -f "${CLOUDINIT_DOC}" ]; then
+  pass "cloud-init-review.md found"
+else
+  fail "cloud-init-review.md not found at ${CLOUDINIT_DOC}"
+fi
+
+# ── 85. app-platform-otel-integration.md exists ─────────────
+
+echo ""
+echo "85. App Platform OTEL integration document exists (app-platform-otel-integration.md)"
+
+APP_OTEL_DOC="${HARDENING_DIR}/app-platform-otel-integration.md"
+
+if [ -f "${APP_OTEL_DOC}" ]; then
+  pass "app-platform-otel-integration.md found"
+else
+  fail "app-platform-otel-integration.md not found at ${APP_OTEL_DOC}"
+fi
+
+# ── 86. Release deployment strategy documented ──────────────
+
+echo ""
+echo "86. Release deployment strategy documented (release-YYYY.MM.DD pattern)"
+
+if [ -f "${DEPLOY_DOC}" ] && grep -q "release-2026" "${DEPLOY_DOC}"; then
+  pass "Release tag deployment pattern documented in deployment-strategy.md"
+else
+  fail "Release deployment pattern not found in deployment-strategy.md"
+fi
+
+# ── 87. Backup architecture covers all backends ─────────────
+
+echo ""
+echo "87. Backup architecture covers Prometheus, Loki, Tempo, Grafana"
+
+if [ -f "${BACKUP_DOC}" ] && grep -q "Prometheus" "${BACKUP_DOC}" && grep -q "Loki" "${BACKUP_DOC}" && grep -q "Tempo" "${BACKUP_DOC}" && grep -q "Grafana" "${BACKUP_DOC}"; then
+  pass "Backup strategy documents Prometheus, Loki, Tempo, and Grafana"
+else
+  fail "Backup strategy missing one or more backend sections"
+fi
+
+# ── 88. Hardening cross-references provisioning doc ─────────
+
+echo ""
+echo "88. Hardening doc cross-references provisioning doc"
+
+PROV_DOC="${HARDENING_DIR}/observability-infrastructure-provisioning.md"
+
+if [ -f "${HARDENING_DOC}" ] && grep -q "observability-infrastructure-provisioning.md" "${HARDENING_DOC}"; then
+  pass "observability-hardening.md references provisioning doc"
+else
+  fail "observability-hardening.md missing cross-reference to provisioning doc"
+fi
+
+# ── 89. Reserved IP variable documented ───────────────────────
+
+echo ""
+echo "89. Reserved IP OpenTofu variable documented (observability_use_reserved_ip)"
+
+VARS_TF="${SCRIPT_DIR_PARENT}/opentofu/staging/variables.tf"
+
+if [ -f "${VARS_TF}" ] && grep -q "observability_use_reserved_ip" "${VARS_TF}"; then
+  pass "observability_use_reserved_ip variable found in variables.tf"
+else
+  fail "observability_use_reserved_ip not found in opentofu/staging/variables.tf"
+fi
+
+# ── 90. Single deploy script referenced ───────────────────────
+
+echo ""
+echo "90. Deployment strategy references deploy-observability.sh (no duplicate deploy path)"
+
+DEPLOY_SCRIPT="${SCRIPT_DIR_PARENT}/scripts/deploy-observability.sh"
+DEPLOY_SCRIPT_REFS=0
+
+if [ -f "${DEPLOY_DOC}" ] && grep -c "deploy-observability.sh" "${DEPLOY_DOC}" >/dev/null 2>&1; then
+  DEPLOY_SCRIPT_REFS=$(grep -c "deploy-observability.sh" "${DEPLOY_DOC}" || echo 0)
+fi
+
+if [ -f "${DEPLOY_SCRIPT}" ] && [ "${DEPLOY_SCRIPT_REFS}" -ge 1 ]; then
+  pass "deploy-observability.sh exists and is referenced in deployment-strategy.md"
+else
+  fail "deploy-observability.sh missing or not referenced in deployment-strategy.md"
 fi
 
 # ── Summary ───────────────────────────────────────────────────

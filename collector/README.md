@@ -1,12 +1,13 @@
 # Ixora Observability — Collector + Prometheus + Loki + Tempo + Grafana
 
-**Phase:** 8.8.5 — Observability Infrastructure Provisioning (runtime); Phases 3–8.9 (stack)  
+**Phase:** 8.8.6 — Observability Infrastructure Hardening (ops); 8.8.5 (host); Phases 3–8.9 (stack)  
 **Stack:** OpenTelemetry Collector (contrib) + Prometheus + Loki + Tempo + Grafana via Docker Compose  
 **Host:** DigitalOcean Droplet `ixora-observability-staging` — provisioned by OpenTofu (`opentofu/staging/observability.tf`); runtime source of truth is **`docker-compose.yml` in this directory**
 
 > **OpenTofu provisions the host. Docker Compose runs the stack.** Service definitions are not duplicated in OpenTofu.  
 > **Collector is the only ingestion point for all signals.** Applications export OTLP to the Collector only. Prometheus, Loki, and Tempo never receive data from applications directly.  
-> **Grafana is active** (Phase 8.1+) with provisioning, 7 dashboards, alerting scaffold, and 78/78 validate.sh checks.  
+> **Grafana is active** (Phase 8.1+) with provisioning, 7 dashboards, alerting scaffold, and **90/90 validate.sh checks**.  
+> **Deployments use immutable release tags** — see [deployment-strategy.md](../docs/specs/observability-foundation/mvp/deployment-strategy.md).  
 > **Internal backends** (Prometheus, Loki, Tempo, Grafana direct) bind to `127.0.0.1`. Public access is via **Caddy HTTPS** on the host (`grafana-staging.ixora-app.app`, `otel-staging.ixora-app.app`).  
 > **Secrets** live in `collector/.env` (chmod 600) — created by `scripts/bootstrap-collector-env.sh`, never committed.
 
@@ -66,6 +67,7 @@ export GF_SERVER_ROOT_URL="https://grafana-staging.ixora-app.app"
 ./scripts/bootstrap-collector-env.sh
 
 # 3. Deploy full stack (collector, prometheus, loki, tempo, grafana)
+git checkout release-2026.07.20   # immutable release — see deployment-strategy.md
 ./scripts/deploy-observability.sh
 
 # 4. Verify (internal — from host)

@@ -21,6 +21,36 @@ locals {
     grafana_hostname = var.observability_grafana_hostname
     otel_hostname    = var.observability_otel_hostname
   }) : ""
+
+  # Public IP for DNS: Reserved IP when enabled, otherwise Droplet ephemeral IP.
+  observability_public_ipv4 = var.observability_enabled ? (
+    var.observability_use_reserved_ip
+    ? digitalocean_reserved_ip.observability[0].ip_address
+    : digitalocean_droplet.observability[0].ipv4_address
+  ) : null
+
+  # DNS record names relative to the zone (e.g. "grafana-staging" within "ixora-app.app").
+  # trimsuffix removes ".ixora-app.app" from "grafana-staging.ixora-app.app".
+  # Falls back to the full hostname when the zone is not configured.
+  obs_grafana_record_name = (
+    var.observability_dns_zone_name != null && var.observability_grafana_hostname != null
+    ? trimsuffix(var.observability_grafana_hostname, ".${var.observability_dns_zone_name}")
+    : var.observability_grafana_hostname
+  )
+  obs_otel_record_name = (
+    var.observability_dns_zone_name != null && var.observability_otel_hostname != null
+    ? trimsuffix(var.observability_otel_hostname, ".${var.observability_dns_zone_name}")
+    : var.observability_otel_hostname
+  )
+
+  # Combined guard for DNS record creation: all required inputs must be present.
+  obs_dns_records_enabled = (
+    var.observability_enabled
+    && var.observability_manage_dns
+    && var.observability_dns_zone_name != null
+    && var.observability_grafana_hostname != null
+    && var.observability_otel_hostname != null
+  )
 }
 
 resource "digitalocean_droplet" "observability" {
@@ -49,6 +79,21 @@ resource "digitalocean_droplet" "observability" {
       user_data,
     ]
   }
+}
+
+# Optional Reserved IP (Floating IP) — disabled by default (Phase 8.8.6).
+# Provides DNS stability when the Droplet is replaced. See storage-strategy.md §5.
+resource "digitalocean_reserved_ip" "observability" {
+  count = var.observability_enabled && var.observability_use_reserved_ip ? 1 : 0
+
+  region = local.vpc_region
+}
+
+resource "digitalocean_reserved_ip_assignment" "observability" {
+  count = var.observability_enabled && var.observability_use_reserved_ip ? 1 : 0
+
+  ip_address = digitalocean_reserved_ip.observability[0].ip_address
+  droplet_id = digitalocean_droplet.observability[0].id
 }
 
 resource "digitalocean_volume" "observability" {
@@ -82,7 +127,10 @@ resource "digitalocean_firewall" "observability" {
     source_addresses = var.observability_ssh_allowed_cidrs
   }
 
-  # HTTPS — Caddy (Grafana + OTLP HTTP). Collector gRPC/HTTP direct ports stay off the public internet.
+  # HTTPS — Caddy (Grafana + OTLP HTTP).
+  # TLS certificates are obtained via ACME TLS-ALPN-01 challenge on port 443 (no port 80 required).
+  # Direct Collector gRPC/HTTP ports (4317/4318/4319), Grafana (3000), Prometheus (9090),
+  # Loki (3100), and Tempo (3200) are never exposed to the public internet — Caddy proxies them.
   inbound_rule {
     protocol         = "tcp"
     port_range       = "443"
@@ -117,4 +165,38 @@ resource "digitalocean_firewall" "observability" {
   }
 
   tags = local.observability_tags
+}
+
+# ── Observability DNS records (Phase 8.8.6) ───────────────────────────────────
+#
+# Created only when ALL of the following are true:
+#   - observability_enabled = true
+#   - observability_manage_dns = true
+#   - observability_dns_zone_name is set (zone must exist in DigitalOcean DNS)
+#   - both hostname variables are set
+#
+# When observability_manage_dns = false, create the A records manually using
+# the values in the `observability_dns_requirements` output.
+#
+# Records point to local.observability_public_ipv4 — Reserved IP when
+# observability_use_reserved_ip = true, Droplet ephemeral IP otherwise.
+
+resource "digitalocean_record" "observability_grafana" {
+  count = local.obs_dns_records_enabled ? 1 : 0
+
+  domain = var.observability_dns_zone_name
+  type   = "A"
+  name   = local.obs_grafana_record_name
+  value  = local.observability_public_ipv4
+  ttl    = var.observability_dns_ttl
+}
+
+resource "digitalocean_record" "observability_otel" {
+  count = local.obs_dns_records_enabled ? 1 : 0
+
+  domain = var.observability_dns_zone_name
+  type   = "A"
+  name   = local.obs_otel_record_name
+  value  = local.observability_public_ipv4
+  ttl    = var.observability_dns_ttl
 }

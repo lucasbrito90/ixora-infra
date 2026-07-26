@@ -78,10 +78,13 @@ journalctl -u caddy -n 100 --no-pager
 
 ## Safe redeployment
 
+Use **immutable release tags** — not `git pull develop`. See [deployment-strategy.md](../specs/observability-foundation/mvp/deployment-strategy.md).
+
 ```bash
 cd /opt/ixora-observability
-git pull origin develop
-./scripts/deploy-observability.sh
+git fetch --tags origin
+git checkout release-2026.07.20
+IXORA_GIT_REF=release-2026.07.20 ./scripts/deploy-observability.sh
 ```
 
 **Never run:** `docker compose down -v`
@@ -196,10 +199,12 @@ docker compose up -d
 
 ## Accidental host replacement
 
-1. `tofu apply` creates new Droplet (Strategy A = **data loss**)
-2. Re-create DNS if IP changed
-3. Clone repo, bootstrap `.env`, deploy
-4. App Platform OTEL endpoint unchanged if DNS preserved with floating IP (not implemented)
+1. `tofu apply` creates new Droplet (Strategy A = **data loss** unless backups restored)
+2. Re-create DNS if IP changed — **skip if Reserved IP enabled** (`observability_use_reserved_ip = true`)
+3. Clone repo at last known-good release tag, bootstrap `.env`, deploy
+4. App Platform OTEL endpoint unchanged when DNS/Reserved IP preserved
+
+See [backup-strategy.md](../specs/observability-foundation/mvp/backup-strategy.md) and [storage-strategy.md](../specs/observability-foundation/mvp/storage-strategy.md) §5.
 
 ---
 
