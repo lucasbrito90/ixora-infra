@@ -36,8 +36,8 @@
 
 set -euo pipefail
 
+# shellcheck disable=SC2034  # Used implicitly when scripts are sourced; preserved for consistency.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # ── Defaults ──────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ SSH_USER="root"
 DEPLOY_PATH="/opt/ixora-observability"
 GRAFANA_HOSTNAME="grafana-staging.ixora-app.app"
 OTEL_HOSTNAME="otel-staging.ixora-app.app"
-SSH_KEY_ARG=""
+SSH_KEY_PATH=""
 DRY_RUN=0
 
 PASS=0
@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
     --deploy-path)     DEPLOY_PATH="$2";      shift 2 ;;
     --grafana-hostname) GRAFANA_HOSTNAME="$2"; shift 2 ;;
     --otel-hostname)   OTEL_HOSTNAME="$2";    shift 2 ;;
-    --ssh-key)         SSH_KEY_ARG="-i $2";   shift 2 ;;
+    --ssh-key)         SSH_KEY_PATH="$2";   shift 2 ;;
     --dry-run)         DRY_RUN=1;             shift ;;
     *)
       printf 'Unknown argument: %s\n' "$1" >&2
@@ -84,8 +84,21 @@ yellow() { printf '\033[0;33m[SKIP] %s\033[0m\n' "$*"; }
 info()   { printf '\033[0;34m[....] %s\033[0m\n' "$*"; }
 step()   { echo ""; echo "== $*"; }
 
-SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=15 -o BatchMode=yes"
-SSH_CMD="ssh ${SSH_OPTS} ${SSH_KEY_ARG} ${SSH_USER}@${HOST}"
+# StrictHostKeyChecking=accept-new: accept new host keys, but refuse
+# connections when the key changes for a known host. A mismatch must
+# be investigated, not silently ignored.
+SSH_OPTIONS=(
+  -o BatchMode=yes
+  -o ConnectTimeout=10
+  -o StrictHostKeyChecking=accept-new
+)
+
+SSH_KEY_ARGS=()
+[[ -n "${SSH_KEY_PATH}" ]] && SSH_KEY_ARGS=(-i "${SSH_KEY_PATH}")
+
+ssh_run() {
+  ssh "${SSH_OPTIONS[@]}" "${SSH_KEY_ARGS[@]}" "${SSH_USER}@${HOST}" -- "$@"
+}
 
 # Runs a remote command. In dry-run mode just prints it.
 remote() {
@@ -96,7 +109,7 @@ remote() {
     yellow "[DRY-RUN] ${label}: ${cmd}"
     return 0
   fi
-  if ${SSH_CMD} -- "${cmd}"; then
+  if ssh_run "${cmd}"; then
     green "${label}"
     return 0
   else
@@ -107,7 +120,7 @@ remote() {
 
 # Same but captures output.
 remote_output() {
-  ${SSH_CMD} -- "$@" 2>/dev/null || true
+  ssh_run "$@" 2>/dev/null || true
 }
 
 # Uploads file content to a remote path atomically.
@@ -129,7 +142,7 @@ remote_write() {
     return 1
   fi
 
-  printf '%s' "${content}" | ${SSH_CMD} -- "cat > ${tmp_remote} && chmod ${mode} ${tmp_remote} && mv ${tmp_remote} ${dest} && chmod ${mode} ${dest}"
+  printf '%s' "${content}" | ssh_run "cat > ${tmp_remote} && chmod ${mode} ${tmp_remote} && mv ${tmp_remote} ${dest} && chmod ${mode} ${dest}"
   green "${label}"
 }
 
@@ -138,14 +151,19 @@ remote_write() {
 step "Connectivity"
 
 if [[ "${DRY_RUN}" -eq 0 ]]; then
-  if ! ${SSH_CMD} -- 'echo ok' >/dev/null 2>&1; then
+  if ! ssh_run 'echo ok' >/dev/null 2>&1; then
     red "SSH connection failed to ${SSH_USER}@${HOST}"
     printf 'Hint: Check --ssh-key, authorized_keys, and firewall rules\n' >&2
+    printf 'If you see a host key mismatch, investigate before proceeding:\n' >&2
+    printf '  ssh-keygen -R %s   # only after confirming the Droplet IP is legitimate\n' \
+      "${HOST}" >&2
     exit 1
   fi
   green "SSH connection to ${SSH_USER}@${HOST}"
 
+  # shellcheck disable=SC2016  # Variables must expand on remote shell, not locally
   OS_ID="$(remote_output '. /etc/os-release && echo $ID')"
+  # shellcheck disable=SC2016
   OS_VERSION="$(remote_output '. /etc/os-release && echo $VERSION_ID')"
   info "Remote OS: ${OS_ID} ${OS_VERSION}"
 else
@@ -170,6 +188,7 @@ else
   info "Installing Docker..."
   remote "Docker: install GPG key" \
     'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg'
+  # shellcheck disable=SC2016  # $(...) must expand on remote shell, not locally
   remote "Docker: add repository" \
     'bash -lc '"'"'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list'"'"''
   remote "Docker: apt-get update" 'apt-get update -qq'
@@ -375,10 +394,12 @@ echo "────────────────────────�
 if [[ "${FAIL}" -eq 0 ]]; then
   green "Host repair complete: ${PASS} checks passed"
   echo ""
-  echo "Next steps:"
-  echo "  1. Deploy stack files:"
-  echo "     ./scripts/deploy-observability.sh --host ${HOST} --user ${SSH_USER}"
-  echo "  2. Bootstrap collector/.env (on host or via bootstrap-collector-env.sh):"
+  echo "Next steps (first-deployment order):"
+  echo ""
+  echo "  Step 3: Sync repository files (no containers started):"
+  echo "     ./scripts/deploy-observability.sh --host ${HOST} --user ${SSH_USER} --sync-only"
+  echo ""
+  echo "  Step 4: Create collector/.env on the remote host:"
   echo "     ssh ${SSH_USER}@${HOST}"
   echo "     cd ${DEPLOY_PATH}"
   echo "     export OTEL_INGEST_API_KEY_BACKEND=\"\$(openssl rand -hex 32)\""
@@ -386,7 +407,9 @@ if [[ "${FAIL}" -eq 0 ]]; then
   echo "     export GF_ADMIN_PASSWORD=\"\$(openssl rand -base64 24)\""
   echo "     export GF_SERVER_ROOT_URL=\"https://${GRAFANA_HOSTNAME}\""
   echo "     ./scripts/bootstrap-collector-env.sh"
-  echo "  3. Start the stack:"
+  echo "     exit"
+  echo ""
+  echo "  Step 5: Run the full deployment:"
   echo "     ./scripts/deploy-observability.sh --host ${HOST} --user ${SSH_USER}"
   exit 0
 else

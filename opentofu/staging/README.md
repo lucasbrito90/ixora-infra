@@ -130,64 +130,78 @@ Check current DigitalOcean pricing pages — amounts change.
 
 ## Observability workflow
 
-The observability stack requires three steps after `tofu apply`:
+The observability stack requires **five steps** after `tofu apply`. Follow this exact order to avoid a circular dependency between file sync and secret bootstrap.
 
-### Step 1: Validate cloud-init template
+### Step 1: Validate source
 
 ```bash
 ./scripts/validate-cloud-init.sh
 ```
 
-Validates encoding, YAML syntax, and cloud-init schema before applying.
+Validates encoding, YAML syntax, and cloud-init schema before any host changes.
 
 ### Step 2: Repair or bootstrap the host
 
-For a **new Droplet** (cloud-init already ran at creation - verify it completed):
-
-```bash
-ssh root@<droplet-ip>
-cat /var/log/cloud-init-output.log | tail -20
-```
-
-For an **existing Droplet where cloud-init failed** (the current situation):
+For an **existing Droplet where cloud-init failed**:
 
 ```bash
 ./scripts/repair-observability-host.sh --host 143.198.36.226 --user root
 ```
 
-### Step 3: Bootstrap collector/.env
+For a **newly created Droplet** (cloud-init ran automatically at creation): verify it completed:
+
+```bash
+ssh root@<droplet-ip>
+tail -20 /var/log/cloud-init-output.log
+```
+
+### Step 3: Synchronize repository files (no containers started)
+
+```bash
+./scripts/deploy-observability.sh \
+  --host 143.198.36.226 \
+  --user root \
+  --sync-only
+```
+
+This copies `collector/` and `scripts/` to the Droplet. It **does not** start containers and **does not** require `collector/.env` to exist yet.
+
+### Step 4: Create collector/.env on the remote host
 
 ```bash
 ssh root@143.198.36.226
+cd /opt/ixora-observability
 
 export OTEL_INGEST_API_KEY_BACKEND="$(openssl rand -hex 32)"
 export OTEL_INGEST_API_KEY_MOBILE="$(openssl rand -hex 32)"
 export GF_ADMIN_PASSWORD="$(openssl rand -base64 24)"
 export GF_SERVER_ROOT_URL="https://grafana-staging.ixora-app.app"
 
-cd /opt/ixora-observability
 ./scripts/bootstrap-collector-env.sh
+exit
 ```
 
-### Step 4: Deploy the stack
+> **Important:** `bootstrap-collector-env.sh` requires the files synced in Step 3. Do not run it before Step 3.
 
-From the operator machine:
+### Step 5: Run the full deployment
 
 ```bash
 ./scripts/deploy-observability.sh --host 143.198.36.226 --user root
 ```
 
-### Step 5: Verify
+This pulls images, starts containers, and verifies all mandatory health endpoints. The deployment exits non-zero if any required service (Collector, Prometheus, Loki, Tempo, Grafana) remains unhealthy.
+
+### Verification
 
 ```bash
 # Local (on Droplet)
-curl -sf http://127.0.0.1:3000/api/health   # Grafana
-curl -sf http://127.0.0.1:13133/health      # OTel Collector
+curl -fsS http://127.0.0.1:3000/api/health   # Grafana
+curl -fsS http://127.0.0.1:13133/health      # OTel Collector
 
 # Public HTTPS
 curl -I https://grafana-staging.ixora-app.app
 curl -o /dev/null -w '%{http_code}\n' https://otel-staging.ixora-app.app/v1/traces
-# Expect: Grafana -> 302, OTLP -> 401 (proves Caddy routing)
+# Expect: Grafana -> 200/302, OTLP -> 401/405 (proves Caddy routing)
 ```
 
 ### OpenTofu plan target (emergency use only)

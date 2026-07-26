@@ -219,28 +219,95 @@ Secrets are never printed or logged.
 
 ---
 
-## How to deploy the stack
+## How to deploy the stack (first deployment)
 
-### From the operator machine (recommended):
+Follow this exact five-step order. The order matters: **files must be synced before `bootstrap-collector-env.sh` can run**, because the bootstrap script requires `collector/.env.example` to be present on the host.
+
+### Step 1: Validate source
+
+```bash
+./scripts/validate-cloud-init.sh
+```
+
+### Step 2: Repair or bootstrap the host
+
+For an **existing Droplet where cloud-init failed**:
+
+```bash
+./scripts/repair-observability-host.sh --host 143.198.36.226 --user root
+```
+
+For a **newly created Droplet** (cloud-init ran at creation): cloud-init bootstraps the host automatically.
+
+### Step 3: Synchronize repository files (no containers started)
+
+```bash
+./scripts/deploy-observability.sh \
+  --host 143.198.36.226 \
+  --user root \
+  --sync-only
+```
+
+Copies `collector/` and `scripts/` to the Droplet. Does not start containers. Does not require `collector/.env` to exist yet. The script prints the exact next command to run after it completes.
+
+Dry-run preview:
+
+```bash
+./scripts/deploy-observability.sh \
+  --host 143.198.36.226 \
+  --user root \
+  --sync-only \
+  --dry-run
+```
+
+### Step 4: Create collector/.env on the remote host
+
+Only run **after Step 3** has synced the files:
+
+```bash
+ssh root@143.198.36.226
+cd /opt/ixora-observability
+
+export OTEL_INGEST_API_KEY_BACKEND="$(openssl rand -hex 32)"
+export OTEL_INGEST_API_KEY_MOBILE="$(openssl rand -hex 32)"
+export GF_ADMIN_PASSWORD="$(openssl rand -base64 24)"
+export GF_SERVER_ROOT_URL="https://grafana-staging.ixora-app.app"
+
+./scripts/bootstrap-collector-env.sh
+exit
+```
+
+The script creates `collector/.env` with mode `0600` from `collector/.env.example`. Secrets are never printed or logged.
+
+### Step 5: Run the full deployment
 
 ```bash
 ./scripts/deploy-observability.sh --host 143.198.36.226 --user root
 ```
 
 This will:
-1. Verify SSH connectivity and Docker/Caddy presence
+1. Verify SSH connectivity, Docker, and Caddy presence
 2. rsync `collector/` and `scripts/` to the Droplet (never copies `.env`, `.git`, state files)
 3. SSH in and run `docker compose pull` + `docker compose up -d`
-4. Wait for all health endpoints
+4. Wait for all mandatory health endpoints (Collector, Prometheus, Loki, Tempo, Grafana)
 5. Verify container status and port bindings
+6. Exit non-zero if any mandatory service is unhealthy
 
-### Dry run (preview only):
+### Subsequent updates
+
+For stack updates after the initial deployment (`.env` already exists):
+
+```bash
+./scripts/deploy-observability.sh --host 143.198.36.226 --user root
+```
+
+### Dry run (preview only)
 
 ```bash
 ./scripts/deploy-observability.sh --host 143.198.36.226 --user root --dry-run
 ```
 
-### On the Droplet directly (if already SSHed in):
+### On the Droplet directly (if already SSHed in)
 
 ```bash
 ssh root@143.198.36.226
@@ -409,22 +476,20 @@ journalctl -u ixora-observability -n 50 --no-pager
 
 ---
 
-## How to perform a future Droplet rebuild
+## How to perform a Droplet rebuild
 
-> **This procedure destroys all observability data on the existing Droplet (Strategy A - root disk only).**
-> **Ensure data has been backed up or retention policy allows the loss before proceeding.**
+For a detailed, safe rebuild procedure using OpenTofu-controlled replacement, see:
 
-1. Remove `prevent_destroy = true` from `opentofu/staging/observability.tf` temporarily.
-2. Update DNS A records in Cloudflare to the new IP after `tofu apply`.
-3. After rebuild, re-run:
-   ```bash
-   ./scripts/bootstrap-collector-env.sh  # on new host after deploy
-   ./scripts/deploy-observability.sh --host <new-ip> --user root
-   ```
-4. Restore `prevent_destroy = true` in `observability.tf`.
-5. Commit the restored file.
+```
+docs/operations/observability-droplet-rebuild.md
+```
 
-If `observability_use_reserved_ip = true`, the Reserved IP can be reassigned to the new Droplet without updating DNS records.
+**Key points:**
+
+- `prevent_destroy = true` is set in `observability.tf` and must be temporarily removed only on a dedicated maintenance branch, then immediately restored after replacement.
+- A Reserved IP (`observability_use_reserved_ip = true`) prevents DNS changes during rebuild; without it, both `grafana-staging` and `otel-staging` A records must be updated in Cloudflare after the new Droplet is created.
+- Post-rebuild deployment follows the same five-step order as a first deployment (see above).
+- **Never delete the Droplet manually from the DigitalOcean console** — use `tofu plan -replace` so the replacement is recorded in state.
 
 ---
 
