@@ -235,6 +235,21 @@ else
   remote "Caddy: install" 'apt-get install -y caddy'
 fi
 
+# Defensive repair for interrupted Caddy package configuration. The systemd
+# unit runs as User=caddy/Group=caddy, so ensure that account and its runtime
+# directories exist before validating or starting the service.
+remote "Caddy: ensure system group" \
+  'getent group caddy >/dev/null || groupadd --system caddy'
+remote "Caddy: ensure system user" \
+  'getent passwd caddy >/dev/null || useradd --system --gid caddy --home-dir /var/lib/caddy --create-home --shell /usr/sbin/nologin caddy'
+remote "Caddy: ensure data directory" \
+  'install -d -o caddy -g caddy -m 0755 /var/lib/caddy'
+remote "Caddy: ensure log directory" \
+  'install -d -o caddy -g caddy -m 0755 /var/log/caddy'
+remote "Caddy: finish interrupted package configuration" \
+  'env DEBIAN_FRONTEND=noninteractive dpkg --force-confold --configure -a || true'
+remote "Caddy: reset failed state" 'systemctl reset-failed caddy || true'
+
 # ── Step 3: Caddyfile ────────────────────────────────────────────────────
 
 step "Caddyfile"
