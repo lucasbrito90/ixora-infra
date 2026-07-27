@@ -112,9 +112,10 @@ cd "${REPO_ROOT}"
 printf '[INFO] Building file list from: %s\n' "${REPO_ROOT}"
 
 if git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  printf '[INFO] Using git ls-files as base\n'
-  # git ls-files lists tracked files; we still apply the denylist below
-  git ls-files --cached --others --exclude-standard > "${FILELIST}"
+  printf '[INFO] Using git ls-files --cached (tracked files only)\n'
+  # Tracked files only — never include untracked local files from the worktree.
+  # The denylist and archive validator provide defense in depth.
+  git ls-files --cached > "${FILELIST}"
 else
   printf '[WARN] Not a git repository; using find\n'
   find . -type f \

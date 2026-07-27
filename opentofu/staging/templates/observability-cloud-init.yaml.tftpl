@@ -135,6 +135,17 @@ runcmd:
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
   - apt-get update
   - apt-get install -y caddy
+  # Defensive recovery: some interrupted package configurations may leave the
+  # caddy system account absent even though the unit file already references it.
+  - getent group caddy >/dev/null || groupadd --system caddy
+  - getent passwd caddy >/dev/null || useradd --system --gid caddy --home-dir /var/lib/caddy --create-home --shell /usr/sbin/nologin caddy
+  - install -d -o caddy -g caddy -m 0755 /var/lib/caddy
+  - install -d -o caddy -g caddy -m 0755 /var/log/caddy
+  # Finish any interrupted package configuration non-interactively while
+  # preserving the repository-provided Caddyfile.
+  - env DEBIAN_FRONTEND=noninteractive dpkg --force-confold --configure -a || true
+  - systemctl daemon-reload
+  - systemctl reset-failed caddy || true
   - systemctl enable --now caddy
   - mkdir -p ${deploy_path}
   - chmod 755 ${deploy_path}
