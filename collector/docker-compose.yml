@@ -76,6 +76,9 @@ services:
       # Resource limits for memory_limiter processor.
       OTEL_MEMORY_LIMIT_MIB: "${OTEL_MEMORY_LIMIT_MIB:-512}"
       OTEL_MEMORY_SPIKE_LIMIT_MIB: "${OTEL_MEMORY_SPIKE_LIMIT_MIB:-128}"
+      # Trace head sampling — Collector-side only (ADR-031).
+      # Staging validation default: 100. Reduce to 90 or 10 via collector/.env.
+      OTEL_TRACE_SAMPLE_RATE_SUCCESS: "${OTEL_TRACE_SAMPLE_RATE_SUCCESS:-100}"
       # Backend exporter endpoints — Docker service DNS names (ADR-028).
       PROMETHEUS_REMOTE_WRITE_ENDPOINT: "${PROMETHEUS_REMOTE_WRITE_ENDPOINT:-http://prometheus:9090/api/v1/write}"
       LOKI_ENDPOINT: "${LOKI_ENDPOINT:-http://loki:3100/loki/api/v1/push}"

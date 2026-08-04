@@ -240,14 +240,14 @@ processors:
 
   # ----------------------------------------------------------
   # 7. PROBABILISTIC SAMPLER — TRACES
-  # Head sampling per ADR-031.
-  # 10% success; 100% errors/failures handled via filter before sampler.
-  # NOTE: Error traces are excluded from sampling — they pass through
-  # the filter processor below and bypass the sampler.
+  # Head sampling per ADR-031 — single sampling point when apps use
+  # OTEL_TRACES_SAMPLER=always_on (see collector/.env.example).
+  # Rate is controlled by OTEL_TRACE_SAMPLE_RATE_SUCCESS (0–100).
+  # NOTE: probabilistic_sampler does NOT guarantee 100% error retention;
+  # tail_sampling is documented as a Phase 7+ evolution.
   # ----------------------------------------------------------
   probabilistic_sampler:
-    # 10% default for successful traces. Errors bypass via filter_errors pipeline.
-    sampling_percentage: 10
+    sampling_percentage: ${env:OTEL_TRACE_SAMPLE_RATE_SUCCESS}
     # Hash seed — change per environment to avoid correlated drops.
     hash_seed: 22
 
@@ -424,15 +424,15 @@ service:
         - loki   # Phase 5: Loki active
 
     # --------------------------------------------------------
-    # TRACES PIPELINE — sampled (10% success + all errors)
+    # TRACES PIPELINE — sampled (OTEL_TRACE_SAMPLE_RATE_SUCCESS %)
     # Phase 6: otlp/tempo active — debug removed.
     #
     # Sampling strategy (ADR-031):
-    #   probabilistic_sampler: 10% of successful traces.
-    #   Error traces: probabilistic_sampler passes all spans because
-    #   the sampler operates before status is fully resolved in some
-    #   SDKs. For MVP this is acceptable — all traces (sampled or not)
-    #   that reach the exporter go to Tempo.
+    #   probabilistic_sampler: OTEL_TRACE_SAMPLE_RATE_SUCCESS (0–100).
+    #   Staging validation default: 100 (see collector/.env.example).
+    #   Production may use a lower value without editing this file.
+    #   Error traces: probabilistic_sampler does NOT guarantee 100%
+    #   retention — see tail_sampling note below.
     #
     # Tail sampling (Phase 7+ evolution):
     #   Replace probabilistic_sampler with a tail_sampling processor:
@@ -458,7 +458,7 @@ service:
         - resource
         - attributes/redact_secrets
         - transform/normalize_http
-        - probabilistic_sampler    # 10% success (see tail_sampling note above)
+        - probabilistic_sampler    # OTEL_TRACE_SAMPLE_RATE_SUCCESS (see tail_sampling note above)
         - batch
       exporters:
         - otlp/tempo   # Phase 6: Tempo active
