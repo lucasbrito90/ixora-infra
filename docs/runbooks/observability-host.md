@@ -107,6 +107,63 @@ systemctl reload caddy
 
 ---
 
+## Staging trace sampling (Collector)
+
+**Architecture:** `back_vibes` exports all traces (`OTEL_TRACES_SAMPLER=always_on`). The Collector `probabilistic_sampler` controls what reaches Tempo via `OTEL_TRACE_SAMPLE_RATE_SUCCESS` (0–100). Sampling is **not** multiplicative when the SDK is `always_on`.
+
+### App Platform (staging)
+
+| Component | Variable | Value |
+| --- | --- | --- |
+| `back_vibes-api` | `OTEL_TRACES_SAMPLER` | `always_on` |
+| `back_vibes-worker` | `OTEL_TRACES_SAMPLER` | `always_on` |
+
+Do **not** set `OTEL_TRACES_SAMPLER_ARG` for ratio sampling on the SDK in staging.
+
+### Collector (observability host)
+
+Edit `/opt/ixora-observability/collector/.env`:
+
+```bash
+# End-to-end validation (temporary)
+OTEL_TRACE_SAMPLE_RATE_SUCCESS=100
+
+# After validation (~9/10 traces)
+# OTEL_TRACE_SAMPLE_RATE_SUCCESS=90
+
+# Rollback to MVP-style rate
+# OTEL_TRACE_SAMPLE_RATE_SUCCESS=10
+```
+
+Apply **only the Collector** — Tempo does **not** need a restart:
+
+```bash
+cd /opt/ixora-observability/collector
+docker compose up -d --force-recreate collector
+curl -sf http://127.0.0.1:13133/health
+```
+
+### Validation checklist
+
+1. `php artisan ixora:telemetry-validate --require-sdk` on API/worker.
+2. Generate several API requests against staging.
+3. Grafana → Tempo: search `{resource.service.name="back_vibes-api"}` or paste `trace_id` from Loki.
+4. Confirm Loki `extra.trace_id` / `traceid` values resolve in Tempo (when rate is 100, all should).
+5. Prometheus: `otelcol_receiver_accepted_spans_total`, `otelcol_exporter_sent_spans_total`, `otelcol_processor_probabilistic_sampler_count_traces_sampled_total`.
+6. Monitor VM disk and memory (`df -h`, `docker stats --no-stream`).
+
+### Rollback
+
+Set `OTEL_TRACE_SAMPLE_RATE_SUCCESS=10` in `collector/.env`, then:
+
+```bash
+docker compose up -d --force-recreate collector
+```
+
+**Limitation:** `probabilistic_sampler` does not guarantee retention of all error traces; use future `tail_sampling` for that.
+
+---
+
 ## Image upgrades
 
 1. Update image tags in `collector/.env` (or use defaults from `.env.example`)
