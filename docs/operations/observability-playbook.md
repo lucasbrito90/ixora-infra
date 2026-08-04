@@ -226,10 +226,10 @@ Log pipeline restored; correlate with `trace_id` in Explore.
 
 | Step | Action |
 | --- | --- |
-| 1 | Collector → Tempo exporter; sampling not 0% |
+| 1 | Collector → Tempo exporter; `OTEL_TRACE_SAMPLE_RATE_SUCCESS` not 0 |
 | 2 | Search Tempo by known `trace_id` from Loki |
-| 3 | Verify apps export traces (Phase 7/8 complete) |
-| 4 | Head sampling — trace may be dropped ([ADR-031](../decisions/ADR-031-retention-storage-and-cost-control.md)) |
+| 3 | Verify apps export traces (`OTEL_TRACES_SAMPLER=always_on` in staging) |
+| 4 | Head sampling — trace may be dropped when rate &lt; 100 ([ADR-031](../decisions/ADR-031-retention-storage-and-cost-control.md)); adjust `OTEL_TRACE_SAMPLE_RATE_SUCCESS` in `collector/.env` and `docker compose up -d --force-recreate collector` |
 | 5 | Retention — traces older than 7 days gone |
 
 ### Expected outcome
