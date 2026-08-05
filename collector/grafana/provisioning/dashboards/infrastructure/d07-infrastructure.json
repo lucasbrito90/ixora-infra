@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "D-07 — Observability platform self-health. Answers: Is the telemetry infrastructure itself healthy? Covers Collector pipelines, export rates, queue depth, and Prometheus platform metrics. Exclusively infrastructure-scoped: no application, HTTP, Queue, Scheduler, Smart Home, or Push Notification metrics.",
+  "description": "D-07 \u2014 Observability platform self-health. Answers: Is the telemetry infrastructure itself healthy? Covers Collector pipelines, export rates, queue depth, and Prometheus platform metrics. Exclusively infrastructure-scoped: no application, HTTP, Queue, Scheduler, Smart Home, or Push Notification metrics.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -28,6 +28,15 @@
       "tooltip": "",
       "type": "link",
       "url": "/d/ixora-platform"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-08 SLO & Error Budget",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-slo"
     },
     {
       "icon": "external link",
@@ -93,7 +102,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Collector self-scrape health (push-based). Value = 1 (UP) when the Collector is alive and writing self-metrics to Prometheus. Note: uses push-based health check — may report stale UP for up to 5 min after Collector stops.",
+      "description": "Collector self-scrape health (push-based). Value = 1 (UP) when the Collector is alive and writing self-metrics to Prometheus. Note: uses push-based health check \u2014 may report stale UP for up to 5 min after Collector stops.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -345,7 +354,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Collector process resident set size (RSS) — physical memory in use. Alert if approaching container memory limit.",
+      "description": "Collector process resident set size (RSS) \u2014 physical memory in use. Alert if approaching container memory limit.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -489,7 +498,7 @@
         "y": 5
       },
       "id": 10,
-      "title": "OTLP Export Pipeline — Metrics",
+      "title": "OTLP Export Pipeline \u2014 Metrics",
       "type": "row"
     },
     {
@@ -497,7 +506,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of metric points successfully pushed to Prometheus via remote write. Also shows failures per second. Baseline: ~2–5 points/s from Collector self-metrics + application metrics when back_vibes is active.",
+      "description": "Rate of metric points successfully pushed to Prometheus via remote write. Also shows failures per second. Baseline: ~2\u20135 points/s from Collector self-metrics + application metrics when back_vibes is active.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -697,7 +706,7 @@
         "y": 14
       },
       "id": 20,
-      "title": "OTLP Export Pipeline — Traces & Logs (appear when application telemetry flows)",
+      "title": "OTLP Export Pipeline \u2014 Traces & Logs (appear when application telemetry flows)",
       "type": "row"
     },
     {
@@ -1231,7 +1240,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Whether the last Prometheus config reload was successful. Value = 1 = OK. If 0, check Prometheus logs — a config reload failure means the running config may be stale.",
+      "description": "Whether the last Prometheus config reload was successful. Value = 1 = OK. If 0, check Prometheus logs \u2014 a config reload failure means the running config may be stale.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1313,7 +1322,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of metric samples received by Prometheus via remote write from the Collector. Baseline: ~2–5 samples/s from Collector self-metrics. Increases as application metrics are added.",
+      "description": "Rate of metric samples received by Prometheus via remote write from the Collector. Baseline: ~2\u20135 samples/s from Collector self-metrics. Increases as application metrics are added.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1398,7 +1407,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Collector process heap allocation in bytes. Complements RSS — heap growth indicates GC pressure. Use with Memory RSS to diagnose memory leaks.",
+      "description": "Collector process heap allocation in bytes. Complements RSS \u2014 heap growth indicates GC pressure. Use with Memory RSS to diagnose memory leaks.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1505,7 +1514,7 @@
           "text": "staging",
           "value": "staging"
         },
-        "description": "Deployment environment — applied to application-layer panels only (infrastructure self-metrics are not environment-scoped).",
+        "description": "Deployment environment \u2014 applied to application-layer panels only (infrastructure self-metrics are not environment-scoped).",
         "hide": 0,
         "includeAll": false,
         "label": "Environment",
@@ -1540,7 +1549,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "D-07 — Infrastructure",
+  "title": "D-07 \u2014 Infrastructure",
   "uid": "ixora-collector",
   "version": 1
 }

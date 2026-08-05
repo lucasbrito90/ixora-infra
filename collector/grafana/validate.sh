@@ -53,7 +53,7 @@
 #       coexist: scheme A for D-01/D-02, section-range-start for
 #       D-04/D-05/D-06, legacy sequential for D-07).
 #
-# Phase 8.9 checks (68–78):
+# Phase 8.9 checks (68–78, 91–98):
 #   Recording Rules & SLO Foundation structural integrity:
 #   68: prometheus/rules/recording/ directory exists.
 #   69: application.rules.yml exists and is valid YAML.
@@ -136,7 +136,7 @@ if [[ -z "${GRAFANA_PASS}" ]]; then
 fi
 
 echo ""
-echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7 + 8.8 + 8.9"
+echo "Grafana Foundation Validation — Phase 8.1 + 8.2 + 8.3 + 8.4 + 8.5 + 8.6 + 8.7 + 8.8 + 8.9 (SLO)"
 echo "Target: ${GRAFANA_URL}"
 echo "────────────────────────────────────────────────"
 echo ""
@@ -979,7 +979,7 @@ for root, dirs, files in os.walk(provisioning):
 if missing:
     print('FAIL: missing D-01 back-link: ' + ' | '.join(missing))
 else:
-    print('PASS: all 5 specialized dashboards link back to /d/ixora-platform')
+    print('PASS: all 6 specialized dashboards link back to /d/ixora-platform')
 " 2>/dev/null || echo "FAIL: python3 back-link check failed")
 
 if echo "${BACKLINK_CHECK}" | grep -q "^PASS:"; then
@@ -994,7 +994,7 @@ fi
 #   /d/ixora-http, /d/ixora-scheduler, /d/ixora-collector
 
 echo ""
-echo "44. Dashboard links follow standard ordering (D-01→D-02→D-03→D-04→D-05→D-06→D-07)"
+echo "44. Dashboard links follow standard ordering (D-01→D-08→D-02→…→D-07)"
 
 ORDER_CHECK=$(python3 -c "
 import json, os, sys
@@ -1003,6 +1003,7 @@ provisioning = '${PROVISIONING_DIR}/dashboards'
 
 STANDARD_ORDER = [
     '/d/ixora-platform',
+    '/d/ixora-slo',
     '/d/ixora-smart-home',
     '/d/ixora-push',
     '/d/ixora-queue',
@@ -1035,7 +1036,7 @@ for root, dirs, files in os.walk(provisioning):
 if bad:
     print('FAIL: incorrect link ordering: ' + ' | '.join(bad))
 else:
-    print('PASS: all 7 dashboards follow standard link ordering')
+    print('PASS: all 8 dashboards follow standard link ordering')
 " 2>/dev/null || echo "FAIL: python3 order check failed")
 
 if echo "${ORDER_CHECK}" | grep -q "^PASS:"; then
@@ -1187,7 +1188,7 @@ fi
 # IDs constitute a defect.
 
 echo ""
-echo "48. Panel ID integrity (no duplicates, positive IDs) — all 7 dashboards"
+echo "48. Panel ID integrity (no duplicates, positive IDs) — all 8 dashboards"
 
 PANEL_INTEGRITY=$(python3 -c "
 import json, os, sys
@@ -2063,6 +2064,126 @@ if [ -f "${DEPLOY_SCRIPT}" ] && [ "${DEPLOY_SCRIPT_REFS}" -ge 1 ]; then
   pass "deploy-observability.sh exists and is referenced in deployment-strategy.md"
 else
   fail "deploy-observability.sh missing or not referenced in deployment-strategy.md"
+fi
+
+# ── Phase 8.9 SLO implementation checks (91–98) ───────────────
+
+echo ""
+echo "91. D-08 SLO dashboard JSON syntax"
+
+D08_PATH="${PROVISIONING_DIR}/dashboards/overview/d08-slo-error-budget.json"
+check_json_syntax "D-08 SLO & Error Budget" "${D08_PATH}"
+
+echo ""
+echo "92. D-08 dashboard UID (ixora-slo)"
+
+check_dashboard_uid_in_file "D-08 SLO JSON file" "${D08_PATH}" "ixora-slo"
+
+echo ""
+echo "93. slo.alerts.yml exists and is valid YAML"
+
+SLO_ALERTS="${COLLECTOR_DIR}/prometheus/rules/alerting/slo.alerts.yml"
+if [ -f "${SLO_ALERTS}" ]; then
+  YAML_CHECK=$(python3 -c "
+import yaml
+try:
+    data = yaml.safe_load(open('${SLO_ALERTS}'))
+    if data is None or 'groups' not in data:
+        print('FAIL: slo.alerts.yml missing groups key')
+    else:
+        print('PASS: slo.alerts.yml is valid YAML with groups')
+except Exception as e:
+    print(f'FAIL: slo.alerts.yml parse error: {e}')
+" 2>/dev/null || echo "FAIL: python3 yaml check failed")
+  if echo "${YAML_CHECK}" | grep -q "^PASS:"; then
+    pass "${YAML_CHECK#PASS: }"
+  else
+    fail "${YAML_CHECK#FAIL: }"
+  fi
+else
+  fail "slo.alerts.yml not found at ${SLO_ALERTS}"
+fi
+
+echo ""
+echo "94. Prometheus rule_files active in prometheus.yml"
+
+PROM_YML="${COLLECTOR_DIR}/prometheus/prometheus.yml"
+if [ -f "${PROM_YML}" ] && grep -q "^rule_files:" "${PROM_YML}" && grep -q "recording/\*.rules.yml" "${PROM_YML}"; then
+  pass "prometheus.yml rule_files includes recording and alerting paths"
+else
+  fail "prometheus.yml rule_files not active or missing recording path"
+fi
+
+echo ""
+echo "95. promtool check rules (recording + alerting)"
+
+PROMTOOL_BIN=""
+if command -v promtool >/dev/null 2>&1; then
+  PROMTOOL_BIN="promtool"
+else
+  PROMTOOL_BIN="docker run --rm -v ${COLLECTOR_DIR}/prometheus:/etc/prometheus:ro prom/prometheus:v2.54.1 promtool"
+fi
+
+PROMTOOL_OK=1
+if command -v promtool >/dev/null 2>&1; then
+  for rules_file in "${RECORDING_RULES_DIR}"/*.rules.yml "${COLLECTOR_DIR}/prometheus/rules/alerting"/*.yml; do
+    [ -f "${rules_file}" ] || continue
+    if promtool check rules "${rules_file}" >/dev/null 2>&1; then
+      :
+    else
+      PROMTOOL_OK=0
+      fail "promtool check rules failed: $(basename "${rules_file}")"
+    fi
+  done
+else
+  for rules_file in "${RECORDING_RULES_DIR}"/*.rules.yml "${COLLECTOR_DIR}/prometheus/rules/alerting"/*.yml; do
+    [ -f "${rules_file}" ] || continue
+    rel="${rules_file#${COLLECTOR_DIR}/prometheus/}"
+    if docker run --rm --entrypoint promtool -v "${COLLECTOR_DIR}/prometheus:/etc/prometheus:ro" prom/prometheus:v2.54.1 \
+      check rules "/etc/prometheus/${rel}" >/dev/null 2>&1; then
+      :
+    else
+      PROMTOOL_OK=0
+      fail "promtool check rules failed: $(basename "${rules_file}")"
+    fi
+  done
+fi
+if [ "${PROMTOOL_OK}" -eq 1 ]; then
+  pass "promtool check rules passed for all recording and alerting files"
+fi
+
+echo ""
+echo "96. SLO runbook exists (docs/runbooks/slo-error-budget.md)"
+
+SLO_RUNBOOK="${DOCS_DIR}/runbooks/slo-error-budget.md"
+if [ -f "${SLO_RUNBOOK}" ]; then
+  pass "slo-error-budget.md runbook found"
+else
+  fail "slo-error-budget.md not found at ${SLO_RUNBOOK}"
+fi
+
+echo ""
+echo "97. SLO mathematical fixture tests"
+
+MATH_TEST="${COLLECTOR_DIR}/scripts/test-slo-math.py"
+if [ -f "${MATH_TEST}" ]; then
+  if python3 "${MATH_TEST}" >/dev/null 2>&1; then
+    pass "test-slo-math.py — all fixture tests passed"
+  else
+    fail "test-slo-math.py failed — run: python3 ${MATH_TEST}"
+  fi
+else
+  fail "test-slo-math.py not found at ${MATH_TEST}"
+fi
+
+echo ""
+echo "98. docker-compose mounts prometheus rules directory"
+
+COMPOSE_FILE="${COLLECTOR_DIR}/docker-compose.yml"
+if [ -f "${COMPOSE_FILE}" ] && grep -q "prometheus/rules" "${COMPOSE_FILE}"; then
+  pass "docker-compose.yml mounts ./prometheus/rules"
+else
+  fail "docker-compose.yml missing prometheus/rules volume mount"
 fi
 
 # ── Summary ───────────────────────────────────────────────────

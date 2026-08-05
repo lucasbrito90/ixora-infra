@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "D-03 — Push Notifications Dashboard. Answers: Is the push notification delivery pipeline healthy? Covers delivery throughput, success/failure rates, retry behaviour, and processing latency for the push queue. Business-scoped: surfaces the push queue layer (ixora_queue_job_total{queue=push}). Per-notification-type and per-provider breakdowns become available after Phase 7B.5 (ixora.push.delivery.total).",
+  "description": "D-03 \u2014 Push Notifications Dashboard. Answers: Is the push notification delivery pipeline healthy? Covers delivery throughput, success/failure rates, retry behaviour, and processing latency for the push queue. Business-scoped: surfaces the push queue layer (ixora_queue_job_total{queue=push}). Per-notification-type and per-provider breakdowns become available after Phase 7B.5 (ixora.push.delivery.total).",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -28,6 +28,15 @@
       "tooltip": "",
       "type": "link",
       "url": "/d/ixora-platform"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-08 SLO & Error Budget",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-slo"
     },
     {
       "icon": "external link",
@@ -93,7 +102,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Push notification delivery jobs dispatched per second (all outcomes). Healthy steady-state depends on application activity — expect spikes when Smart Home actions fail or Scheduler executions fail. Zero rate means no push notifications are being triggered. Investigate D-02 Smart Home or D-06 Scheduler for upstream signal.",
+      "description": "Push notification delivery jobs dispatched per second (all outcomes). Healthy steady-state depends on application activity \u2014 expect spikes when Smart Home actions fail or Scheduler executions fail. Zero rate means no push notifications are being triggered. Investigate D-02 Smart Home or D-06 Scheduler for upstream signal.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -155,7 +164,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of push delivery jobs that completed successfully (outcome=success). Healthy steady-state: > 95%. A drop below 90% indicates delivery failures — check the Failures section below and drill into Loki for per-token error codes (UNREGISTERED, NOT_FOUND, FCM error).",
+      "description": "Fraction of push delivery jobs that completed successfully (outcome=success). Healthy steady-state: > 95%. A drop below 90% indicates delivery failures \u2014 check the Failures section below and drill into Loki for per-token error codes (UNREGISTERED, NOT_FOUND, FCM error).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -232,7 +241,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of push delivery jobs that permanently failed (outcome=failed). Healthy steady-state: < 2%. Persistent failures indicate invalid device tokens (UNREGISTERED/NOT_FOUND) or FCM provider errors. Deactivated tokens reduce this rate automatically — a sustained spike requires Loki investigation.",
+      "description": "Fraction of push delivery jobs that permanently failed (outcome=failed). Healthy steady-state: < 2%. Persistent failures indicate invalid device tokens (UNREGISTERED/NOT_FOUND) or FCM provider errors. Deactivated tokens reduce this rate automatically \u2014 a sustained spike requires Loki investigation.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -309,7 +318,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Number of push delivery jobs currently executing. Healthy steady-state: 0–2 (queue drains fast). A sustained high count indicates queue worker bottleneck or slow FCM API responses. Check D-07 Infrastructure for worker process health.",
+      "description": "Number of push delivery jobs currently executing. Healthy steady-state: 0\u20132 (queue drains fast). A sustained high count indicates queue worker bottleneck or slow FCM API responses. Check D-07 Infrastructure for worker process health.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -449,7 +458,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of push delivery jobs being retried (outcome=retried or released back to the queue). Healthy steady-state: < 5% of total. Retries consume queue capacity. Persistent retry loops with FCM errors should be investigated via Loki — look for repeated error_code=INTERNAL or provider HTTP 5xx.",
+      "description": "Rate of push delivery jobs being retried (outcome=retried or released back to the queue). Healthy steady-state: < 5% of total. Retries consume queue capacity. Persistent retry loops with FCM errors should be investigated via Loki \u2014 look for repeated error_code=INTERNAL or provider HTTP 5xx.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -519,7 +528,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of push delivery jobs that timed out before completion (outcome=timed_out). Healthy: 0. Non-zero timed_out rate indicates job timeout (default 30s per config/push_notifications.php) — typically caused by FCM API unresponsiveness or network issues to Firebase endpoints.",
+      "description": "Rate of push delivery jobs that timed out before completion (outcome=timed_out). Healthy: 0. Non-zero timed_out rate indicates job timeout (default 30s per config/push_notifications.php) \u2014 typically caused by FCM API unresponsiveness or network issues to Firebase endpoints.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1189,7 +1198,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Push delivery jobs that exceeded their processing timeout (outcome=timed_out). Healthy: 0. Non-zero rate indicates FCM API unresponsiveness or network timeout to Firebase. Each timed-out job may be retried depending on queue configuration — watch Transient Failures panel for the retry wave.",
+      "description": "Push delivery jobs that exceeded their processing timeout (outcome=timed_out). Healthy: 0. Non-zero rate indicates FCM API unresponsiveness or network timeout to Firebase. Each timed-out job may be retried depending on queue configuration \u2014 watch Transient Failures panel for the retry wave.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1356,7 +1365,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "95th percentile push delivery job duration in milliseconds. 95% of jobs complete faster than this value. Healthy steady-state: < 3000 ms. Elevated P95 (> 5000 ms) indicates that a significant minority of push batches are slow — likely users with many registered tokens or intermittent FCM latency.",
+      "description": "95th percentile push delivery job duration in milliseconds. 95% of jobs complete faster than this value. Healthy steady-state: < 3000 ms. Elevated P95 (> 5000 ms) indicates that a significant minority of push batches are slow \u2014 likely users with many registered tokens or intermittent FCM latency.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1426,7 +1435,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "99th percentile push delivery job duration in milliseconds. 99% of jobs complete faster than this value. Healthy steady-state: < 5000 ms (well within the 30-second job timeout). P99 > 15000 ms indicates risk of job timeout on edge cases — investigate token fan-out size or FCM rate limiting.",
+      "description": "99th percentile push delivery job duration in milliseconds. 99% of jobs complete faster than this value. Healthy steady-state: < 5000 ms (well within the 30-second job timeout). P99 > 15000 ms indicates risk of job timeout on edge cases \u2014 investigate token fan-out size or FCM rate limiting.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1604,7 +1613,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Push delivery job processing duration distribution over time (sum of duration samples). Reveals the raw shape of processing time — whether jobs cluster tightly around a mean (uniform FCM latency) or have a long tail (variable token fan-out sizes). Use alongside percentile panels to confirm distribution characteristics.",
+      "description": "Push delivery job processing duration distribution over time (sum of duration samples). Reveals the raw shape of processing time \u2014 whether jobs cluster tightly around a mean (uniform FCM latency) or have a long tail (variable token fan-out sizes). Use alongside percentile panels to confirm distribution characteristics.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1700,7 +1709,7 @@
           "text": "staging",
           "value": "staging"
         },
-        "description": "Deployment environment — applied to all panel queries.",
+        "description": "Deployment environment \u2014 applied to all panel queries.",
         "hide": 0,
         "includeAll": false,
         "label": "Environment",
@@ -1733,7 +1742,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "description": "Push notification provider filter. Current providers: fcm (Firebase Cloud Messaging — production), noop (dry-run — development/test). Phase 7B.5 will expose this as a live label_values() query against ixora_push_delivery_total.",
+        "description": "Push notification provider filter. Current providers: fcm (Firebase Cloud Messaging \u2014 production), noop (dry-run \u2014 development/test). Phase 7B.5 will expose this as a live label_values() query against ixora_push_delivery_total.",
         "hide": 0,
         "includeAll": true,
         "label": "Provider",
@@ -1859,7 +1868,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "D-03 — Push Notifications",
+  "title": "D-03 \u2014 Push Notifications",
   "uid": "ixora-push",
   "version": 1
 }

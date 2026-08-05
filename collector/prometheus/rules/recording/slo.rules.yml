@@ -1,77 +1,174 @@
 # ============================================================
 # Ixora Observability Platform — SLO Recording Rules
-# Phase 8.9 — Recording Rules Foundation (placeholder)
+# Phase 8.9 — SLI aggregates, error budgets, burn rates
 #
-# STATUS: PLACEHOLDER — no active SLO recording rules.
-# Phase 10 will activate SLI aggregation and error budget rules.
+# Targets (staging initial):
+#   http availability     99.5%  allowed error 0.005
+#   http latency          95.0%  allowed error 0.05
+#   queue success         99.0%  allowed error 0.01
+#   scheduler success     99.0%  allowed error 0.01
+#   smart_home success    95.0%  allowed error 0.05
+#   telemetry pipeline    99.0%  allowed error 0.01
 #
-# SCOPE: SLI 30-day aggregates, error budget remaining, burn rates
-# OWNER: SRE team
-#
-# CATALOG: recording-rules-foundation.md §6 (SLI definitions)
-# PHILOSOPHY: docs/architecture/slo-philosophy.md
-#
-# IMPORTANT: SLO rules depend on application/business/infrastructure
-# recording rules being active first (Phase 9 prerequisite).
+# error_budget_remaining = 1 - ((1 - sli) / (1 - target))
+# burn_rate = (1 - sli) / (1 - target)
 # ============================================================
 
 groups:
 
-  # ----------------------------------------------------------
-  # SLI 30-day rolling aggregates (Phase 10)
-  # These rules compute long-window SLI values for SLO tracking.
-  # ----------------------------------------------------------
-  - name: ixora_slo_slis
+  - name: ixora_slo_slis_30d
     interval: 5m
-    rules: []
-    # Phase 10 — uncomment rules:
-    #
-    # - record: ixora:slo:http:success_rate:30d
-    #   expr: |
-    #     avg_over_time(ixora:http:availability:5m[30d])
-    #
-    # - record: ixora:slo:queue:success_rate:30d
-    #   expr: |
-    #     avg_over_time(ixora:queue:success_rate:5m[30d])
-    #
-    # - record: ixora:slo:smart_home:success_rate:30d
-    #   expr: |
-    #     avg_over_time(ixora:smart_home:success_rate:5m[30d])
-    #
-    # - record: ixora:slo:push:success_rate:30d
-    #   expr: |
-    #     avg_over_time(ixora:push:success_rate:5m[30d])
-    #
-    # - record: ixora:slo:scheduler:success_rate:30d
-    #   expr: |
-    #     avg_over_time(ixora:scheduler:success_rate:5m[30d])
+    rules:
+      - record: ixora:slo:http:success_rate:30d
+        expr: avg_over_time(ixora:sli:http:ratio:rate5m[30d])
 
-  # ----------------------------------------------------------
-  # Error budget remaining (Phase 10)
-  # budget_remaining = 1 - (1 - sli) / (1 - slo_target)
-  # ----------------------------------------------------------
+      - record: ixora:slo:http_latency:success_rate:30d
+        expr: avg_over_time(ixora:sli:http_latency:ratio:rate5m[30d])
+
+      - record: ixora:slo:queue:success_rate:30d
+        expr: avg_over_time(ixora:sli:queue:ratio:rate5m[30d])
+
+      - record: ixora:slo:scheduler:success_rate:30d
+        expr: avg_over_time(ixora:sli:scheduler:ratio:rate5m[30d])
+
+      - record: ixora:slo:smart_home:success_rate:30d
+        expr: avg_over_time(ixora:sli:smart_home:ratio:rate5m[30d])
+
+      - record: ixora:slo:telemetry:success_rate:30d
+        expr: avg_over_time(ixora:sli:telemetry:ratio:rate5m[30d])
+
   - name: ixora_slo_error_budget
     interval: 5m
-    rules: []
-    # Phase 10 — uncomment rules (example for 99.5% HTTP SLO):
-    #
-    # - record: ixora:slo:http:error_budget_remaining:30d
-    #   expr: |
-    #     1 - ((1 - ixora:slo:http:success_rate:30d) / 0.005)
+    rules:
+      - record: ixora:slo:http:error_budget_remaining:30d
+        expr: |
+          clamp_min(
+            1 - ((1 - ixora:slo:http:success_rate:30d) / 0.005),
+            -1
+          )
 
-  # ----------------------------------------------------------
-  # Multi-window burn rate (Phase 11+)
-  # DO NOT activate before SLI and error budget rules are stable.
-  # ----------------------------------------------------------
+      - record: ixora:slo:http_latency:error_budget_remaining:30d
+        expr: |
+          clamp_min(
+            1 - ((1 - ixora:slo:http_latency:success_rate:30d) / 0.05),
+            -1
+          )
+
+      - record: ixora:slo:queue:error_budget_remaining:30d
+        expr: |
+          clamp_min(
+            1 - ((1 - ixora:slo:queue:success_rate:30d) / 0.01),
+            -1
+          )
+
+      - record: ixora:slo:scheduler:error_budget_remaining:30d
+        expr: |
+          clamp_min(
+            1 - ((1 - ixora:slo:scheduler:success_rate:30d) / 0.01),
+            -1
+          )
+
+      - record: ixora:slo:smart_home:error_budget_remaining:30d
+        expr: |
+          clamp_min(
+            1 - ((1 - ixora:slo:smart_home:success_rate:30d) / 0.05),
+            -1
+          )
+
+      - record: ixora:slo:telemetry:error_budget_remaining:30d
+        expr: |
+          clamp_min(
+            1 - ((1 - ixora:slo:telemetry:success_rate:30d) / 0.01),
+            -1
+          )
+
   - name: ixora_slo_burn_rate
     interval: 1m
-    rules: []
-    # Phase 11 — uncomment rules:
-    #
-    # - record: ixora:slo:http:burn_rate:5m
-    #   expr: |
-    #     (1 - ixora:http:availability:5m) / 0.005
-    #
-    # - record: ixora:slo:http:burn_rate:1h
-    #   expr: |
-    #     (1 - avg_over_time(ixora:http:availability:5m[1h])) / 0.005
+    rules:
+      # HTTP availability — multi-window burn rates
+      - record: ixora:slo:http:burn_rate:5m
+        expr: (1 - ixora:sli:http:ratio:rate5m) / 0.005
+
+      - record: ixora:slo:http:burn_rate:1h
+        expr: (1 - avg_over_time(ixora:sli:http:ratio:rate5m[1h])) / 0.005
+
+      - record: ixora:slo:http:burn_rate:6h
+        expr: (1 - avg_over_time(ixora:sli:http:ratio:rate5m[6h])) / 0.005
+
+      # HTTP latency
+      - record: ixora:slo:http_latency:burn_rate:5m
+        expr: (1 - ixora:sli:http_latency:ratio:rate5m) / 0.05
+
+      - record: ixora:slo:http_latency:burn_rate:1h
+        expr: (1 - avg_over_time(ixora:sli:http_latency:ratio:rate5m[1h])) / 0.05
+
+      - record: ixora:slo:http_latency:burn_rate:6h
+        expr: (1 - avg_over_time(ixora:sli:http_latency:ratio:rate5m[6h])) / 0.05
+
+      # Queue
+      - record: ixora:slo:queue:burn_rate:5m
+        expr: (1 - ixora:sli:queue:ratio:rate5m) / 0.01
+
+      - record: ixora:slo:queue:burn_rate:1h
+        expr: (1 - avg_over_time(ixora:sli:queue:ratio:rate5m[1h])) / 0.01
+
+      - record: ixora:slo:queue:burn_rate:6h
+        expr: (1 - avg_over_time(ixora:sli:queue:ratio:rate5m[6h])) / 0.01
+
+      # Scheduler
+      - record: ixora:slo:scheduler:burn_rate:5m
+        expr: (1 - ixora:sli:scheduler:ratio:rate5m) / 0.01
+
+      - record: ixora:slo:scheduler:burn_rate:1h
+        expr: (1 - avg_over_time(ixora:sli:scheduler:ratio:rate5m[1h])) / 0.01
+
+      - record: ixora:slo:scheduler:burn_rate:6h
+        expr: (1 - avg_over_time(ixora:sli:scheduler:ratio:rate5m[6h])) / 0.01
+
+      # Smart Home
+      - record: ixora:slo:smart_home:burn_rate:5m
+        expr: (1 - ixora:sli:smart_home:ratio:rate5m) / 0.05
+
+      - record: ixora:slo:smart_home:burn_rate:1h
+        expr: (1 - avg_over_time(ixora:sli:smart_home:ratio:rate5m[1h])) / 0.05
+
+      - record: ixora:slo:smart_home:burn_rate:6h
+        expr: (1 - avg_over_time(ixora:sli:smart_home:ratio:rate5m[6h])) / 0.05
+
+      # Observability pipeline
+      - record: ixora:slo:telemetry:burn_rate:5m
+        expr: (1 - ixora:sli:telemetry:ratio:rate5m) / 0.01
+
+      - record: ixora:slo:telemetry:burn_rate:1h
+        expr: (1 - avg_over_time(ixora:sli:telemetry:ratio:rate5m[1h])) / 0.01
+
+      - record: ixora:slo:telemetry:burn_rate:6h
+        expr: (1 - avg_over_time(ixora:sli:telemetry:ratio:rate5m[6h])) / 0.01
+
+  - name: ixora_slo_traffic_guards
+    interval: 1m
+    rules:
+      # Minimum eligible-event counts for alert guards (1 h window)
+      - record: ixora:slo:http:eligible_events:1h
+        expr: sum by (environment) (increase(ixora_http_server_request_total{http_route!="/up"}[1h]))
+
+      - record: ixora:slo:http_latency:eligible_events:1h
+        expr: sum by (environment) (increase(ixora_http_server_duration_count{http_route!="/up"}[1h]))
+
+      - record: ixora:slo:queue:eligible_events:1h
+        expr: sum by (environment) (increase(ixora_queue_job_total{outcome!="retried",outcome!="released"}[1h]))
+
+      - record: ixora:slo:scheduler:eligible_events:1h
+        expr: sum by (environment) (increase(ixora_scheduler_event_total{outcome!="overlap_prevented",outcome!="skipped"}[1h]))
+
+      - record: ixora:slo:smart_home:eligible_events:1h
+        expr: sum by (environment) (increase(ixora_smart_home_action_total[1h]))
+
+      - record: ixora:slo:telemetry:eligible_exports:1h
+        expr: |
+          sum(increase(otelcol_exporter_sent_metric_points_total{service_name="otelcol-contrib"}[1h]))
+          + sum(increase(otelcol_exporter_sent_log_records_total{service_name="otelcol-contrib"}[1h]))
+          + sum(increase(otelcol_exporter_sent_spans_total{service_name="otelcol-contrib"}[1h]))
+          + sum(increase(otelcol_exporter_send_failed_metric_points_total{service_name="otelcol-contrib"}[1h]))
+          + sum(increase(otelcol_exporter_send_failed_log_records_total{service_name="otelcol-contrib"}[1h]))
+          + sum(increase(otelcol_exporter_send_failed_spans_total{service_name="otelcol-contrib"}[1h]))

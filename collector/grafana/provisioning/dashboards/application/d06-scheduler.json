@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "D-06 — Laravel Scheduler execution health. Answers: Is the scheduler loop running? Are scheduled events succeeding? Which events are slow or failing? Application-scoped: no infrastructure, HTTP, queue, or business metrics. Verified metric names: ixora.scheduler.event.total / ixora.scheduler.event.duration (SchedulerExecutionTelemetry.php).",
+  "description": "D-06 \u2014 Laravel Scheduler execution health. Answers: Is the scheduler loop running? Are scheduled events succeeding? Which events are slow or failing? Application-scoped: no infrastructure, HTTP, queue, or business metrics. Verified metric names: ixora.scheduler.event.total / ixora.scheduler.event.duration (SchedulerExecutionTelemetry.php).",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -28,6 +28,15 @@
       "tooltip": "",
       "type": "link",
       "url": "/d/ixora-platform"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-08 SLO & Error Budget",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-slo"
     },
     {
       "icon": "external link",
@@ -159,7 +168,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of scheduled events completing with outcome=success. Healthy: > 95% of foreground events succeed. Background events complete with outcome=background_completed (not failure/success) — see Throughput section for the full outcome breakdown.",
+      "description": "Fraction of scheduled events completing with outcome=success. Healthy: > 95% of foreground events succeed. Background events complete with outcome=background_completed (not failure/success) \u2014 see Throughput section for the full outcome breakdown.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -229,7 +238,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of scheduled event failures (outcome=failed) per second. Healthy: 0. Any non-zero value means a scheduled event threw an exception — use Tempo to find the scheduler.event span with ERROR status, then Loki for the exception_class.",
+      "description": "Rate of scheduled event failures (outcome=failed) per second. Healthy: 0. Any non-zero value means a scheduled event threw an exception \u2014 use Tempo to find the scheduler.event span with ERROR status, then Loki for the exception_class.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -299,7 +308,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of events prevented from running due to an overlapping instance (outcome=overlap_prevented). This is the idempotency guard firing correctly — a high rate is normal when the same event is scheduled more frequently than it takes to complete. Healthy: expected to be non-zero for long-running events.",
+      "description": "Rate of events prevented from running due to an overlapping instance (outcome=overlap_prevented). This is the idempotency guard firing correctly \u2014 a high rate is normal when the same event is scheduled more frequently than it takes to complete. Healthy: expected to be non-zero for long-running events.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -450,7 +459,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Failed scheduled event rate over time by event name. A sustained non-zero line on any event indicates that event is consistently throwing exceptions. Drill-down: Tempo → find scheduler.event span with ERROR status → Loki for exception_class and scheduler error context (SchedulerErrorContextLogTap fields).",
+      "description": "Failed scheduled event rate over time by event name. A sustained non-zero line on any event indicates that event is consistently throwing exceptions. Drill-down: Tempo \u2192 find scheduler.event span with ERROR status \u2192 Loki for exception_class and scheduler error context (SchedulerErrorContextLogTap fields).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -500,7 +509,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Failed event count broken down by event name for the selected time window. Use to identify which scheduled event has accumulated the most failures. Drill-down: Tempo → filter by event_name span attribute → Loki for root cause.",
+      "description": "Failed event count broken down by event name for the selected time window. Use to identify which scheduled event has accumulated the most failures. Drill-down: Tempo \u2192 filter by event_name span attribute \u2192 Loki for root cause.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -856,7 +865,7 @@
         "y": 36
       },
       "id": 500,
-      "title": "Business — Smart Home Dispatch (Scheduled Entry Point)",
+      "title": "Business \u2014 Smart Home Dispatch (Scheduled Entry Point)",
       "type": "row"
     },
     {
@@ -924,7 +933,7 @@
           "text": "staging",
           "value": "staging"
         },
-        "description": "Deployment environment — applied to all panel queries.",
+        "description": "Deployment environment \u2014 applied to all panel queries.",
         "hide": 0,
         "includeAll": false,
         "label": "Environment",
@@ -959,7 +968,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "D-06 — Scheduler",
+  "title": "D-06 \u2014 Scheduler",
   "uid": "ixora-scheduler",
   "version": 1
 }

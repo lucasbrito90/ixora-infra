@@ -1,0 +1,2293 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "D-08 \u2014 SLO & Error Budget. Rolling 30-day SLIs, error budget remaining, and multi-window burn rates for HTTP, queue, scheduler, Smart Home, and observability pipeline.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-01 Platform Overview",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-platform"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-02 Smart Home",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-smart-home"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-03 Push Notifications",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-push"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-04 Queue Workers",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-queue"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-05 HTTP API",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-http"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-06 Scheduler",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-scheduler"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-07 Infrastructure",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-collector"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Executive Overview",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Rolling 30-day SLI for HTTP Availability. Target 99.5%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "id": 100,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:http:success_rate:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "HTTP Availability SLI (30d)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Availability SLI (30d)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Remaining error budget for HTTP Availability. 0 = exhausted; negative = over budget.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.25
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "id": 101,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:http:error_budget_remaining:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "HTTP Availability Budget Left",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Availability Budget Left",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "1-hour burn rate for HTTP Availability. 1 = sustainable; >1 = budget consumed faster than allowed.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "none",
+          "min": null,
+          "max": null
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "id": 102,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:http:burn_rate:1h{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "HTTP Availability Burn (1h)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Availability Burn (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Rolling 30-day SLI for HTTP Latency (<500ms). Target 95%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 5
+      },
+      "id": 103,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:http_latency:success_rate:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "HTTP Latency (<500ms) SLI (30d)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Latency (<500ms) SLI (30d)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Remaining error budget for HTTP Latency (<500ms). 0 = exhausted; negative = over budget.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.25
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 5
+      },
+      "id": 104,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:http_latency:error_budget_remaining:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "HTTP Latency (<500ms) Budget Left",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Latency (<500ms) Budget Left",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "1-hour burn rate for HTTP Latency (<500ms). 1 = sustainable; >1 = budget consumed faster than allowed.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "none",
+          "min": null,
+          "max": null
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 5
+      },
+      "id": 105,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:http_latency:burn_rate:1h{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "HTTP Latency (<500ms) Burn (1h)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Latency (<500ms) Burn (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Rolling 30-day SLI for Queue Success. Target 99%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 9
+      },
+      "id": 106,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:queue:success_rate:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "Queue Success SLI (30d)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Success SLI (30d)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Remaining error budget for Queue Success. 0 = exhausted; negative = over budget.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.25
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 9
+      },
+      "id": 107,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:queue:error_budget_remaining:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "Queue Success Budget Left",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Success Budget Left",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "1-hour burn rate for Queue Success. 1 = sustainable; >1 = budget consumed faster than allowed.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "none",
+          "min": null,
+          "max": null
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 9
+      },
+      "id": 108,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:queue:burn_rate:1h{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "Queue Success Burn (1h)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Success Burn (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Rolling 30-day SLI for Scheduler Success. Target 99%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 13
+      },
+      "id": 109,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:scheduler:success_rate:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "Scheduler Success SLI (30d)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Scheduler Success SLI (30d)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Remaining error budget for Scheduler Success. 0 = exhausted; negative = over budget.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.25
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 13
+      },
+      "id": 110,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:scheduler:error_budget_remaining:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "Scheduler Success Budget Left",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Scheduler Success Budget Left",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "1-hour burn rate for Scheduler Success. 1 = sustainable; >1 = budget consumed faster than allowed.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "none",
+          "min": null,
+          "max": null
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 13
+      },
+      "id": 111,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:scheduler:burn_rate:1h{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "Scheduler Success Burn (1h)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Scheduler Success Burn (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Rolling 30-day SLI for Smart Home Actions. Target 95%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 17
+      },
+      "id": 112,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:smart_home:success_rate:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "Smart Home Actions SLI (30d)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Smart Home Actions SLI (30d)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Remaining error budget for Smart Home Actions. 0 = exhausted; negative = over budget.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.25
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 17
+      },
+      "id": 113,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:smart_home:error_budget_remaining:30d{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "Smart Home Actions Budget Left",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Smart Home Actions Budget Left",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "1-hour burn rate for Smart Home Actions. 1 = sustainable; >1 = budget consumed faster than allowed.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "none",
+          "min": null,
+          "max": null
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 17
+      },
+      "id": 114,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:smart_home:burn_rate:1h{environment=~\"$environment\"}",
+          "instant": true,
+          "legendFormat": "Smart Home Actions Burn (1h)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Smart Home Actions Burn (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Rolling 30-day SLI for Observability Pipeline. Target 99%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 21
+      },
+      "id": 115,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:telemetry:success_rate:30d",
+          "instant": true,
+          "legendFormat": "Observability Pipeline SLI (30d)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Observability Pipeline SLI (30d)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Remaining error budget for Observability Pipeline. 0 = exhausted; negative = over budget.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.25
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 21
+      },
+      "id": 116,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:telemetry:error_budget_remaining:30d",
+          "instant": true,
+          "legendFormat": "Observability Pipeline Budget Left",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Observability Pipeline Budget Left",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "1-hour burn rate for Observability Pipeline. 1 = sustainable; >1 = budget consumed faster than allowed.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "none",
+          "min": null,
+          "max": null
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 21
+      },
+      "id": 117,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:telemetry:burn_rate:1h",
+          "instant": true,
+          "legendFormat": "Observability Pipeline Burn (1h)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Observability Pipeline Burn (1h)",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "id": 10,
+      "title": "HTTP Availability",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Short-window SLI for HTTP Availability. Target 99.5%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 200,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:sli:http:ratio:rate5m{environment=~\"$environment\"}",
+          "legendFormat": "HTTP Availability \u2014 SLI ratio (5m)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Availability \u2014 SLI ratio (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "5m and 6h burn rates. Alert when both exceed threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 26
+      },
+      "id": 201,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:http:burn_rate:5m{environment=~\"$environment\"}",
+          "legendFormat": "HTTP Availability \u2014 Burn rates",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Availability \u2014 Burn rate (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "5m and 6h burn rates. Alert when both exceed threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 26
+      },
+      "id": 1201,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:http:burn_rate:6h{environment=~\"$environment\"}",
+          "legendFormat": "HTTP Availability \u2014 Burn rates",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Availability \u2014 Burn rate (6h)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "id": 11,
+      "title": "HTTP Latency (<500ms)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Short-window SLI for HTTP Latency (<500ms). Target 95%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "id": 210,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:sli:http_latency:ratio:rate5m{environment=~\"$environment\"}",
+          "legendFormat": "HTTP Latency (<500ms) \u2014 SLI ratio (5m)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Latency (<500ms) \u2014 SLI ratio (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "5m and 6h burn rates. Alert when both exceed threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "id": 211,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:http_latency:burn_rate:5m{environment=~\"$environment\"} or ixora:slo:http_latency:burn_rate:6h{environment=~\"$environment\"}",
+          "legendFormat": "HTTP Latency (<500ms) \u2014 Burn rates",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Latency (<500ms) \u2014 Burn rates",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "id": 12,
+      "title": "Queue Success",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Short-window SLI for Queue Success. Target 99%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 42
+      },
+      "id": 220,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:sli:queue:ratio:rate5m{environment=~\"$environment\"}",
+          "legendFormat": "Queue Success \u2014 SLI ratio (5m)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Success \u2014 SLI ratio (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "5m and 6h burn rates. Alert when both exceed threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 42
+      },
+      "id": 221,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:queue:burn_rate:5m{environment=~\"$environment\"} or ixora:slo:queue:burn_rate:6h{environment=~\"$environment\"}",
+          "legendFormat": "Queue Success \u2014 Burn rates",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Success \u2014 Burn rates",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "id": 13,
+      "title": "Scheduler Success",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Short-window SLI for Scheduler Success. Target 99%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 50
+      },
+      "id": 230,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:sli:scheduler:ratio:rate5m{environment=~\"$environment\"}",
+          "legendFormat": "Scheduler Success \u2014 SLI ratio (5m)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Scheduler Success \u2014 SLI ratio (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "5m and 6h burn rates. Alert when both exceed threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 50
+      },
+      "id": 231,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:scheduler:burn_rate:5m{environment=~\"$environment\"} or ixora:slo:scheduler:burn_rate:6h{environment=~\"$environment\"}",
+          "legendFormat": "Scheduler Success \u2014 Burn rates",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Scheduler Success \u2014 Burn rates",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 57
+      },
+      "id": 14,
+      "title": "Smart Home Actions",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Short-window SLI for Smart Home Actions. Target 95%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 58
+      },
+      "id": 240,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:sli:smart_home:ratio:rate5m{environment=~\"$environment\"}",
+          "legendFormat": "Smart Home Actions \u2014 SLI ratio (5m)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Smart Home Actions \u2014 SLI ratio (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "5m and 6h burn rates. Alert when both exceed threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 58
+      },
+      "id": 241,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:smart_home:burn_rate:5m{environment=~\"$environment\"} or ixora:slo:smart_home:burn_rate:6h{environment=~\"$environment\"}",
+          "legendFormat": "Smart Home Actions \u2014 Burn rates",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Smart Home Actions \u2014 Burn rates",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 65
+      },
+      "id": 15,
+      "title": "Observability Pipeline",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Short-window SLI for Observability Pipeline. Target 99%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 66
+      },
+      "id": 250,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:sli:telemetry:ratio:rate5m",
+          "legendFormat": "Observability Pipeline \u2014 SLI ratio (5m)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Observability Pipeline \u2014 SLI ratio (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "5m and 6h burn rates. Alert when both exceed threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 66
+      },
+      "id": 251,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ixora:slo:telemetry:burn_rate:5m or ixora:slo:telemetry:burn_rate:6h",
+          "legendFormat": "Observability Pipeline \u2014 Burn rates",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Observability Pipeline \u2014 Burn rates",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 73
+      },
+      "id": 90,
+      "title": "Investigation Links",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Cross-signal navigation for SLO investigation. Links preserve dashboard time range where supported.",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "id": 500,
+      "options": {
+        "code": {
+          "language": "markdown",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "mode": "markdown"
+      },
+      "title": "Runbooks & Dashboards",
+      "type": "text",
+      "pluginVersion": "11.3.0",
+      "content": "### Investigation\n\n| Resource | Link |\n| --- | --- |\n| SLO runbook | [slo-error-budget.md](https://github.com/ixora-app/ixora-infra/blob/develop/docs/runbooks/slo-error-budget.md) |\n| HTTP API | [D-05](/d/ixora-http?${__url_time_range}) |\n| Queue | [D-04](/d/ixora-queue?${__url_time_range}) |\n| Scheduler | [D-06](/d/ixora-scheduler?${__url_time_range}) |\n| Smart Home | [D-02](/d/ixora-smart-home?${__url_time_range}) |\n| Infrastructure | [D-07](/d/ixora-collector?${__url_time_range}) |\n| Platform | [D-01](/d/ixora-platform?${__url_time_range}) |\n| Loki Explore | [Logs](/explore?orgId=1&left={\"datasource\":\"ixora-loki\"}) |\n| Tempo Explore | [Traces](/explore?orgId=1&left={\"datasource\":\"ixora-tempo\"}) |\n\n**Note:** 30-day SLO windows need sufficient traffic. Staging may show insufficient data \u2014 see runbook low-traffic section."
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [
+    "ixora",
+    "slo",
+    "error-budget"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "ixora-prometheus"
+        },
+        "definition": "label_values(ixora_http_server_request_total, environment)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Environment",
+        "multi": true,
+        "name": "environment",
+        "options": [],
+        "query": {
+          "query": "label_values(ixora_http_server_request_total, environment)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "SLO Domain",
+        "multi": true,
+        "name": "slo_domain",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "http",
+            "value": "http"
+          },
+          {
+            "selected": false,
+            "text": "http_latency",
+            "value": "http_latency"
+          },
+          {
+            "selected": false,
+            "text": "queue",
+            "value": "queue"
+          },
+          {
+            "selected": false,
+            "text": "scheduler",
+            "value": "scheduler"
+          },
+          {
+            "selected": false,
+            "text": "smart_home",
+            "value": "smart_home"
+          },
+          {
+            "selected": false,
+            "text": "telemetry",
+            "value": "telemetry"
+          }
+        ],
+        "query": "http,http_latency,queue,scheduler,smart_home,telemetry",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "D-08 SLO & Error Budget",
+  "uid": "ixora-slo",
+  "version": 1
+}

@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "D-02 — Smart Home Business Dashboard. Answers: Is the Smart Home automation pipeline healthy? Covers dispatch throughput, action success/failure rates, provider performance, and business relationships (Scheduler/HTTP → Dispatch → Queue → Action). Business-scoped: no infrastructure or generic application metrics.",
+  "description": "D-02 \u2014 Smart Home Business Dashboard. Answers: Is the Smart Home automation pipeline healthy? Covers dispatch throughput, action success/failure rates, provider performance, and business relationships (Scheduler/HTTP \u2192 Dispatch \u2192 Queue \u2192 Action). Business-scoped: no infrastructure or generic application metrics.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -28,6 +28,15 @@
       "tooltip": "",
       "type": "link",
       "url": "/d/ixora-platform"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-08 SLO & Error Budget",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-slo"
     },
     {
       "icon": "external link",
@@ -93,7 +102,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of Smart Home action executions that succeeded (outcome=success). Healthy steady-state: > 95%. A drop below 90% is critical — drill into D-04 Queue Workers for queue health, then Tempo (filter by smart_home.action + outcome=failure) for trace detail.",
+      "description": "Fraction of Smart Home action executions that succeeded (outcome=success). Healthy steady-state: > 95%. A drop below 90% is critical \u2014 drill into D-04 Queue Workers for queue health, then Tempo (filter by smart_home.action + outcome=failure) for trace detail.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -170,7 +179,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of Smart Home action executions that failed (outcome=failure or unknown). Does NOT include unsupported — that is a distinct business outcome, not a failure. Above 5% warrants investigation. Note: ixora.queue.job.total{outcome=success} does NOT reflect this — see Business Relationships section (Phase 7B.4.5 §8.3).",
+      "description": "Fraction of Smart Home action executions that failed (outcome=failure or unknown). Does NOT include unsupported \u2014 that is a distinct business outcome, not a failure. Above 5% warrants investigation. Note: ixora.queue.job.total{outcome=success} does NOT reflect this \u2014 see Business Relationships section (Phase 7B.4.5 \u00a78.3).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -247,7 +256,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of actions rejected as unsupported (outcome=unsupported). This is a Business outcome, not a failure — it means the action type has no mapping in the current provider integration (e.g. Home Assistant ACTION_SERVICE_MAP). A non-zero rate means users have actions that the current MVP provider cannot execute. Investigation: Tempo filter smart_home.action + outcome=unsupported.",
+      "description": "Fraction of actions rejected as unsupported (outcome=unsupported). This is a Business outcome, not a failure \u2014 it means the action type has no mapping in the current provider integration (e.g. Home Assistant ACTION_SERVICE_MAP). A non-zero rate means users have actions that the current MVP provider cannot execute. Investigation: Tempo filter smart_home.action + outcome=unsupported.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -508,7 +517,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of Smart Home dispatch calls per second, split by entry point (manual=HTTP controller, scheduled=DispatchDueSchedulesCommand). Each dispatch call enqueues N actions and skips M actions — this panel counts dispatch call rate, not individual actions. A drop in 'scheduled' means the scheduler is not triggering Smart Home automations.",
+      "description": "Rate of Smart Home dispatch calls per second, split by entry point (manual=HTTP controller, scheduled=DispatchDueSchedulesCommand). Each dispatch call enqueues N actions and skips M actions \u2014 this panel counts dispatch call rate, not individual actions. A drop in 'scheduled' means the scheduler is not triggering Smart Home automations.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -571,7 +580,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of actions dispatched vs skipped, across all entry points. 'dispatched' counts actions successfully enqueued; 'skipped' counts actions where the device relation was null at enqueue time (expected, async race condition — not an error per Phase 7B.4.5 §3.1). A high skip rate may indicate stale vibe_device_action rows.",
+      "description": "Rate of actions dispatched vs skipped, across all entry points. 'dispatched' counts actions successfully enqueued; 'skipped' counts actions where the device relation was null at enqueue time (expected, async race condition \u2014 not an error per Phase 7B.4.5 \u00a73.1). A high skip rate may indicate stale vibe_device_action rows.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -630,7 +639,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of Smart Home action executions per second, split by provider. 'home_assistant' is the current MVP provider. 'future' is the reserved enum value for not-yet-integrated providers. A drop in 'home_assistant' while actions continue dispatching means queue depth is growing — check D-04.",
+      "description": "Rate of Smart Home action executions per second, split by provider. 'home_assistant' is the current MVP provider. 'future' is the reserved enum value for not-yet-integrated providers. A drop in 'home_assistant' while actions continue dispatching means queue depth is growing \u2014 check D-04.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -689,7 +698,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of Smart Home action executions, split by outcome: success (provider accepted), failure (provider rejected or transport error), unsupported (action type not in provider map), unknown (classifier degradation — should always be 0 in steady state). All four outcomes are distinct — do not conflate failure and unsupported.",
+      "description": "Rate of Smart Home action executions, split by outcome: success (provider accepted), failure (provider rejected or transport error), unsupported (action type not in provider map), unknown (classifier degradation \u2014 should always be 0 in steady state). All four outcomes are distinct \u2014 do not conflate failure and unsupported.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -760,7 +769,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of failed Smart Home action executions (outcome=failure). 'failure' conflates provider-side rejection (P2: non-2xx) and internally-caught transport errors (P3: ConnectionException). Both are counted as failure — the distinction requires Tempo drill-down (smart_home.provider span → Guzzle CLIENT span's http.response.status_code or recorded exception). Healthy: rate should be near 0.",
+      "description": "Rate of failed Smart Home action executions (outcome=failure). 'failure' conflates provider-side rejection (P2: non-2xx) and internally-caught transport errors (P3: ConnectionException). Both are counted as failure \u2014 the distinction requires Tempo drill-down (smart_home.provider span \u2192 Guzzle CLIENT span's http.response.status_code or recorded exception). Healthy: rate should be near 0.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -852,7 +861,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of dispatch-level errors — failures at the VibeSmartHomeDispatchService::dispatch() boundary (D2: the DB query or enqueue itself threw). This rate should be near 0 in steady state; the dispatch service has no business-exception branch, so any error here is infrastructure (Phase 7B.4.5 §3.1). A non-zero rate requires checking DB/connection health (D-07).",
+      "description": "Rate of dispatch-level errors \u2014 failures at the VibeSmartHomeDispatchService::dispatch() boundary (D2: the DB query or enqueue itself threw). This rate should be near 0 in steady state; the dispatch service has no business-exception branch, so any error here is infrastructure (Phase 7B.4.5 \u00a73.1). A non-zero rate requires checking DB/connection health (D-07).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -971,7 +980,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of actions rejected as unsupported, by provider. 'unsupported' is a Business outcome (not a failure — span stays OK). A non-zero rate means action_type values exist in the database that have no mapping in the provider's ACTION_SERVICE_MAP. Investigation: Tempo filter smart_home.action + outcome=unsupported; Loki warning logs from SmartHomeActionJob.",
+      "description": "Rate of actions rejected as unsupported, by provider. 'unsupported' is a Business outcome (not a failure \u2014 span stays OK). A non-zero rate means action_type values exist in the database that have no mapping in the provider's ACTION_SERVICE_MAP. Investigation: Tempo filter smart_home.action + outcome=unsupported; Loki warning logs from SmartHomeActionJob.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1421,7 +1430,7 @@
           "refId": "A"
         }
       ],
-      "title": "Dispatch Flow — Scheduled vs Manual",
+      "title": "Dispatch Flow \u2014 Scheduled vs Manual",
       "type": "timeseries"
     },
     {
@@ -1429,7 +1438,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Queue job outcomes for SmartHomeActionJob alongside Smart Home action outcomes. CRITICAL: ixora_queue_job_total{outcome='success'} means 'the job process completed without crashing' — it does NOT mean the Smart Home action itself succeeded. SmartHomeActionJob::handle() swallows every exception, so Queue outcome=success is expected even when action outcome=failure. See Phase 7B.4.5 §8.3 for full explanation. Do not correlate these two metrics without this context.",
+      "description": "Queue job outcomes for SmartHomeActionJob alongside Smart Home action outcomes. CRITICAL: ixora_queue_job_total{outcome='success'} means 'the job process completed without crashing' \u2014 it does NOT mean the Smart Home action itself succeeded. SmartHomeActionJob::handle() swallows every exception, so Queue outcome=success is expected even when action outcome=failure. See Phase 7B.4.5 \u00a78.3 for full explanation. Do not correlate these two metrics without this context.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1499,7 +1508,7 @@
           "refId": "B"
         }
       ],
-      "title": "Queue Workers → Smart Home (Orthogonality)",
+      "title": "Queue Workers \u2192 Smart Home (Orthogonality)",
       "type": "timeseries"
     },
     {
@@ -1560,7 +1569,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Total Smart Home actions in the selected time window broken down by all outcomes: success, failure, unsupported, unknown. Provides a business pipeline summary view. 'unsupported' actions are a product gap — users have actions the current MVP provider cannot execute. 'unknown' actions indicate a telemetry classifier failure and should always be 0.",
+      "description": "Total Smart Home actions in the selected time window broken down by all outcomes: success, failure, unsupported, unknown. Provides a business pipeline summary view. 'unsupported' actions are a product gap \u2014 users have actions the current MVP provider cannot execute. 'unknown' actions indicate a telemetry classifier failure and should always be 0.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1686,7 +1695,7 @@
           "text": "staging",
           "value": "staging"
         },
-        "description": "Deployment environment — applied to all panel queries.",
+        "description": "Deployment environment \u2014 applied to all panel queries.",
         "hide": 0,
         "includeAll": false,
         "label": "Environment",
@@ -1720,7 +1729,7 @@
           "uid": "ixora-prometheus"
         },
         "definition": "label_values(ixora_smart_home_action_total{environment=\"$environment\"}, provider)",
-        "description": "Smart Home provider filter — applied to action metrics. Values are bounded: home_assistant (current MVP), future (reserved for additional integrations).",
+        "description": "Smart Home provider filter \u2014 applied to action metrics. Values are bounded: home_assistant (current MVP), future (reserved for additional integrations).",
         "hide": 0,
         "includeAll": true,
         "label": "Provider",
@@ -1745,7 +1754,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "D-02 — Smart Home Business",
+  "title": "D-02 \u2014 Smart Home Business",
   "uid": "ixora-smart-home",
   "version": 1
 }

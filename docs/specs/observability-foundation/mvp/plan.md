@@ -44,7 +44,7 @@ This capability delivers **platform-wide observability** through OpenTelemetry �
 | **Prometheus / Loki / Tempo** | ✅ Shipped — Phases 4–6 |
 | **Grafana** | ✅ Foundation deployed — Phase 8.1; ✅ D-07 Infrastructure dashboard — Phase 8.2; ✅ D-04 Queue Workers + D-05 HTTP API + D-06 Scheduler — Phase 8.3; ✅ D-02 Smart Home Business — Phase 8.4; ✅ D-01 Platform Overview (32 panels, `ixora-platform`, 42/42 validation checks) — Phase 8.5; ✅ Dashboard Integration — bidirectional navigation mesh (30 links), Overview Dashboard Principles, 4 investigation workflows, 48/48 validation checks — Phase 8.6; ✅ D-03 Push Notifications (23 panels, `ixora-push`, queue-layer telemetry, 57/57 validation checks, 7-dashboard mesh 42 links) — Phase 8.7; ✅ Alerting Foundation — alerting-philosophy.md, alerting-foundation.md, provisioning scaffold, 67/67 validation checks — Phase 8.8; ✅ Recording Rules & SLO Foundation — recording-rules-philosophy.md, slo-philosophy.md, recording-rules-foundation.md, prometheus/rules/recording/ scaffold (4 files), 78/78 validation checks — Phase 8.9 |
 | **Observability host (OpenTofu)** | ✅ IaC ready — Phase 8.8.5: Droplet + firewall + cloud-init; ✅ Hardening — Phase 8.8.6: release deployment docs, backup/storage/CI/CD architecture, optional Reserved IP, validate.sh 90/90 |
-| **Prometheus** | ✅ Metrics backend deployed — Phase 4; ✅ Recording Rules scaffold — Phase 8.9 (rule_files inactive; placeholder groups in application/business/infrastructure/slo.rules.yml) |
+| **Prometheus** | ✅ Metrics backend deployed — Phase 4; ✅ Recording Rules + SLO active — Phase 8.9 (`rule_files` enabled, 71 recording rules, 12 burn-rate alerts, D-08 dashboard, promtool validated) |
 | **OTel SDK (backend)** | ✅ Foundation shipped — Phase 7A (`back_vibes`); ✅ HTTP + Routing shipped — Phase 7B.1; ✅ Queue + Console shipped — Phase 7B.2; ✅ generic Scheduler shipped — Phase 7B.3; ✅ Business Telemetry domain execution review (discovery only) — Phase 7B.4.1; ✅ Smart Home dispatch boundary (`smart_home.dispatch` span) — Phase 7B.4.2; ✅ Smart Home Action Execution boundary (`smart_home.action` span) — Phase 7B.4.3; ✅ Smart Home Provider Boundary (`smart_home.provider` span) — Phase 7B.4.4; ✅ Business Failure Semantics (failure taxonomy + Span Status policy, documentation-only with one narrowly-scoped correction) — Phase 7B.4.5; ✅ Business Metrics (`ixora.smart_home.dispatch.total`, `ixora.smart_home.action.total`/`.duration`) — Phase 7B.4.6; ✅ Business Logging (L-2 resolution + existing log sanitization, no new log statements) — Phase 7B.4.7; ✅ Business Telemetry Validation & Architecture Review (architecture validated as internally consistent + production-ready, 4 tech debt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard, documentation-only) — Phase 7B.4.9; ✅ Dashboard Requirements Review (7 dashboards defined, 6 investigation workflows, Phase 9 checklist, documentation-only) — Phase 8.0; ✅ Grafana Foundation & Provisioning (Grafana active, 3 datasources provisioned, stable UIDs, 4 folder providers, 12/12 validation checks, Tempo/Loki config fixes) — Phase 8.1 |bt items documented, no runtime changes) — Phase 7B.4.8; ✅ Business Telemetry Foundation Baseline (platform-wide standard generalized from Smart Home reference, documentation-only) — Phase 7B.4.9; remaining domain instrumentation pending (Phases 7B.5–7B.6) |
 | **OTel SDK (mobile)** | ❌ Not integrated |
 | **ADRs 028–031** | ✅ Accepted — Phase 1 complete |
@@ -908,21 +908,25 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
-#### Phase 8.9 — Recording Rules & SLO Foundation — **Complete**
+#### Phase 8.9 — SLO / Error Budget — **Complete**
 
-**Goal:** Establish the Recording Rules & SLO Foundation — philosophy, provisioning scaffold, naming conventions, rule catalog, SLI definitions, SLO architecture, error budget philosophy, dashboard/alert integration strategy, and validation. No production recording rules active.
+**Goal:** Define and implement the first practical SLO and error-budget model — SLI recording rules, 30-day budgets, multi-window burn-rate alerts, D-08 dashboard, runbook, and validation.
 
 **Deliverables:**
 
-- **`recording-rules-philosophy.md`** (19 sections): Purpose, benefits, performance/reuse/maintainability; when to create/not create; ownership, lifecycle, naming, versioning, review, deprecation; relationships with dashboards, alerts, SLOs; anti-patterns; examples with REC-001/005/007.
-- **`slo-philosophy.md`** (16 sections): SLI/SLO/SLA definitions; error budget; availability, latency, reliability; customer/business/operational expectations; Golden Signals, RED, USE; multi-window and burn rate concepts (documented, not implemented); error budget policy; SLO maturity model (Level 0–5).
-- **`recording-rules-foundation.md`** (15 sections): Architecture review (13 duplicate PromQL patterns); provisioning hierarchy; catalog REC-001–027; 8 SLI definitions; SLO target examples; error budget philosophy; naming convention; dashboard migration strategy; alert integration mapping; validation framework; Phase 9 readiness checklist.
-- **Provisioning scaffold:** 4 placeholder rule files under `collector/prometheus/rules/recording/` — `application.rules.yml`, `business.rules.yml`, `infrastructure.rules.yml`, `slo.rules.yml` (valid YAML, empty `rules: []`, Phase 9 templates commented).
-- **validate.sh extended to 78 checks:** Checks 68–78 validate recording rules directory, YAML validity (4 files), documentation existence (3 files), catalog (REC-001), SLI (SLI-001), naming convention.
+- **Active recording rules:** `application.rules.yml`, `business.rules.yml`, `infrastructure.rules.yml`, `slo.rules.yml` (71 rules)
+- **Burn-rate alerts:** `alerting/slo.alerts.yml` (12 alerts, low-traffic guards)
+- **Prometheus activation:** `rule_files` in `prometheus.yml`; rules volume in `docker-compose.yml`
+- **D-08 dashboard:** `d08-slo-error-budget.json` (uid `ixora-slo`); 8-dashboard navigation mesh
+- **Runbook:** `docs/runbooks/slo-error-budget.md`
+- **Math tests:** `collector/scripts/test-slo-math.py`
+- **validate.sh extended to 98 checks** (91–98: D-08, promtool, runbook, compose mount)
 
-**Result:** 78/78 PASS. No active recording rules. No telemetry or dashboard changes.
+**SLOs implemented:** HTTP availability (99.5%), HTTP latency (95% &lt;500ms), queue (99%), scheduler (99%), Smart Home (95%), observability pipeline (99%). Push SLO deferred.
 
-**Branch:** `feature/observability-recording-rules-slo-foundation`
+**Result:** promtool + math tests PASS locally. No remote deploy. No `tofu apply`.
+
+**Branch:** `feature/observability-slo-error-budget`
 
 ---
 
