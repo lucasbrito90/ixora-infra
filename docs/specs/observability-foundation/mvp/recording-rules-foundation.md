@@ -1,7 +1,7 @@
 # Recording Rules & SLO Foundation — Phase 8.9
 
 **Status:** Complete  
-**Type:** Architecture Specification + Provisioning Scaffold  
+**Type:** Architecture Specification + Active SLO Implementation  
 **Repo:** `ixora-infra`  
 **Feature ID:** `observability-foundation/mvp`  
 **Established:** Phase 8.9  
@@ -9,50 +9,50 @@
 **Philosophy:** [recording-rules-philosophy.md](../../../architecture/recording-rules-philosophy.md) · [slo-philosophy.md](../../../architecture/slo-philosophy.md)  
 **Prerequisite:** [alerting-foundation.md](alerting-foundation.md) (Phase 8.8) · [grafana-foundation.md](grafana-foundation.md) (Phase 8.1) · [dashboard-conventions.md](dashboard-conventions.md) (Phase 8.3–8.6)
 
-> **Rule:** This document specifies the recording rules and SLO architecture — provisioning hierarchy, catalog, SLI/SLO definitions, error budget philosophy, and validation requirements. No production recording rules are active in this phase.
+> **Rule:** Recording rules, SLO aggregates, burn-rate alerts, and D-08 dashboard are implemented in-repo. Remote deploy requires explicit approval — see [slo-error-budget runbook](../../../runbooks/slo-error-budget.md).
 
 ---
 
 ## 1. Overview
 
-Phase 8.9 establishes the **Recording Rules & SLO Foundation** — the pre-computation and reliability measurement layer that sits between raw instrumentation metrics and the dashboards/alerts that consume them.
+Phase 8.9 establishes the **Recording Rules & SLO Foundation** — SLI pre-computation, 30-day error budgets, multi-window burn-rate alerts, and the D-08 SLO dashboard.
 
 ### 1.1 What Phase 8.9 delivers
 
 | Deliverable | Description |
 | --- | --- |
-| Recording rules philosophy | [recording-rules-philosophy.md](../../../architecture/recording-rules-philosophy.md) — when to record, naming, lifecycle, relationships |
-| SLO philosophy | [slo-philosophy.md](../../../architecture/slo-philosophy.md) — SLI/SLO/SLA, error budget, burn rate concepts |
-| Recording rules foundation spec | This document — catalog, SLI definitions, provisioning, migration strategy |
-| Provisioning scaffold | 4 placeholder rule files under `collector/prometheus/rules/recording/` |
-| Validation | validate.sh checks 68–78 — structural integrity of recording rules foundation |
-| Documentation | README.md, plan.md, tasks.md updated |
+| Recording rules philosophy | [recording-rules-philosophy.md](../../../architecture/recording-rules-philosophy.md) |
+| SLO philosophy | [slo-philosophy.md](../../../architecture/slo-philosophy.md) |
+| Recording rules (active) | `application.rules.yml`, `business.rules.yml`, `infrastructure.rules.yml`, `slo.rules.yml` — 71 recording rules |
+| SLO burn-rate alerts | `alerting/slo.alerts.yml` — 12 multi-window alerts with low-traffic guards |
+| D-08 dashboard | `d08-slo-error-budget.json` — uid `ixora-slo`, Overview folder |
+| Runbook | [slo-error-budget.md](../../../runbooks/slo-error-budget.md) |
+| Math tests | `collector/scripts/test-slo-math.py` |
+| Validation | validate.sh checks 68–78, 91–98 |
 
-### 1.2 What Phase 8.9 explicitly excludes
+### 1.2 Deferred (not in scope)
 
-- No active recording rules (rule_files commented out in `prometheus.yml`)
-- No production alert rules
-- No burn rate alerts
-- No multi-window alerts
-- No SLO target enforcement
-- No dashboard modifications
-- No telemetry changes
-- No Node Exporter deployment
-- No docker-compose volume mount for rules (Phase 9 activation step)
+- Push notification dedicated SLO (SLI-008 queue proxy only)
+- Per-provider Smart Home SLO
+- Mobile client SLO; regional SLO
+- Dashboard migration to recording rules (D-01–D-07 still use raw PromQL)
+- Node Exporter / VM resource SLOs
+- Remote deploy / `tofu apply`
 
 ---
 
 ## 2. Architecture Review
 
-### 2.1 Current state (post Phase 8.8)
+### 2.1 Current state (post Phase 8.9 implementation)
 
 | Component | Status |
 | --- | --- |
 | Raw metrics (Phase 7A–7B.4.9) | ✅ Instrumented in `back_vibes` |
-| Dashboards (D-01 through D-07) | ✅ 7 dashboards, 57/57 + 10 alerting checks |
-| Alerting Foundation (Phase 8.8) | ✅ Philosophy, provisioning scaffold, 67 checks |
-| Recording rules | ❌ Not provisioned — dashboards query raw PromQL |
-| SLO tracking | ❌ Not defined — no SLI recording rules |
+| Dashboards (D-01 through D-08) | ✅ 8 dashboards; D-08 SLO & Error Budget added |
+| Alerting Foundation (Phase 8.8) | ✅ Philosophy, provisioning scaffold |
+| Recording rules | ✅ Active in repo; `rule_files` enabled; docker-compose mount |
+| SLO tracking | ✅ 6 SLOs with SLI, 30d budget, burn rates |
+| Burn-rate alerts | ✅ Prometheus `slo.alerts.yml` (staging thresholds) |
 
 ### 2.2 Duplicate PromQL patterns identified
 
@@ -564,24 +564,29 @@ Alert rules (Phase 9) should consume recording rules instead of raw PromQL ([ale
 | 76 | Catalog documented (REC-001 in foundation spec) |
 | 77 | SLI definitions documented (SLI-001 in foundation spec) |
 | 78 | Naming convention documented (`ixora:http:error_rate:5m`) |
-
-All checks must pass before Phase 9 recording rule activation.
+| 91 | D-08 JSON syntax valid |
+| 92 | D-08 uid `ixora-slo` |
+| 93 | `slo.alerts.yml` valid YAML |
+| 94 | `promtool check rules` passes |
+| 95 | `rule_files` active in `prometheus.yml` |
+| 96 | SLO runbook exists |
+| 97 | `test-slo-math.py` passes |
+| 98 | docker-compose mounts `prometheus/rules` |
 
 ---
 
-## 13. Phase 9 Readiness Checklist
+## 13. Staging Rollout Checklist
 
-Before activating the first recording rule:
+Before enabling on the observability host (requires explicit approval):
 
-- [ ] All Phase 8.9 validate.sh checks pass (78/78)
-- [ ] `rule_files` uncommented in `prometheus.yml`
-- [ ] Rules volume mounted in `docker-compose.yml`
-- [ ] REC-001 through REC-005 rules uncommented and active
-- [ ] 24 h staging validation: recording rule output matches raw PromQL
-- [ ] D-01 panels migrated to consume recording rules
-- [ ] Alert rules updated to consume recording rules
-- [ ] Cardinality verified within ADR-031 budget
-- [ ] Catalog entries marked as "Active" (not "Reserved")
+- [ ] All validate.sh checks pass (98/98 where Grafana running)
+- [ ] `docker compose up -d prometheus` with rules mount
+- [ ] `curl localhost:9090/-/rules | grep ixora:sli`
+- [ ] D-08 panels render with `$environment` filter
+- [ ] Alerts inactive under normal traffic
+- [ ] 24 h staging validation per [slo-error-budget runbook](../../../runbooks/slo-error-budget.md)
+
+**Rollback:** Remove rules volume mount and comment `rule_files`; `POST /-/reload` or recreate Prometheus container.
 
 ---
 
@@ -589,13 +594,12 @@ Before activating the first recording rule:
 
 | ID | Limitation | Impact | Resolution |
 | --- | --- | --- | --- |
-| KL-RR-1 | `rule_files` commented out in `prometheus.yml` | No recording rules evaluated at runtime | Phase 9 activation |
-| KL-RR-2 | No rules volume mount in docker-compose.yml | Prometheus cannot read rule files | Phase 9 docker-compose update |
-| KL-RR-3 | Phase 7B.5 push delivery metric pending | SLI-008 uses queue-layer proxy | Phase 7B.5 + REC-021 |
-| KL-RR-4 | Dashboards still query raw PromQL | No performance benefit yet | Phase 9b–9c migration |
-| KL-RR-5 | SLO rules are placeholders only | No error budget tracking | Phase 10 |
-| KL-RR-6 | No Node Exporter | VM disk/CPU SLIs not possible | Phase 9 infrastructure |
-| KL-RR-7 | 30-day metric retention (ADR-031) | SLO 30d window requires full retention period before accurate | Wait 30 days after activation |
+| KL-RR-1 | 30-day SLO window needs 30d retention + traffic | Early windows approximate | Wait 30d; use 5m SLI for ops |
+| KL-RR-2 | Staging low traffic | 30d SLO low confidence; alerts guarded | Document in D-08; tune guards |
+| KL-RR-3 | Phase 7B.5 push delivery metric pending | No dedicated push SLO | Phase 7B.5 + REC-021 |
+| KL-RR-4 | Dashboards D-01–D-07 still query raw PromQL | Duplicate evaluation | Future migration to REC-* |
+| KL-RR-5 | No Node Exporter | VM disk/CPU SLIs not possible | Future infrastructure phase |
+| KL-RR-6 | Telemetry SLO is cluster-wide | No per-environment pipeline SLO | By design (Collector singleton) |
 
 ---
 

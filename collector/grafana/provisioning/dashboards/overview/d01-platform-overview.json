@@ -15,11 +15,20 @@
       }
     ]
   },
-  "description": "D-01 — Platform Overview. Default landing page for operators. Answers: Is the entire back_vibes platform healthy right now? Covers HTTP API, queue workers, scheduler, Smart Home business pipeline, and Collector infrastructure health in a single view. Use specialized dashboards (D-02 through D-07) for deep investigation.",
+  "description": "D-01 \u2014 Platform Overview. Default landing page for operators. Answers: Is the entire back_vibes platform healthy right now? Covers HTTP API, queue workers, scheduler, Smart Home business pipeline, and Collector infrastructure health in a single view. Use specialized dashboards (D-02 through D-07) for deep investigation.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-08 SLO & Error Budget",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-slo"
+    },
     {
       "icon": "external link",
       "keepTime": true,
@@ -93,7 +102,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of HTTP requests that did NOT result in a server-side error (5xx, outcome=server_error). Healthy steady-state: > 99%. Below 95% is critical — navigate to D-05 HTTP API to identify the failing route, then Tempo for trace detail.",
+      "description": "Fraction of HTTP requests that did NOT result in a server-side error (5xx, outcome=server_error). Healthy steady-state: > 99%. Below 95% is critical \u2014 navigate to D-05 HTTP API to identify the failing route, then Tempo for trace detail.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -130,7 +139,7 @@
       "id": 100,
       "links": [
         {
-          "title": "D-05 HTTP API — detailed view",
+          "title": "D-05 HTTP API \u2014 detailed view",
           "url": "/d/ixora-http",
           "targetBlank": false
         }
@@ -171,7 +180,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of completed queue job attempts (excluding retried/released in-progress) that succeeded. Healthy steady-state: > 95%. Below 90% warrants investigation — navigate to D-04 Queue Workers to identify the failing job class.",
+      "description": "Fraction of completed queue job attempts (excluding retried/released in-progress) that succeeded. Healthy steady-state: > 95%. Below 90% warrants investigation \u2014 navigate to D-04 Queue Workers to identify the failing job class.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -208,7 +217,7 @@
       "id": 101,
       "links": [
         {
-          "title": "D-04 Queue Workers — detailed view",
+          "title": "D-04 Queue Workers \u2014 detailed view",
           "url": "/d/ixora-queue",
           "targetBlank": false
         }
@@ -249,7 +258,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Scheduled event execution rate (all outcomes). Healthy: matches the registered schedule count per minute (~1/min per event for a 1-minute schedule). Zero indicates the scheduler loop has stopped — navigate to D-06 Scheduler to investigate.",
+      "description": "Scheduled event execution rate (all outcomes). Healthy: matches the registered schedule count per minute (~1/min per event for a 1-minute schedule). Zero indicates the scheduler loop has stopped \u2014 navigate to D-06 Scheduler to investigate.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -293,7 +302,7 @@
       "id": 102,
       "links": [
         {
-          "title": "D-06 Scheduler — detailed view",
+          "title": "D-06 Scheduler \u2014 detailed view",
           "url": "/d/ixora-scheduler",
           "targetBlank": false
         }
@@ -334,7 +343,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of Smart Home action executions that succeeded (outcome=success). Healthy steady-state: > 95%. A drop below 90% is critical — navigate to D-02 Smart Home to identify the failing provider or outcome class.",
+      "description": "Fraction of Smart Home action executions that succeeded (outcome=success). Healthy steady-state: > 95%. A drop below 90% is critical \u2014 navigate to D-02 Smart Home to identify the failing provider or outcome class.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -371,7 +380,7 @@
       "id": 103,
       "links": [
         {
-          "title": "D-02 Smart Home — detailed view",
+          "title": "D-02 Smart Home \u2014 detailed view",
           "url": "/d/ixora-smart-home",
           "targetBlank": false
         }
@@ -412,7 +421,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "OpenTelemetry Collector process status. 1 = up, 0 = down. Healthy: always 1. If the Collector is down, all telemetry (metrics, traces, logs) will stop flowing — navigate to D-07 Infrastructure for detail. Note: this metric is Collector-scoped and does not filter by $environment.",
+      "description": "OpenTelemetry Collector process status. 1 = up, 0 = down. Healthy: always 1. If the Collector is down, all telemetry (metrics, traces, logs) will stop flowing \u2014 navigate to D-07 Infrastructure for detail. Note: this metric is Collector-scoped and does not filter by $environment.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -461,7 +470,7 @@
       "id": 104,
       "links": [
         {
-          "title": "D-07 Infrastructure — detailed view",
+          "title": "D-07 Infrastructure \u2014 detailed view",
           "url": "/d/ixora-collector",
           "targetBlank": false
         }
@@ -502,7 +511,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Total application-side OTLP export failures in the last hour (ixora_telemetry_export_failed_total). Non-zero means back_vibes failed to deliver telemetry to the Collector. Healthy: 0. Any non-zero value requires investigation — navigate to D-07 Infrastructure to confirm Collector is healthy.",
+      "description": "Total application-side OTLP export failures in the last hour (ixora_telemetry_export_failed_total). Non-zero means back_vibes failed to deliver telemetry to the Collector. Healthy: 0. Any non-zero value requires investigation \u2014 navigate to D-07 Infrastructure to confirm Collector is healthy.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -550,7 +559,7 @@
       "id": 105,
       "links": [
         {
-          "title": "D-07 Infrastructure — detailed view",
+          "title": "D-07 Infrastructure \u2014 detailed view",
           "url": "/d/ixora-collector",
           "targetBlank": false
         }
@@ -603,7 +612,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Total Smart Home dispatch calls (outcome=dispatched) in the selected time window. A dispatch call enqueues actions for execution. This is the top-of-funnel business metric. Low volume in expected automation windows may indicate the scheduler or HTTP trigger is not working — check D-06 or D-05.",
+      "description": "Total Smart Home dispatch calls (outcome=dispatched) in the selected time window. A dispatch call enqueues actions for execution. This is the top-of-funnel business metric. Low volume in expected automation windows may indicate the scheduler or HTTP trigger is not working \u2014 check D-06 or D-05.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -632,7 +641,7 @@
       "id": 200,
       "links": [
         {
-          "title": "D-02 Smart Home — dispatch detail",
+          "title": "D-02 Smart Home \u2014 dispatch detail",
           "url": "/d/ixora-smart-home",
           "targetBlank": false
         }
@@ -673,7 +682,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Current Smart Home action success rate (outcome=success / total). Healthy: > 95%. This is the primary business health KPI — a drop here affects automation reliability directly. Navigate to D-02 Smart Home for full breakdown by provider and outcome.",
+      "description": "Current Smart Home action success rate (outcome=success / total). Healthy: > 95%. This is the primary business health KPI \u2014 a drop here affects automation reliability directly. Navigate to D-02 Smart Home for full breakdown by provider and outcome.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -710,7 +719,7 @@
       "id": 201,
       "links": [
         {
-          "title": "D-02 Smart Home — action detail",
+          "title": "D-02 Smart Home \u2014 action detail",
           "url": "/d/ixora-smart-home",
           "targetBlank": false
         }
@@ -751,7 +760,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Current Smart Home action failure rate (outcome=failure or unknown / total). Does NOT include unsupported — that is a distinct business outcome. Above 5% warrants investigation in D-02. Note: ixora_queue_job_total{outcome=success} does NOT measure this — Queue success and Action success are orthogonal signals (Phase 7B.4.5 §8.3).",
+      "description": "Current Smart Home action failure rate (outcome=failure or unknown / total). Does NOT include unsupported \u2014 that is a distinct business outcome. Above 5% warrants investigation in D-02. Note: ixora_queue_job_total{outcome=success} does NOT measure this \u2014 Queue success and Action success are orthogonal signals (Phase 7B.4.5 \u00a78.3).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -788,7 +797,7 @@
       "id": 202,
       "links": [
         {
-          "title": "D-02 Smart Home — failure detail",
+          "title": "D-02 Smart Home \u2014 failure detail",
           "url": "/d/ixora-smart-home",
           "targetBlank": false
         }
@@ -829,7 +838,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Smart Home action execution P95 latency in milliseconds. Healthy: P95 < 2000 ms. Measures the full execution segment including the HTTP call to the provider (e.g. Home Assistant). A rising P95 suggests provider degradation — navigate to D-02 Performance section for P50/P95/P99 breakdown.",
+      "description": "Smart Home action execution P95 latency in milliseconds. Healthy: P95 < 2000 ms. Measures the full execution segment including the HTTP call to the provider (e.g. Home Assistant). A rising P95 suggests provider degradation \u2014 navigate to D-02 Performance section for P50/P95/P99 breakdown.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -866,7 +875,7 @@
       "id": 203,
       "links": [
         {
-          "title": "D-02 Smart Home — performance detail",
+          "title": "D-02 Smart Home \u2014 performance detail",
           "url": "/d/ixora-smart-home",
           "targetBlank": false
         }
@@ -979,7 +988,7 @@
       "id": 204,
       "links": [
         {
-          "title": "D-02 Smart Home — full business detail",
+          "title": "D-02 Smart Home \u2014 full business detail",
           "url": "/d/ixora-smart-home",
           "targetBlank": false
         }
@@ -1074,7 +1083,7 @@
       "id": 300,
       "links": [
         {
-          "title": "D-05 HTTP API — detailed view",
+          "title": "D-05 HTTP API \u2014 detailed view",
           "url": "/d/ixora-http",
           "targetBlank": false
         }
@@ -1157,7 +1166,7 @@
       "id": 301,
       "links": [
         {
-          "title": "D-05 HTTP API — error detail",
+          "title": "D-05 HTTP API \u2014 error detail",
           "url": "/d/ixora-http",
           "targetBlank": false
         }
@@ -1197,7 +1206,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Queue job processing rate per second, split by queue. Queues: smart-home (Smart Home action jobs), push (push notification jobs), default (all other jobs). A drop on smart-home queue while dispatches continue indicates growing queue depth — workers may be down. Navigate to D-04 Queue Workers for full detail.",
+      "description": "Queue job processing rate per second, split by queue. Queues: smart-home (Smart Home action jobs), push (push notification jobs), default (all other jobs). A drop on smart-home queue while dispatches continue indicates growing queue depth \u2014 workers may be down. Navigate to D-04 Queue Workers for full detail.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1224,7 +1233,7 @@
       "id": 302,
       "links": [
         {
-          "title": "D-04 Queue Workers — detailed view",
+          "title": "D-04 Queue Workers \u2014 detailed view",
           "url": "/d/ixora-queue",
           "targetBlank": false
         }
@@ -1300,7 +1309,7 @@
       "id": 303,
       "links": [
         {
-          "title": "D-04 Queue Workers — detailed view",
+          "title": "D-04 Queue Workers \u2014 detailed view",
           "url": "/d/ixora-queue",
           "targetBlank": false
         }
@@ -1368,7 +1377,7 @@
       "id": 304,
       "links": [
         {
-          "title": "D-06 Scheduler — detailed view",
+          "title": "D-06 Scheduler \u2014 detailed view",
           "url": "/d/ixora-scheduler",
           "targetBlank": false
         }
@@ -1419,7 +1428,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "OpenTelemetry Collector process status. 1 = up, 0 = down. If the Collector is down, all telemetry ceases — every other panel in this dashboard will show stale data. Navigate to D-07 Infrastructure for process memory, CPU, and export pipeline detail. Note: Collector-scoped metric, not filtered by $environment.",
+      "description": "OpenTelemetry Collector process status. 1 = up, 0 = down. If the Collector is down, all telemetry ceases \u2014 every other panel in this dashboard will show stale data. Navigate to D-07 Infrastructure for process memory, CPU, and export pipeline detail. Note: Collector-scoped metric, not filtered by $environment.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1468,7 +1477,7 @@
       "id": 400,
       "links": [
         {
-          "title": "D-07 Infrastructure — detailed view",
+          "title": "D-07 Infrastructure \u2014 detailed view",
           "url": "/d/ixora-collector",
           "targetBlank": false
         }
@@ -1558,7 +1567,7 @@
       "id": 401,
       "links": [
         {
-          "title": "D-07 Infrastructure — detailed view",
+          "title": "D-07 Infrastructure \u2014 detailed view",
           "url": "/d/ixora-collector",
           "targetBlank": false
         }
@@ -1636,7 +1645,7 @@
       "id": 402,
       "links": [
         {
-          "title": "D-07 Infrastructure — memory detail",
+          "title": "D-07 Infrastructure \u2014 memory detail",
           "url": "/d/ixora-collector",
           "targetBlank": false
         }
@@ -1714,7 +1723,7 @@
       "id": 403,
       "links": [
         {
-          "title": "D-07 Infrastructure — CPU detail",
+          "title": "D-07 Infrastructure \u2014 CPU detail",
           "url": "/d/ixora-collector",
           "targetBlank": false
         }
@@ -1782,7 +1791,7 @@
       "id": 404,
       "links": [
         {
-          "title": "D-07 Infrastructure — pipeline detail",
+          "title": "D-07 Infrastructure \u2014 pipeline detail",
           "url": "/d/ixora-collector",
           "targetBlank": false
         }
@@ -1846,7 +1855,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Prometheus Remote Write pipeline: metric points sent vs failed per second. Healthy: sent > 0, failed = 0. A non-zero failed rate means metrics are being dropped before reaching Prometheus storage — all application metric panels will show stale or incomplete data. Navigate to D-07 Infrastructure for queue depth detail.",
+      "description": "Prometheus Remote Write pipeline: metric points sent vs failed per second. Healthy: sent > 0, failed = 0. A non-zero failed rate means metrics are being dropped before reaching Prometheus storage \u2014 all application metric panels will show stale or incomplete data. Navigate to D-07 Infrastructure for queue depth detail.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1873,7 +1882,7 @@
       "id": 405,
       "links": [
         {
-          "title": "D-07 Infrastructure — remote write detail",
+          "title": "D-07 Infrastructure \u2014 remote write detail",
           "url": "/d/ixora-collector",
           "targetBlank": false
         }
@@ -1936,7 +1945,7 @@
         "type": "datasource",
         "uid": "-- Dashboard --"
       },
-      "description": "Navigation panel for D-02 Smart Home Business dashboard. Business automation pipeline — dispatch throughput, action success/failure rates, provider performance, Queue/Business orthogonality. Audience: Product team, on-call engineer.",
+      "description": "Navigation panel for D-02 Smart Home Business dashboard. Business automation pipeline \u2014 dispatch throughput, action success/failure rates, provider performance, Queue/Business orthogonality. Audience: Product team, on-call engineer.",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -1961,7 +1970,7 @@
         "type": "datasource",
         "uid": "-- Dashboard --"
       },
-      "description": "Navigation panel for D-04 Queue Workers dashboard. Queue worker health — job throughput by queue, failure rates by job class, duration percentiles, retry and timeout tracking. Audience: On-call, SRE.",
+      "description": "Navigation panel for D-04 Queue Workers dashboard. Queue worker health \u2014 job throughput by queue, failure rates by job class, duration percentiles, retry and timeout tracking. Audience: On-call, SRE.",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -1986,7 +1995,7 @@
         "type": "datasource",
         "uid": "-- Dashboard --"
       },
-      "description": "Navigation panel for D-05 HTTP API dashboard. HTTP API health — request rate, error rates by status class, p95 latency, top slow and error routes. Audience: On-call, SRE.",
+      "description": "Navigation panel for D-05 HTTP API dashboard. HTTP API health \u2014 request rate, error rates by status class, p95 latency, top slow and error routes. Audience: On-call, SRE.",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -2011,7 +2020,7 @@
         "type": "datasource",
         "uid": "-- Dashboard --"
       },
-      "description": "Navigation panel for D-06 Scheduler dashboard. Laravel Scheduler execution health — event execution rate, overlap_prevented guard rate, failure rate, batch duration, and cross-domain Smart Home dispatch rate. Audience: On-call, product team.",
+      "description": "Navigation panel for D-06 Scheduler dashboard. Laravel Scheduler execution health \u2014 event execution rate, overlap_prevented guard rate, failure rate, batch duration, and cross-domain Smart Home dispatch rate. Audience: On-call, product team.",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -2036,7 +2045,7 @@
         "type": "datasource",
         "uid": "-- Dashboard --"
       },
-      "description": "Navigation panel for D-07 Infrastructure dashboard. OTel Collector self-metrics — process health, memory, CPU, export pipeline rates, queue depth, drop rates, and Prometheus platform health. Audience: SRE, on-call (escalated from domain dashboards).",
+      "description": "Navigation panel for D-07 Infrastructure dashboard. OTel Collector self-metrics \u2014 process health, memory, CPU, export pipeline rates, queue depth, drop rates, and Prometheus platform health. Audience: SRE, on-call (escalated from domain dashboards).",
       "gridPos": {
         "h": 4,
         "w": 24,
@@ -2072,7 +2081,7 @@
           "text": "staging",
           "value": "staging"
         },
-        "description": "Deployment environment — applied to all panel queries.",
+        "description": "Deployment environment \u2014 applied to all panel queries.",
         "hide": 0,
         "includeAll": false,
         "label": "Environment",
@@ -2107,7 +2116,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "D-01 — Platform Overview",
+  "title": "D-01 \u2014 Platform Overview",
   "uid": "ixora-platform",
   "version": 1
 }

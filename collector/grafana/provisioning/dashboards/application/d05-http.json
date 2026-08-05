@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "D-05 — HTTP API health and performance. Answers: Is the back_vibes HTTP API healthy? Covers request rate, error rates by status class, p95 latency, and top slow/error routes. Application-scoped: no infrastructure, queue, scheduler, or business metrics.",
+  "description": "D-05 \u2014 HTTP API health and performance. Answers: Is the back_vibes HTTP API healthy? Covers request rate, error rates by status class, p95 latency, and top slow/error routes. Application-scoped: no infrastructure, queue, scheduler, or business metrics.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -28,6 +28,15 @@
       "tooltip": "",
       "type": "link",
       "url": "/d/ixora-platform"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-08 SLO & Error Budget",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-slo"
     },
     {
       "icon": "external link",
@@ -155,7 +164,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of HTTP requests resulting in 5xx server errors. Healthy: < 1% (0.01). Above 5% is critical — use Tempo to identify the failing route and child span, then Loki for exception context.",
+      "description": "Fraction of HTTP requests resulting in 5xx server errors. Healthy: < 1% (0.01). Above 5% is critical \u2014 use Tempo to identify the failing route and child span, then Loki for exception context.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -225,7 +234,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "95th percentile HTTP response latency across all routes (milliseconds). Healthy: < 500 ms. Above 2000 ms warrants investigation. Note: this is the application processing time measured at the middleware boundary — excludes network transit time.",
+      "description": "95th percentile HTTP response latency across all routes (milliseconds). Healthy: < 500 ms. Above 2000 ms warrants investigation. Note: this is the application processing time measured at the middleware boundary \u2014 excludes network transit time.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -295,7 +304,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of HTTP requests resulting in 4xx client errors (bad requests, auth failures, not found). Healthy: depends on traffic mix. Sustained rise in 4xx without corresponding traffic increase may indicate malformed clients or auth issues. Note: individual 401/403 breakdown requires Tempo drill-down (status_code_class label only; see dashboard-conventions.md §known-limitations).",
+      "description": "Fraction of HTTP requests resulting in 4xx client errors (bad requests, auth failures, not found). Healthy: depends on traffic mix. Sustained rise in 4xx without corresponding traffic increase may indicate malformed clients or auth issues. Note: individual 401/403 breakdown requires Tempo drill-down (status_code_class label only; see dashboard-conventions.md \u00a7known-limitations).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -587,7 +596,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Top routes ranked by 5xx server error count in the selected time window. Use to identify the worst-offending route during an incident. Clicking a route leads to Tempo → filter by http_route + ERROR span status.",
+      "description": "Top routes ranked by 5xx server error count in the selected time window. Use to identify the worst-offending route during an incident. Clicking a route leads to Tempo \u2192 filter by http_route + ERROR span status.",
       "fieldConfig": {
         "defaults": {
           "unit": "short"
@@ -957,7 +966,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Top 15 slowest routes by p95 latency in the selected time window. Use to identify which routes are contributing most to tail latency. Drill-down: Tempo → filter by http_route + high-duration spans.",
+      "description": "Top 15 slowest routes by p95 latency in the selected time window. Use to identify which routes are contributing most to tail latency. Drill-down: Tempo \u2192 filter by http_route + high-duration spans.",
       "fieldConfig": {
         "defaults": {
           "unit": "ms"
@@ -1045,7 +1054,7 @@
           "text": "staging",
           "value": "staging"
         },
-        "description": "Deployment environment — applied to all panel queries.",
+        "description": "Deployment environment \u2014 applied to all panel queries.",
         "hide": 0,
         "includeAll": false,
         "label": "Environment",
@@ -1079,7 +1088,7 @@
           "uid": "ixora-prometheus"
         },
         "definition": "label_values(ixora_http_server_request_total{environment=\"$environment\"}, http_route)",
-        "description": "HTTP route filter — use to drill into a specific route's metrics.",
+        "description": "HTTP route filter \u2014 use to drill into a specific route's metrics.",
         "hide": 0,
         "includeAll": true,
         "label": "Route",
@@ -1104,7 +1113,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "D-05 — HTTP API",
+  "title": "D-05 \u2014 HTTP API",
   "uid": "ixora-http",
   "version": 1
 }

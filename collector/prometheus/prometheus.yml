@@ -48,35 +48,22 @@ global:
     cluster: ixora-observability-staging
 
 # ============================================================
-# RECORDING RULES (Phase 9 — uncomment to activate)
+# RECORDING RULES & SLO ALERTS (Phase 8.9 — active)
 #
-# Recording rules pre-compute expensive PromQL expressions at
-# evaluation_interval (30 s) and store results as new time series.
-# This improves dashboard query performance and enables SLO
-# burn-rate calculations.
+# Recording rules pre-compute SLI/SLO/error-budget series.
+# Alert rules implement multi-window burn-rate detection.
 #
-# ACTIVATION CHECKLIST (Phase 9):
-#   1. Uncomment rule_files block below.
-#   2. Mount rules directory in docker-compose.yml:
-#        volumes:
-#          - ./prometheus/rules:/etc/prometheus/rules:ro
-#   3. Restart Prometheus.
-#   4. Verify: curl http://localhost:9090/-/rules | grep ixora
-#   5. Check Prometheus UI: Status → Rules
+# Verify after deploy:
+#   curl http://localhost:9090/-/rules | grep ixora
+#   promtool check rules prometheus/rules/recording/*.rules.yml
+#   promtool check rules prometheus/rules/alerting/*.rules.yml
 #
 # PHILOSOPHY: docs/architecture/recording-rules-philosophy.md
-# CATALOG:    docs/specs/observability-foundation/mvp/recording-rules-foundation.md
+# RUNBOOK:    docs/runbooks/slo-error-budget.md
 # ============================================================
-# rule_files:
-#   - /etc/prometheus/rules/recording/*.rules.yml
-
-# ============================================================
-# ALERTING (Phase 9 — uncomment to activate with Grafana Alertmanager)
-# ============================================================
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets: []
+rule_files:
+  - /etc/prometheus/rules/recording/*.rules.yml
+  - /etc/prometheus/rules/alerting/*.rules.yml
 
 # ============================================================
 # SCRAPE CONFIGS
