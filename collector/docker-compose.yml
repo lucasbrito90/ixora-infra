@@ -205,6 +205,12 @@ services:
         target: /etc/prometheus/prometheus.yml
         read_only: true
 
+      # Recording + alerting rules (Phase 8.9 SLO foundation).
+      - type: bind
+        source: ./prometheus/rules
+        target: /etc/prometheus/rules
+        read_only: true
+
     ports:
       # Internal only — accessible from host for Grafana (Phase 9)
       # and ops debugging. Firewall MUST block port 9090 from internet.

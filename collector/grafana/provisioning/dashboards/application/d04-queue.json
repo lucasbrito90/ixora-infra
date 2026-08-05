@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "D-04 — Queue worker health and job execution. Answers: Are queue workers processing jobs? Which queues are backed up? Which job types are failing or slow? Application-scoped: no infrastructure, HTTP, scheduler, or business metrics.",
+  "description": "D-04 \u2014 Queue worker health and job execution. Answers: Are queue workers processing jobs? Which queues are backed up? Which job types are failing or slow? Application-scoped: no infrastructure, HTTP, scheduler, or business metrics.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -28,6 +28,15 @@
       "tooltip": "",
       "type": "link",
       "url": "/d/ixora-platform"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-08 SLO & Error Budget",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-slo"
     },
     {
       "icon": "external link",
@@ -93,7 +102,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Fraction of completed job attempts (attempts not retried or failed) that succeeded. Healthy: > 95%. Below 90% warrants investigation — use the Failure Breakdown panel below to identify the failing job class, then Tempo + Loki for root cause.",
+      "description": "Fraction of completed job attempts (attempts not retried or failed) that succeeded. Healthy: > 95%. Below 90% warrants investigation \u2014 use the Failure Breakdown panel below to identify the failing job class, then Tempo + Loki for root cause.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -163,7 +172,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of job failures (exhausted retries, marked as failed) per second. Healthy: 0. Any non-zero value means jobs are permanently failing — check failed_jobs table and Loki for exception context (trace_id correlation available).",
+      "description": "Rate of job failures (exhausted retries, marked as failed) per second. Healthy: 0. Any non-zero value means jobs are permanently failing \u2014 check failed_jobs table and Loki for exception context (trace_id correlation available).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -303,7 +312,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of jobs timing out (SIGALRM timeout exceeded) per second. Healthy: 0. Timeouts indicate a job is running longer than its configured timeout — often a slow external provider or a deadlock. Check `ixora.queue.job.duration` p95 for the affected job class.",
+      "description": "Rate of jobs timing out (SIGALRM timeout exceeded) per second. Healthy: 0. Timeouts indicate a job is running longer than its configured timeout \u2014 often a slow external provider or a deadlock. Check `ixora.queue.job.duration` p95 for the affected job class.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -434,7 +443,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Rate of job retries (released back to queue after exception) per second. Healthy: near 0. A sustained retry rate on a specific queue indicates persistent failures without exhausting max attempts — the job is retrying repeatedly.",
+      "description": "Rate of job retries (released back to queue after exception) per second. Healthy: near 0. A sustained retry rate on a specific queue indicates persistent failures without exhausting max attempts \u2014 the job is retrying repeatedly.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -484,7 +493,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Job outcome breakdown over time — success, retried, failed, timed_out, released. Use to identify outcome distribution shifts. A healthy queue shows mostly 'success' with occasional 'retried' spikes.",
+      "description": "Job outcome breakdown over time \u2014 success, retried, failed, timed_out, released. Use to identify outcome distribution shifts. A healthy queue shows mostly 'success' with occasional 'retried' spikes.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -576,7 +585,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Failed job attempts broken down by job class name (job_name label). Shows which job types are failing most in the selected window. Drill-down: Tempo → filter by {job_name} span with ERROR status → Loki trace_id for exception_class.",
+      "description": "Failed job attempts broken down by job class name (job_name label). Shows which job types are failing most in the selected window. Drill-down: Tempo \u2192 filter by {job_name} span with ERROR status \u2192 Loki trace_id for exception_class.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -633,7 +642,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "Failed jobs rate over time per queue. A sustained non-zero line means jobs are permanently failing (not just retrying). Cross-reference with retry rate — if retries are also high, jobs are failing on every attempt.",
+      "description": "Failed jobs rate over time per queue. A sustained non-zero line means jobs are permanently failing (not just retrying). Cross-reference with retry rate \u2014 if retries are also high, jobs are failing on every attempt.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -835,7 +844,7 @@
         "type": "prometheus",
         "uid": "ixora-prometheus"
       },
-      "description": "99th percentile job execution duration (ms). If p99 significantly exceeds p95, a small fraction of jobs are extremely slow — likely due to provider latency spikes or resource contention.",
+      "description": "99th percentile job execution duration (ms). If p99 significantly exceeds p95, a small fraction of jobs are extremely slow \u2014 likely due to provider latency spikes or resource contention.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1066,7 +1075,7 @@
           "text": "staging",
           "value": "staging"
         },
-        "description": "Deployment environment — applied to all panel queries.",
+        "description": "Deployment environment \u2014 applied to all panel queries.",
         "hide": 0,
         "includeAll": false,
         "label": "Environment",
@@ -1126,7 +1135,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "D-04 — Queue Workers",
+  "title": "D-04 \u2014 Queue Workers",
   "uid": "ixora-queue",
   "version": 1
 }

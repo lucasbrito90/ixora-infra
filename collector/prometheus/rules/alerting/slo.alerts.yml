@@ -1,0 +1,252 @@
+# ============================================================
+# Ixora Observability Platform — SLO Burn-Rate Alerts
+# Phase 8.9 — Multi-window error-budget burn alerts
+#
+# Threshold rationale (staging initial):
+#   burn_rate = observed_error_ratio / allowed_error_ratio
+#   Critical fast burn: > 10 on BOTH short and long windows
+#     → at 10× burn, a 30-day budget exhausts in ~3 days.
+#   Warning medium burn: > 2 on BOTH short and long windows
+#     → at 2× burn, a 30-day budget exhausts in ~15 days.
+#
+# Low-traffic guards prevent paging on insufficient data.
+# Runbook: docs/runbooks/slo-error-budget.md
+# Dashboard: /d/ixora-slo
+# ============================================================
+
+groups:
+
+  - name: ixora_slo_http_availability
+    interval: 1m
+    rules:
+      - alert: IxoraSLOHttpAvailabilityFastBurnCritical
+        expr: |
+          ixora:slo:http:burn_rate:5m{environment=~".+"} > 10
+          and ixora:slo:http:burn_rate:1h{environment=~".+"} > 10
+          and ixora:slo:http:eligible_events:1h{environment=~".+"} > 100
+        for: 2m
+        labels:
+          severity: critical
+          slo: http_availability
+          service: back_vibes-api
+        annotations:
+          summary: "HTTP availability SLO fast burn ({{ $labels.environment }})"
+          description: |
+            SLO: HTTP availability (target 99.5%, 30d window).
+            Burn rate 5m={{ printf "%.1f" $value }} (threshold 10).
+            Error budget is being consumed much faster than sustainable.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#fast-burn-response"
+
+      - alert: IxoraSLOHttpAvailabilityMediumBurnWarning
+        expr: |
+          ixora:slo:http:burn_rate:5m{environment=~".+"} > 2
+          and ixora:slo:http:burn_rate:6h{environment=~".+"} > 2
+          and ixora:slo:http:eligible_events:1h{environment=~".+"} > 100
+        for: 15m
+        labels:
+          severity: warning
+          slo: http_availability
+          service: back_vibes-api
+        annotations:
+          summary: "HTTP availability SLO medium burn ({{ $labels.environment }})"
+          description: |
+            SLO: HTTP availability (target 99.5%, 30d window).
+            Sustained burn rate > 2× over 6 h window.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#medium-burn-response"
+
+  - name: ixora_slo_http_latency
+    interval: 1m
+    rules:
+      - alert: IxoraSLOHttpLatencyFastBurnCritical
+        expr: |
+          ixora:slo:http_latency:burn_rate:5m{environment=~".+"} > 10
+          and ixora:slo:http_latency:burn_rate:1h{environment=~".+"} > 10
+          and ixora:slo:http_latency:eligible_events:1h{environment=~".+"} > 100
+        for: 2m
+        labels:
+          severity: critical
+          slo: http_latency
+          service: back_vibes-api
+        annotations:
+          summary: "HTTP latency SLO fast burn ({{ $labels.environment }})"
+          description: |
+            SLO: 95% of requests under 500 ms (30d window).
+            Burn rate exceeds critical threshold on 5m and 1h windows.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#fast-burn-response"
+
+      - alert: IxoraSLOHttpLatencyMediumBurnWarning
+        expr: |
+          ixora:slo:http_latency:burn_rate:5m{environment=~".+"} > 2
+          and ixora:slo:http_latency:burn_rate:6h{environment=~".+"} > 2
+          and ixora:slo:http_latency:eligible_events:1h{environment=~".+"} > 100
+        for: 15m
+        labels:
+          severity: warning
+          slo: http_latency
+          service: back_vibes-api
+        annotations:
+          summary: "HTTP latency SLO medium burn ({{ $labels.environment }})"
+          description: |
+            SLO: 95% of requests under 500 ms (30d window).
+            Sustained burn rate > 2× over 6 h window.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#medium-burn-response"
+
+  - name: ixora_slo_queue
+    interval: 1m
+    rules:
+      - alert: IxoraSLOQueueSuccessFastBurnCritical
+        expr: |
+          ixora:slo:queue:burn_rate:5m{environment=~".+"} > 10
+          and ixora:slo:queue:burn_rate:1h{environment=~".+"} > 10
+          and ixora:slo:queue:eligible_events:1h{environment=~".+"} > 10
+        for: 2m
+        labels:
+          severity: critical
+          slo: queue_success
+          service: back_vibes-worker
+        annotations:
+          summary: "Queue success SLO fast burn ({{ $labels.environment }})"
+          description: |
+            SLO: queue job success (target 99%, 30d window).
+            Terminal job failures are consuming error budget rapidly.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#fast-burn-response"
+
+      - alert: IxoraSLOQueueSuccessMediumBurnWarning
+        expr: |
+          ixora:slo:queue:burn_rate:5m{environment=~".+"} > 2
+          and ixora:slo:queue:burn_rate:6h{environment=~".+"} > 2
+          and ixora:slo:queue:eligible_events:1h{environment=~".+"} > 10
+        for: 15m
+        labels:
+          severity: warning
+          slo: queue_success
+          service: back_vibes-worker
+        annotations:
+          summary: "Queue success SLO medium burn ({{ $labels.environment }})"
+          description: |
+            SLO: queue job success (target 99%, 30d window).
+            Sustained burn rate > 2× over 6 h window.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#medium-burn-response"
+
+  - name: ixora_slo_scheduler
+    interval: 1m
+    rules:
+      - alert: IxoraSLOSchedulerSuccessFastBurnCritical
+        expr: |
+          ixora:slo:scheduler:burn_rate:5m{environment=~".+"} > 10
+          and ixora:slo:scheduler:burn_rate:1h{environment=~".+"} > 10
+          and ixora:slo:scheduler:eligible_events:1h{environment=~".+"} > 5
+        for: 2m
+        labels:
+          severity: critical
+          slo: scheduler_success
+          service: back_vibes-worker
+        annotations:
+          summary: "Scheduler success SLO fast burn ({{ $labels.environment }})"
+          description: |
+            SLO: scheduler execution success (target 99%, 30d window).
+            Failed scheduled executions are consuming error budget rapidly.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#fast-burn-response"
+
+      - alert: IxoraSLOSchedulerSuccessMediumBurnWarning
+        expr: |
+          ixora:slo:scheduler:burn_rate:5m{environment=~".+"} > 2
+          and ixora:slo:scheduler:burn_rate:6h{environment=~".+"} > 2
+          and ixora:slo:scheduler:eligible_events:1h{environment=~".+"} > 5
+        for: 15m
+        labels:
+          severity: warning
+          slo: scheduler_success
+          service: back_vibes-worker
+        annotations:
+          summary: "Scheduler success SLO medium burn ({{ $labels.environment }})"
+          description: |
+            SLO: scheduler execution success (target 99%, 30d window).
+            Sustained burn rate > 2× over 6 h window.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#medium-burn-response"
+
+  - name: ixora_slo_smart_home
+    interval: 1m
+    rules:
+      - alert: IxoraSLOSmartHomeSuccessFastBurnCritical
+        expr: |
+          ixora:slo:smart_home:burn_rate:5m{environment=~".+"} > 10
+          and ixora:slo:smart_home:burn_rate:1h{environment=~".+"} > 10
+          and ixora:slo:smart_home:eligible_events:1h{environment=~".+"} > 5
+        for: 2m
+        labels:
+          severity: critical
+          slo: smart_home_success
+          service: back_vibes-worker
+        annotations:
+          summary: "Smart Home action SLO fast burn ({{ $labels.environment }})"
+          description: |
+            SLO: Smart Home provider action success (target 95%, 30d window).
+            Failed actions are consuming error budget rapidly.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#fast-burn-response"
+
+      - alert: IxoraSLOSmartHomeSuccessMediumBurnWarning
+        expr: |
+          ixora:slo:smart_home:burn_rate:5m{environment=~".+"} > 2
+          and ixora:slo:smart_home:burn_rate:6h{environment=~".+"} > 2
+          and ixora:slo:smart_home:eligible_events:1h{environment=~".+"} > 5
+        for: 15m
+        labels:
+          severity: warning
+          slo: smart_home_success
+          service: back_vibes-worker
+        annotations:
+          summary: "Smart Home action SLO medium burn ({{ $labels.environment }})"
+          description: |
+            SLO: Smart Home provider action success (target 95%, 30d window).
+            Sustained burn rate > 2× over 6 h window.
+          dashboard: "/d/ixora-slo?var-environment={{ $labels.environment }}"
+          runbook: "docs/runbooks/slo-error-budget.md#fast-burn-response"
+
+  - name: ixora_slo_telemetry_pipeline
+    interval: 1m
+    rules:
+      - alert: IxoraSLOTelemetryPipelineFastBurnCritical
+        expr: |
+          ixora:slo:telemetry:burn_rate:5m > 10
+          and ixora:slo:telemetry:burn_rate:1h > 10
+          and ixora:slo:telemetry:eligible_exports:1h > 1000
+        for: 2m
+        labels:
+          severity: critical
+          slo: telemetry_pipeline
+          service: otelcol-contrib
+        annotations:
+          summary: "Observability pipeline SLO fast burn"
+          description: |
+            SLO: Collector OTLP export success (target 99%, 30d window).
+            Export failures are consuming error budget rapidly.
+          dashboard: "/d/ixora-slo"
+          runbook: "docs/runbooks/slo-error-budget.md#fast-burn-response"
+
+      - alert: IxoraSLOTelemetryPipelineMediumBurnWarning
+        expr: |
+          ixora:slo:telemetry:burn_rate:5m > 2
+          and ixora:slo:telemetry:burn_rate:6h > 2
+          and ixora:slo:telemetry:eligible_exports:1h > 1000
+        for: 15m
+        labels:
+          severity: warning
+          slo: telemetry_pipeline
+          service: otelcol-contrib
+        annotations:
+          summary: "Observability pipeline SLO medium burn"
+          description: |
+            SLO: Collector OTLP export success (target 99%, 30d window).
+            Sustained burn rate > 2× over 6 h window.
+          dashboard: "/d/ixora-slo"
+          runbook: "docs/runbooks/slo-error-budget.md#medium-burn-response"
