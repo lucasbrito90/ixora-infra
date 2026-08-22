@@ -60,6 +60,34 @@ api_env_general = {
   # MAIL_USERNAME = "notifications@example.com"
   # MAIL_FROM_ADDRESS = "notifications@example.com"
   # MAIL_FROM_NAME    = "Ixora Staging"
+
+  # OpenTelemetry — REQUIRED for back_vibes telemetry to reach the observability
+  # stack. Not declared as discrete vars in app-api.tf; must be set here.
+  # A `tofu apply` without these silently strips any equivalent env vars that
+  # were only ever set out-of-band via the DO dashboard (TD-5 incident,
+  # observability-foundation/mvp/tasks.md Phase 8.9, 2026-08-22) — the
+  # digitalocean_app env list is a full declarative replacement, not additive.
+  # OTEL_ENVIRONMENT            = "staging"
+  # OTEL_SDK_DISABLED           = "false"
+  # OTEL_PHP_AUTOLOAD_ENABLED   = "true"
+  # OTEL_SERVICE_NAME           = "back_vibes-api"
+  # OTEL_RESOURCE_ATTRIBUTES    = "deployment.environment=staging,service.namespace=ixora"
+  # OTEL_EXPORTER_OTLP_ENDPOINT = "https://otel-staging.ixora-app.app"
+  # OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
+  # OTEL_TRACES_EXPORTER        = "otlp"
+  # OTEL_LOGS_EXPORTER          = "otlp"
+  # OTEL_METRICS_EXPORTER       = "otlp"
+  # OTEL_PROPAGATORS            = "tracecontext,baggage"
+  # OTEL_SERVICE_NAMESPACE      = "ixora"
+  # OTEL_TRACES_SAMPLER         = "always_on"
+  # OTEL_DEPLOYMENT_ENVIRONMENT = "staging"
+  # OTEL_LOG_LEVEL              = "info"
+}
+
+# OTEL_EXPORTER_OTLP_HEADERS carries the OTLP ingest bearer token — SECRET, not
+# GENERAL. Value must match the observability host's OTEL_INGEST_API_KEY_BACKEND.
+api_secrets_extra = {
+  # OTEL_EXPORTER_OTLP_HEADERS = "Authorization=Bearer <otel-ingest-api-key-backend>"
 }
 
 nuxt_public_api_base_url = "https://staging-api.ixora-app.app/api"
