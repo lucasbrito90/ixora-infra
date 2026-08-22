@@ -89,6 +89,11 @@ locals {
       { key = "LOG_CHANNEL", value = "stderr", type = "GENERAL" },
       { key = "QUEUE_CONNECTION", value = "database", type = "GENERAL" },
       { key = "PUSH_PROVIDER", value = "fcm", type = "GENERAL" },
+      # FrankenPHP worker mode (TD-5, observability-foundation Phase 8.9): informational
+      # today (no Swoole-only driver-conditional code reads this), but keeps
+      # config('octane.server') consistent with the actual runtime driver
+      # baked into docker/frankenphp/Caddyfile (back_vibes).
+      { key = "OCTANE_SERVER", value = "frankenphp", type = "GENERAL" },
       # Laravel cache/session: avoid Postgres `cache` table (migration owner vs app DB user ACL on staging).
       # App Platform worker + api each get ephemeral local disk; staging accepts that trade-off vs DB/redis cache sharing.
       { key = "CACHE_STORE", value = "file", type = "GENERAL" },
