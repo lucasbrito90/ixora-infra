@@ -932,6 +932,10 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
+**TD-6 (new, High severity, discovered 2026-08-23 while live-validating Phase 7B.5's push metric in staging):** queue worker metrics and traces never flush to the collector — only queue-worker logs actually reach the backend. Root cause: `Illuminate\Queue\Worker::kill()` self-`SIGKILL`s on every graceful shutdown (every redeploy, every `queue:restart`), bypassing `app()->terminate()` and therefore the only `TelemetryManager::flush()` call site in the codebase. Platform-wide impact, not push-specific: `ixora_queue_job_total`/`.duration` (D-04), `ixora_smart_home_dispatch_total`, `ixora_smart_home_action_total`/`.duration` (D-02), and `ixora_push_delivery_total` (D-03) have likely never populated from real queue traffic, and the non-HTTP D-08 SLO burn-rate alerts (`ixora:slo:queue:*`, `ixora:slo:smart_home:*`, `ixora:slo:scheduler:*`) have had no real data to evaluate since Phase 7B.2/7B.4 shipped. Fix (flush after every job via `JobProcessed`/`JobFailed`/`JobExceptionOccurred`/`JobTimedOut`, plus `WorkerStopping` as a safety net) implemented and validated in a faithful local reproduction; not yet deployed or validated live in staging. Full detail: `tasks.md` Phase 8.9 notes.
+
+---
+
 #### Phase 8.8.5 — Observability Infrastructure Provisioning — **Complete (IaC)**
 
 **Goal:** Provision a dedicated DigitalOcean Droplet to run the existing `collector/docker-compose.yml` stack. OpenTofu provisions infrastructure only; Docker Compose remains the runtime source of truth.
