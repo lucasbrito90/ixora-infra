@@ -86,7 +86,15 @@ locals {
       { key = "APP_DEBUG", value = "false", type = "GENERAL" },
       { key = "APP_URL", value = "https://${var.api_domain}", type = "GENERAL" },
       { key = "CORS_ALLOWED_ORIGINS", value = local.api_cors_allowed_origins_effective, type = "GENERAL" },
-      { key = "LOG_CHANNEL", value = "stderr", type = "GENERAL" },
+      # Phase 8.8.8 (back_vibes) shipped OTLP log export via a "otel" Monolog
+      # channel, documented in back_vibes/.env.example as intended for staging
+      # ("Staging: stderr,otel" / "set to otlp in staging/production alongside
+      # LOG_STACK=stderr,otel") — but this file was never updated to activate
+      # it, so Loki stayed empty. "stack" fans out to both: stderr (unchanged,
+      # still reaches DO Runtime Logs) and otel (OTLP export to Loki, uses the
+      # OTEL_* env below).
+      { key = "LOG_CHANNEL", value = "stack", type = "GENERAL" },
+      { key = "LOG_STACK", value = "stderr,otel", type = "GENERAL" },
       { key = "QUEUE_CONNECTION", value = "database", type = "GENERAL" },
       { key = "PUSH_PROVIDER", value = "fcm", type = "GENERAL" },
       # FrankenPHP worker mode (TD-5, observability-foundation Phase 8.9): informational
