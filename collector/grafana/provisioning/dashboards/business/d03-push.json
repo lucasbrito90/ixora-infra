@@ -1691,6 +1691,173 @@
       ],
       "title": "Job Processing Duration over Time",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 64
+      },
+      "id": 5,
+      "title": "Notification Type Breakdown (Business Metric)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Push delivery attempts by notification type (Phase 7B.5 business metric, ixora_push_delivery_total \u2014 event-type + outcome only, no provider label per telemetry-naming-convention.md \u00a75). Closes the \"which event type is failing?\" gap the queue-layer fallback panels above cannot answer.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 65
+      },
+      "id": 500,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (notification_type, outcome) (rate(ixora_push_delivery_total{environment=~\"$environment\", notification_type=~\"$notification_type\"}[5m]))",
+          "instant": false,
+          "legendFormat": "{{notification_type}} ({{outcome}})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Delivery Rate by Notification Type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Failure rate per notification type (Phase 7B.5 business metric). Unlike the generic queue-layer \"Failure Rate by Outcome\" panel above, this isolates which event type (e.g. smart_home_action_failed vs schedule_execution_failed) is failing to deliver \u2014 previously required a Loki pivot.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.001
+              },
+              {
+                "color": "red",
+                "value": 0.01
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 65
+      },
+      "id": 501,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (notification_type) (rate(ixora_push_delivery_total{environment=~\"$environment\", notification_type=~\"$notification_type\", outcome=\"failure\"}[5m]))",
+          "instant": true,
+          "legendFormat": "{{notification_type}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Failure Rate by Notification Type",
+      "type": "bargauge"
     }
   ],
   "refresh": "1m",
@@ -1742,7 +1909,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "description": "Push notification provider filter. Current providers: fcm (Firebase Cloud Messaging \u2014 production), noop (dry-run \u2014 development/test). Phase 7B.5 will expose this as a live label_values() query against ixora_push_delivery_total.",
+        "description": "Push notification provider filter. Current providers: fcm (Firebase Cloud Messaging \u2014 production), noop (dry-run \u2014 development/test). Kept as a static filter \u2014 ixora_push_delivery_total (Phase 7B.5) does not carry a provider label per telemetry-naming-convention.md \u00a75 (event type + outcome only); this variable is not wired to any panel query today.",
         "hide": 0,
         "includeAll": true,
         "label": "Provider",
@@ -1775,42 +1942,27 @@
           "text": "All",
           "value": "$__all"
         },
-        "description": "Notification type filter. Values from the push event taxonomy (ADR-019): smart_home_action_failed, schedule_execution_failed, smart_home_provider_unreachable, account_security_notice. Phase 7B.5 will expose this as a live label_values() query against ixora_push_delivery_total.",
+        "description": "Notification type filter \u2014 live label_values() query against ixora_push_delivery_total (Phase 7B.5). Values from the push event taxonomy (ADR-019): smart_home_action_failed, schedule_execution_failed, smart_home_provider_unreachable, account_security_notice.",
         "hide": 0,
         "includeAll": true,
         "label": "Notification Type",
         "multi": false,
         "name": "notification_type",
-        "options": [
-          {
-            "selected": true,
-            "text": "All",
-            "value": "$__all"
-          },
-          {
-            "selected": false,
-            "text": "smart_home_action_failed",
-            "value": "smart_home_action_failed"
-          },
-          {
-            "selected": false,
-            "text": "schedule_execution_failed",
-            "value": "schedule_execution_failed"
-          },
-          {
-            "selected": false,
-            "text": "smart_home_provider_unreachable",
-            "value": "smart_home_provider_unreachable"
-          },
-          {
-            "selected": false,
-            "text": "account_security_notice",
-            "value": "account_security_notice"
-          }
-        ],
-        "query": "All,smart_home_action_failed,schedule_execution_failed,smart_home_provider_unreachable,account_security_notice",
+        "query": {
+          "query": "label_values(ixora_push_delivery_total{environment=~\"$environment\"}, notification_type)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
         "skipUrlSync": false,
-        "type": "custom"
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "ixora-prometheus"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "definition": "label_values(ixora_push_delivery_total{environment=~\"$environment\"}, notification_type)",
+        "options": []
       },
       {
         "current": {

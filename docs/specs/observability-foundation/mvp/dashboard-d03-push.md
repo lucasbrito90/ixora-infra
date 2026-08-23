@@ -273,24 +273,25 @@ ADR-021 (notification security + privacy) is satisfied: the dashboard surfaces o
 
 ## 11. Future Improvements
 
-### Phase 7B.5 (Push Notifications Telemetry)
+### Phase 7B.5 (Push Notifications Telemetry) — Shipped (2026-08-23)
 
-When `ixora.push.delivery.total{environment, notification_type, outcome}` ships:
+`ixora.push.delivery.total{environment, notification_type, outcome}` shipped (`back_vibes#3`). **Correction to this section's original plan:** the metric does **not** carry a `provider` label — `telemetry-naming-convention.md` §5 and `metrics-philosophy.md` §11 define this metric as notification-type + outcome only (no provider dimension), so item 3 and the `provider` half of item 4 below were never implemented; `$provider` stays a static, unwired filter.
 
-1. Add **Notifications by Type** time series panel (Section 2, id=203):
-   `sum by (notification_type) (rate(ixora_push_delivery_total{environment=~"$environment"}[5m]))`
+Delivered in `collector/grafana/provisioning/dashboards/business/d03-push.json`:
 
-2. Add **Failures by Notification Type** panel (Section 3, id=304):
-   `sum by (notification_type) (rate(ixora_push_delivery_total{environment=~"$environment", outcome!="success"}[5m]))`
+1. ~~Add **Notifications by Type** time series panel~~ → delivered as **Delivery Rate by Notification Type** (id=500), a new "Notification Type Breakdown (Business Metric)" row:
+   `sum by (notification_type, outcome) (rate(ixora_push_delivery_total{environment=~"$environment", notification_type=~"$notification_type"}[5m]))`
 
-3. Add **Failures by Provider** panel (Section 3, id=305):
-   `sum by (provider) (rate(ixora_push_delivery_total{environment=~"$environment", outcome!="success"}[5m]))`
+2. Delivered as **Failure Rate by Notification Type** (id=501):
+   `sum by (notification_type) (rate(ixora_push_delivery_total{environment=~"$environment", notification_type=~"$notification_type", outcome="failure"}[5m]))`
 
-4. Convert `$provider` variable to `label_values(ixora_push_delivery_total{environment="$environment"}, provider)`.
+3. **Not implemented** — no `provider` label exists on this metric (see correction above).
 
-5. Convert `$notification_type` variable to `label_values(ixora_push_delivery_total{environment="$environment"}, notification_type)`.
+4. **Not implemented** — `$provider` cannot be sourced from `ixora_push_delivery_total`; left static.
 
-6. Update D-01 Platform Overview Business Summary to include push delivery rate by notification type.
+5. Converted `$notification_type` to a live `label_values(ixora_push_delivery_total{environment=~"$environment"}, notification_type)` query.
+
+6. **Deferred** — D-01 Business Summary update not done in this pass.
 
 ### Phase 9+
 
