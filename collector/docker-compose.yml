@@ -468,6 +468,27 @@ services:
       # ---- Deployment environment (informational) ----
       GF_ENVIRONMENT: "${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}"
 
+      # ---- SMTP / Alerting email (Phase 9 — Alerting Strategy) ----
+      # Enables Grafana's built-in Alertmanager to deliver the
+      # ixora-email-critical contact point (contact-points.yaml).
+      # Credentials come from .env — never hardcoded (ADR-030).
+      GF_SMTP_ENABLED: "${GF_SMTP_ENABLED:-false}"
+      GF_SMTP_HOST: "${GF_SMTP_HOST:-}"
+      GF_SMTP_USER: "${GF_SMTP_USER:-}"
+      GF_SMTP_PASSWORD: "${GF_SMTP_PASSWORD:-}"
+      GF_SMTP_FROM_ADDRESS: "${GF_SMTP_FROM_ADDRESS:-alerts@ixora-app.app}"
+      GF_SMTP_FROM_NAME: "${GF_SMTP_FROM_NAME:-Ixora Alerting}"
+      GF_SMTP_SKIP_VERIFY: "${GF_SMTP_SKIP_VERIFY:-false}"
+      # Email receiver address for the ixora-email-critical contact point
+      # (collector/grafana/provisioning/alerting/contact-points.yaml).
+      # Consumed via $__env{} provisioning-file expansion, not by Grafana core.
+      # MUST NOT be empty: Grafana's alerting provisioning rejects an empty
+      # `addresses` field and fails to start (crash-loops the whole
+      # container, not just alerting — verified in Phase 9 testing). The
+      # placeholder default keeps Grafana up when the operator has not yet
+      # set a real address; email delivery itself stays inert until they do.
+      ALERT_EMAIL_ADDRESS: "${ALERT_EMAIL_ADDRESS:-alerts-not-configured@ixora-app.app}"
+
     volumes:
       # Persistent Grafana data (SQLite DB, sessions, alert state).
       # Survives container recreation — datasources & dashboards are

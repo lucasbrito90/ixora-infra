@@ -1,0 +1,70 @@
+# ============================================================
+# Ixora Observability Platform — Alert Rules
+# Phase 9 — Alerting Strategy
+# Category: Application — Push Queue
+#
+# ADR-030: No PII in labels or annotations.
+# alerting-philosophy.md: read before adding rules.
+# alerting-foundation.md §4.5, §11: category and severity reference.
+# ============================================================
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Application — Push Queue
+    folder: Ixora Alerting
+    interval: 1m
+    rules:
+      - uid: ixora-alert-push-failure
+        title: "Application / Push Queue — Delivery Failure"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: ixora-prometheus
+            model:
+              expr: >-
+                sum(rate(ixora_queue_job_total{queue="push",outcome="failed"}[5m]))
+                /
+                sum(rate(ixora_queue_job_total{queue="push"}[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.1]
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        labels:
+          environment: staging
+          severity: warning
+          service: back_vibes-worker
+          team: backend
+          category: application
+          dashboard_uid: ixora-push
+          runbook: /runbooks/application-push-failure.md
+        annotations:
+          summary: "[warning] back_vibes-worker: Push queue failure rate elevated"
+          description: "The push queue (queue=push) job failure rate has been above 10% for 5+ minutes. This is queue-layer failure (job never completed), distinct from FCM-reported delivery failure (Business/Push, Phase 7B.5)."
+          dashboard: "/d/ixora-push"
+          runbook: "/runbooks/application-push-failure.md"
+          business_impact: "Push notifications (smart-home alerts, schedule reminders) may not be reaching users' devices."
+          expected_action: "Open D-03 Push Notifications, confirm whether failures are FCM-side or job-side, then check Loki for push job exception logs."
