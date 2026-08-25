@@ -68,7 +68,7 @@ groups:
         annotations:
           summary: "[emergency] ixora-collector: Telemetry export failing"
           description: "The Collector is failing to export telemetry (metrics/logs/traces) to the observability backends. All downstream alerts may become unreliable — data gaps produce false NoData/Resolved states. Confirm on D-07 before assuming a wider outage."
-          dashboard: "/d/{{ $labels.dashboard_uid }}"
-          runbook: "{{ $labels.runbook }}"
+          dashboard: "/d/ixora-collector"
+          runbook: "/runbooks/infrastructure-collector-down.md"
           business_impact: "Loss of observability across the entire platform — incidents may go undetected while this fires."
           expected_action: "SSH to the observability VM, check `docker logs ixora-collector`, confirm the Collector process is running and its export pipeline is not backpressured."

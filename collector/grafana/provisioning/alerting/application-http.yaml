@@ -68,8 +68,8 @@ groups:
         annotations:
           summary: "[critical] back_vibes-api: HTTP 5xx error rate elevated"
           description: "The share of HTTP requests returning 5xx has been above 1% for 5+ minutes. This is a RED-method error signal — users are actively receiving failed responses."
-          dashboard: "/d/{{ $labels.dashboard_uid }}"
-          runbook: "{{ $labels.runbook }}"
+          dashboard: "/d/ixora-http"
+          runbook: "/runbooks/application-http-error-rate.md"
           business_impact: "A subset of API requests are failing; mobile app (front_vibes) and admin panel (ixora-admin) actions may be erroring for users."
           expected_action: "Open D-05 HTTP API, identify the failing route(s), then check Tempo for failing traces and Loki for error logs in the same window."
 
@@ -118,7 +118,7 @@ groups:
         annotations:
           summary: "[warning] back_vibes-api: HTTP p95 latency elevated"
           description: "P95 request duration has been above 2s for 5+ minutes. Requests are still succeeding but users are experiencing slow responses."
-          dashboard: "/d/{{ $labels.dashboard_uid }}"
-          runbook: "{{ $labels.runbook }}"
+          dashboard: "/d/ixora-http"
+          runbook: "/runbooks/application-http-high-latency.md"
           business_impact: "Degraded perceived performance across the mobile app and admin panel; not yet a hard failure."
           expected_action: "Open D-05 HTTP API, identify the slow route(s) and correlate with D-07 Infrastructure (VM load) and D-04 Queue Workers (contention)."

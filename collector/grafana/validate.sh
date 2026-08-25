@@ -2312,6 +2312,40 @@ else
   fail "stale metric/label reference found in: ${STALE_REFS}"
 fi
 
+# ── 104. No annotation templates a static rule label ──────────────
+#
+# Regression guard for a real Phase 9 bug, confirmed against a genuinely
+# firing alert (real OTLP data pushed through the actual Collector
+# pipeline, not a synthetic test): Grafana evaluates annotation
+# templates (`{{ $labels.X }}`) against the labels in the QUERY RESULT
+# only. Every Phase 9 rule aggregates with `sum(...)` (or references a
+# label-less recording rule), which strips all labels from the query
+# result — so `{{ $labels.dashboard_uid }}` / `{{ $labels.runbook }}`
+# rendered "[no value]" even though dashboard_uid/runbook ARE present as
+# static labels on the rule (query-result labels and the rule's own
+# static labels are different template contexts). Fixed by hardcoding
+# the literal dashboard/runbook path in each rule's annotations, the
+# same way summary/business_impact/expected_action already are.
+# alerting-strategy.md §3.3 has the full writeup and the live Mailtrap
+# proof (message timestamps matching the alert's Pending->Alerting
+# transition).
+
+echo ""
+echo "104. No alert rule annotation templates \$labels.dashboard_uid or \$labels.runbook"
+
+TEMPLATED_ANNOTATIONS=""
+for f in "${ALERTING_DIR}"/*.yaml; do
+  if grep -vE '^\s*#' "$f" | grep -qE '\{\{\s*\$labels\.(dashboard_uid|runbook)\s*\}\}'; then
+    TEMPLATED_ANNOTATIONS="${TEMPLATED_ANNOTATIONS} ${f}"
+  fi
+done
+
+if [ -z "${TEMPLATED_ANNOTATIONS}" ]; then
+  pass "dashboard/runbook annotations are literal strings, not \$labels templates"
+else
+  fail "annotation still templates a static rule label (always renders [no value]) in: ${TEMPLATED_ANNOTATIONS}"
+fi
+
 # ── Summary ───────────────────────────────────────────────────
 
 echo ""

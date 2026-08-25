@@ -66,7 +66,7 @@ groups:
         annotations:
           summary: "[warning] back_vibes-worker: Scheduler has zero successful dispatches"
           description: "No successful ixora_scheduler_event_total dispatches were recorded in the last 10 minutes. The scheduler loop may have stopped, or every dispatch attempt is failing."
-          dashboard: "/d/{{ $labels.dashboard_uid }}"
-          runbook: "{{ $labels.runbook }}"
+          dashboard: "/d/ixora-scheduler"
+          runbook: "/runbooks/application-scheduler-missed.md"
           business_impact: "Scheduled vibes (device automations) are not being dispatched — users relying on schedules see nothing execute."
           expected_action: "Open D-06 Scheduler, confirm the dispatch loop is idle (not just quiet), then check the queue worker process is alive (`docker ps` / App Platform worker logs)."

@@ -64,7 +64,7 @@ groups:
         annotations:
           summary: "[warning] back_vibes-worker: Push queue failure rate elevated"
           description: "The push queue (queue=push) job failure rate has been above 10% for 5+ minutes. This is queue-layer failure (job never completed), distinct from FCM-reported delivery failure (Business/Push, Phase 7B.5)."
-          dashboard: "/d/{{ $labels.dashboard_uid }}"
-          runbook: "{{ $labels.runbook }}"
+          dashboard: "/d/ixora-push"
+          runbook: "/runbooks/application-push-failure.md"
           business_impact: "Push notifications (smart-home alerts, schedule reminders) may not be reaching users' devices."
           expected_action: "Open D-03 Push Notifications, confirm whether failures are FCM-side or job-side, then check Loki for push job exception logs."

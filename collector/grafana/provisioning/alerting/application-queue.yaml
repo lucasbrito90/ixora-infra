@@ -64,7 +64,7 @@ groups:
         annotations:
           summary: "[warning] back_vibes-worker: Queue job failure rate elevated"
           description: "The share of queue jobs (smart-home, push, default) completing with outcome=failed has been above 5% for 5+ minutes."
-          dashboard: "/d/{{ $labels.dashboard_uid }}"
-          runbook: "{{ $labels.runbook }}"
+          dashboard: "/d/ixora-queue"
+          runbook: "/runbooks/application-queue-failure-rate.md"
           business_impact: "Background work (smart home dispatch, push notifications) is failing at an elevated rate; user-visible effects depend on which queue is affected."
           expected_action: "Open D-04 Queue Workers, break down failure rate by queue name, then check Loki for job exception logs in the same window."

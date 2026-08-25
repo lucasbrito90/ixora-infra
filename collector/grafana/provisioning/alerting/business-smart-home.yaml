@@ -64,7 +64,7 @@ groups:
         annotations:
           summary: "[critical] back_vibes-worker: Smart Home action failure rate elevated"
           description: "The Smart Home automation action failure rate has been above 20% for 5+ minutes. This is a product-facing failure — vibes are supposed to trigger real devices and are not."
-          dashboard: "/d/{{ $labels.dashboard_uid }}"
-          runbook: "{{ $labels.runbook }}"
+          dashboard: "/d/ixora-smart-home"
+          runbook: "/runbooks/business-smart-home-failure.md"
           business_impact: "Users' smart home devices are not responding to their scheduled/manual vibes at an elevated rate — the core automation promise is broken for affected users."
           expected_action: "Open D-02 Smart Home, break down failures by provider (Home Assistant), then check whether it is a provider-wide outage or isolated to specific devices/users."
