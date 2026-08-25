@@ -113,27 +113,31 @@ All recording rules reference metrics from the existing instrumentation inventor
 
 ```
 collector/prometheus/
-├── prometheus.yml                          ← rule_files commented out (Phase 9 activation)
+├── prometheus.yml                          ← rule_files active (Phase 8.9)
 └── rules/
-    └── recording/
-        ├── application.rules.yml           ← HTTP, Queue, Scheduler (Phase 8.9 placeholder)
-        ├── business.rules.yml              ← Smart Home, Push (Phase 8.9 placeholder)
-        ├── infrastructure.rules.yml        ← Collector, Prometheus (Phase 8.9 placeholder)
-        └── slo.rules.yml                   ← SLI aggregates, error budget (Phase 8.9 placeholder)
+    ├── recording/
+    │   ├── application.rules.yml           ← HTTP, Queue, Scheduler (Phase 8.9 — active)
+    │   ├── business.rules.yml              ← Smart Home, Push (Phase 8.9 — active)
+    │   ├── infrastructure.rules.yml        ← Collector, Prometheus (Phase 8.9 — active)
+    │   └── slo.rules.yml                   ← SLI aggregates, error budget (Phase 8.9 — active)
+    └── alerting/
+        └── slo.alerts.yml                  ← 12 multi-window burn-rate alerts (Phase 8.9 — active)
 ```
 
-### 3.2 Activation checklist (Phase 9)
+### 3.2 Activation checklist (completed in Phase 8.9)
 
-| Step | Action |
-| --- | --- |
-| 1 | Uncomment `rule_files` block in `prometheus.yml` |
-| 2 | Add volume mount in `docker-compose.yml`: `./prometheus/rules:/etc/prometheus/rules:ro` |
-| 3 | Uncomment recording rules in `.rules.yml` files |
-| 4 | Restart or reload Prometheus: `POST /-/reload` |
-| 5 | Verify: `curl http://localhost:9090/api/v1/rules?type=record` |
-| 6 | Compare recording rule output vs raw PromQL for 24 h |
-| 7 | Migrate dashboard panels to consume recording rules |
-| 8 | Update alert rules to consume recording rules |
+This checklist was executed as part of the Phase 8.9 implementation (branch `feature/observability-slo-error-budget`) — kept here as a record, not as pending work.
+
+| Step | Action | Status |
+| --- | --- | --- |
+| 1 | Uncomment `rule_files` block in `prometheus.yml` | Done |
+| 2 | Add volume mount in `docker-compose.yml`: `./prometheus/rules:/etc/prometheus/rules:ro` | Done |
+| 3 | Activate recording rules in `.rules.yml` files | Done |
+| 4 | Restart or reload Prometheus: `POST /-/reload` | Done |
+| 5 | Verify: `curl http://localhost:9090/api/v1/rules?type=record` | Done — confirmed live on staging, all groups `health: ok` |
+| 6 | Compare recording rule output vs raw PromQL for 24 h | Done |
+| 7 | Migrate dashboard panels to consume recording rules | **Deferred** — D-01–D-07 still use raw PromQL, see §10 |
+| 8 | Update alert rules to consume recording rules | Done for SLO burn-rate alerts (`slo.alerts.yml`); general alerting-foundation.md alerts still deferred, see §11 |
 
 ### 3.3 Rule file organization
 
@@ -148,7 +152,7 @@ collector/prometheus/
 
 ## 4. Recording Rule Catalog
 
-### 4.1 Active catalog (Phase 8.9 — reserved, not deployed)
+### 4.1 Active catalog (Phase 8.9 — deployed and active in staging)
 
 | ID | Recording rule name | Category | Source expression summary | Consumers | Phase |
 | --- | --- | --- | --- | --- | --- |
@@ -543,7 +547,7 @@ Alert rules (Phase 9) should consume recording rules instead of raw PromQL ([ale
 1. **Recording rules are the single source of truth** for shared metric computations.
 2. **Alert rules compare pre-computed values to thresholds** — no nested PromQL.
 3. **Dashboard and alert show identical values** — no formula drift.
-4. **SLO burn rate alerts (Phase 11) consume SLO recording rules** — not raw metrics.
+4. **SLO burn rate alerts (Phase 8.9, active) consume SLO recording rules** — not raw metrics. This is already implemented in `alerting/slo.alerts.yml` (12 alerts). Only the *general* alerting-foundation.md operational alerts (HTTP Elevated Error Rate, Queue Failure Rate, etc. — §11.1 above) remain on raw PromQL, pending Phase 9.
 
 ---
 
