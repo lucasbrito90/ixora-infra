@@ -54,7 +54,7 @@ groups:
         execErrState: Error
         for: 5m
         labels:
-          environment: "{{ $labels.environment }}"
+          environment: staging
           severity: critical
           service: back_vibes-worker
           team: product

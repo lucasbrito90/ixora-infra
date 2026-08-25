@@ -56,7 +56,7 @@ groups:
         execErrState: Error
         for: 10m
         labels:
-          environment: "{{ $labels.environment }}"
+          environment: staging
           severity: warning
           service: back_vibes-worker
           team: backend
@@ -65,7 +65,7 @@ groups:
           runbook: /runbooks/application-scheduler-missed.md
         annotations:
           summary: "[warning] back_vibes-worker: Scheduler has zero successful dispatches"
-          description: "No successful ixora_scheduler_execution_total dispatches were recorded in the last 10 minutes. The scheduler loop may have stopped, or every dispatch attempt is failing."
+          description: "No successful ixora_scheduler_event_total dispatches were recorded in the last 10 minutes. The scheduler loop may have stopped, or every dispatch attempt is failing."
           dashboard: "/d/{{ $labels.dashboard_uid }}"
           runbook: "{{ $labels.runbook }}"
           business_impact: "Scheduled vibes (device automations) are not being dispatched — users relying on schedules see nothing execute."

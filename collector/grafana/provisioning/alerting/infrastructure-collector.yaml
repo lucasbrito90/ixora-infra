@@ -58,7 +58,7 @@ groups:
         execErrState: Error
         for: 2m
         labels:
-          environment: "{{ $labels.environment }}"
+          environment: staging
           severity: emergency
           service: ixora-collector
           team: sre
