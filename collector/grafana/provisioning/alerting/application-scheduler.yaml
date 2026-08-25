@@ -26,7 +26,12 @@ groups:
               to: 0
             datasourceUid: ixora-prometheus
             model:
-              expr: sum(rate(ixora_scheduler_execution_total{outcome="success"}[10m]))
+              # Real metric is ixora.scheduler.event.total →
+              # ixora_scheduler_event_total (SchedulerExecutionTelemetry.php
+              # METRIC_EVENT_TOTAL). ixora_scheduler_execution_total, used in
+              # alerting-foundation.md's Phase 9 planning table, does not
+              # exist in the actual instrumentation.
+              expr: sum(rate(ixora_scheduler_event_total{outcome="success"}[10m]))
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A

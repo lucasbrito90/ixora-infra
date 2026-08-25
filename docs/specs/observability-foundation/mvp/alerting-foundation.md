@@ -118,6 +118,10 @@ collector/grafana/provisioning/
 
 ### 3.2 Grafana alerting provisioning specification
 
+> **Phase 9 correction:** the "Important" note below — that contact points, policies, mute timings, and templates are provisioned from their own dedicated sibling directories — was not verified against real Grafana behavior when written and turned out to be wrong. Empirically (Phase 9 local testing), Grafana only scans the single `alerting/` directory; files left in the sibling directories are silently never loaded. See [alerting-strategy.md §2.1](alerting-strategy.md#21-correction-where-these-files-actually-have-to-live) for the verified behavior and the resulting file layout. This note is left in place rather than rewriting the section below, per this repo's practice of correcting frozen specs via a pointer instead of editing history.
+
+
+
 Grafana 11 supports provisioning all alerting resources as YAML files. Reference: [Grafana provisioning documentation](https://grafana.com/docs/grafana/latest/administration/provisioning/).
 
 | Resource type | File location | Grafana API path |

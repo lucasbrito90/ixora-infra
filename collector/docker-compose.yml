@@ -479,10 +479,15 @@ services:
       GF_SMTP_FROM_ADDRESS: "${GF_SMTP_FROM_ADDRESS:-alerts@ixora-app.app}"
       GF_SMTP_FROM_NAME: "${GF_SMTP_FROM_NAME:-Ixora Alerting}"
       GF_SMTP_SKIP_VERIFY: "${GF_SMTP_SKIP_VERIFY:-false}"
-      # Email receiver address for the ixora-email-critical contact
-      # point (collector/grafana/provisioning/contact-points/contact-points.yaml).
+      # Email receiver address for the ixora-email-critical contact point
+      # (collector/grafana/provisioning/alerting/contact-points.yaml).
       # Consumed via $__env{} provisioning-file expansion, not by Grafana core.
-      ALERT_EMAIL_ADDRESS: "${ALERT_EMAIL_ADDRESS:-}"
+      # MUST NOT be empty: Grafana's alerting provisioning rejects an empty
+      # `addresses` field and fails to start (crash-loops the whole
+      # container, not just alerting — verified in Phase 9 testing). The
+      # placeholder default keeps Grafana up when the operator has not yet
+      # set a real address; email delivery itself stays inert until they do.
+      ALERT_EMAIL_ADDRESS: "${ALERT_EMAIL_ADDRESS:-alerts-not-configured@ixora-app.app}"
 
     volumes:
       # Persistent Grafana data (SQLite DB, sessions, alert state).

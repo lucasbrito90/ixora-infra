@@ -26,10 +26,14 @@ groups:
               to: 0
             datasourceUid: ixora-prometheus
             model:
+              # ixora_http_server_request_total carries an `outcome` label
+              # (success|client_error|server_error|cancelled|unknown) set by
+              # HttpOutcome::fromStatusCode() — there is no http_status_code
+              # label on this metric (HttpRequestTelemetry.php `record()`).
               expr: >-
-                sum(rate(ixora_http_server_duration_count{http_status_code=~"5.."}[5m]))
+                sum(rate(ixora_http_server_request_total{outcome="server_error"}[5m]))
                 /
-                sum(rate(ixora_http_server_duration_count[5m]))
+                sum(rate(ixora_http_server_request_total[5m]))
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A

@@ -26,7 +26,14 @@ groups:
               to: 0
             datasourceUid: ixora-prometheus
             model:
-              expr: sum(rate(ixora_telemetry_export_failed_total[5m]))
+              # Uses the existing Phase 8.9 recording rule (REC-017,
+              # collector/prometheus/rules/recording/infrastructure.rules.yml)
+              # rather than `ixora_telemetry_export_failed_total` — that raw
+              # metric is documented as an optional, never-instrumented SDK
+              # counter (telemetry-availability-policy.md §3) and does not
+              # exist in back_vibes. REC-017 is the real, populated signal:
+              # the Collector's own OTLP export failure ratio to its backends.
+              expr: ixora:collector:export_failure_rate:5m
               intervalMs: 1000
               maxDataPoints: 43200
               refId: A
@@ -46,7 +53,7 @@ groups:
               conditions:
                 - evaluator:
                     type: gt
-                    params: [0]
+                    params: [0.9]
         noDataState: NoData
         execErrState: Error
         for: 2m

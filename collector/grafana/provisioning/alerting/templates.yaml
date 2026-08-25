@@ -9,8 +9,25 @@
 # point (contact-points.yaml `message` setting). ixora-alert-title and
 # ixora-alert-resolved remain available for a future Slack receiver.
 #
-# TEMPLATE LANGUAGE: Go templates with Grafana alerting template functions.
-# Reference: https://grafana.com/docs/grafana/latest/alerting/manage-notifications/template-notifications/
+# TEMPLATE LANGUAGE: Go templates, restricted to the function set Grafana's
+# notification template engine actually registers (see
+# https://grafana.com/docs/grafana/latest/alerting/alerting-rules/templates-examples/reference/
+# for the ground truth — do not assume Sprig/text-template stdlib functions
+# are available). Verified the hard way in Phase 9 local testing: `first`
+# (piping `.Alerts.Firing | first`) is NOT registered and makes Grafana's
+# provisioning validator reject the whole file with a generic
+# "invalid format of the submitted template" error — no line number, no
+# indication which function was the problem. An earlier draft of this file
+# used `.Alerts.Firing | first` + `formatDate` for a "Firing since" line;
+# it silently crash-looped the entire Grafana container on provisioning
+# (contact-points.yaml's `ixora-email-critical` receiver references
+# "ixora-alert-body" in its `message` field, so a broken body template
+# takes the receiver down too). Dropped rather than fixed — Grafana's own
+# email notification already carries a firing timestamp, so the line was
+# redundant. If you need per-alert timing in the body again, use
+# `{{ range .Alerts.Firing }}...{{ .StartsAt }}...{{ end }}` and test with
+# a real `docker compose up grafana` cycle before trusting it, since this
+# validator gives no useful diagnostic to iterate from on its own.
 #
 # ADR-030 COMPLIANCE:
 #   - Templates must never render PII from labels or annotations.
@@ -57,8 +74,6 @@ templates:
       {{ if .CommonAnnotations.expected_action -}}
       *Expected Action:* {{ .CommonAnnotations.expected_action }}
       {{ end -}}
-
-      *Firing since:* {{ (.Alerts.Firing | first).StartsAt | formatDate "2006-01-02 15:04:05 UTC" }}
       {{- end }}
 
   # Resolved notification template
@@ -67,7 +82,7 @@ templates:
     name: ixora-alert-resolved
     template: |
       {{ define "ixora-alert-resolved" -}}
-      ✅ *RESOLVED* — {{ index .CommonLabels "alertname" }}
+      RESOLVED — {{ index .CommonLabels "alertname" }}
       *Service:* {{ .CommonLabels.service }}
       *Environment:* {{ .CommonLabels.environment }}
       *Summary:* {{ .CommonAnnotations.summary }}
