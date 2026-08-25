@@ -21,6 +21,7 @@
 | Change staging infra or deploy | [Infrastructure](#5-infrastructure) · [Operations](#6-operations) · [Quality & testing](#7-quality--testing) |
 | Understand a past decision | [ADRs](#4-architecture-decision-records-adrs) |
 | Know what we deliberately did **not** build | [Intentionally not implemented](#intentionally-not-implemented) |
+| See what's done vs. still open across the whole platform | [Consolidated roadmap (2026-08-16)](roadmap/ixora-roadmap-2026-08-16.md) — cross-repo task/phase tracking, kept current on Trello |
 
 ---
 
