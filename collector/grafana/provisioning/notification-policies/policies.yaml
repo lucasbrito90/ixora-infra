@@ -1,36 +1,27 @@
 # ============================================================
 # Ixora Observability Platform — Notification Policies
-# Phase 8.8 — Alerting Foundation (placeholder)
+# Phase 9 — Alerting Strategy
 #
 # This file provisions the Grafana alerting routing tree.
 # It controls which alerts go to which contact points,
 # and how they are grouped and deduplicated.
 #
-# STATUS: PLACEHOLDER — routes all alerts to ixora-default (UI only).
-# Phase 9 will define severity-based routing to Slack/email.
+# STATUS: Severity-based routing active.
+#   - critical/emergency → ixora-email-critical (pages, short repeat)
+#   - info/warning       → ixora-default (Grafana UI email, long repeat)
 #
-# ROUTING DESIGN (Phase 9):
+# `for` durations per severity are set on each alert rule
+# (alerting-philosophy.md §14.3); group_wait/group_interval/
+# repeat_interval below control notification pacing, not firing.
 #
-#   Root policy (catch-all → ixora-default)
-#   ├── severity=emergency → ixora-email-emergency + ixora-slack-critical
-#   ├── severity=critical  → ixora-slack-critical
-#   │     group_by: [service, environment]
-#   │     group_wait: 30s
-#   │     group_interval: 5m
-#   │     repeat_interval: 1h
-#   ├── severity=warning   → ixora-slack-warnings
-#   │     group_by: [category, environment]
-#   │     group_wait: 2m
-#   │     group_interval: 15m
-#   │     repeat_interval: 4h
-#   └── severity=info      → ixora-default (Grafana UI only)
-#
-# INHIBITION RULES (Phase 9):
-#   - Collector Down (emergency) → suppress all application/business alerts
-#   - Prometheus Down (critical) → suppress all metric-based alerts
+# Inhibition rules (Collector-down suppressing downstream alerts) are
+# NOT expressible in Grafana OSS's provisioning policy schema — that is
+# an Alertmanager-native `inhibit_rules` concept the embedded Grafana
+# Alertmanager does not currently provision this way. Deferred; tracked
+# as a Phase 10 tuning item (alerting-philosophy.md §17.3, §Level 2).
 #
 # STRUCTURE REFERENCE: alerting-foundation.md §6
-# PHILOSOPHY REFERENCE: alerting-philosophy.md §17
+# PHILOSOPHY REFERENCE: alerting-philosophy.md §13, §17, §18
 # ============================================================
 
 apiVersion: 1
@@ -44,20 +35,42 @@ policies:
     group_wait: 30s
     group_interval: 5m
     repeat_interval: 4h
-    # Phase 9: add severity-based sub-routes below
-    # routes:
-    #   - receiver: ixora-slack-critical
-    #     matchers:
-    #       - severity =~ "critical|emergency"
-    #     group_by: [service, environment]
-    #     group_wait: 30s
-    #     group_interval: 5m
-    #     repeat_interval: 1h
-    #
-    #   - receiver: ixora-slack-warnings
-    #     matchers:
-    #       - severity = warning
-    #     group_by: [category, environment]
-    #     group_wait: 2m
-    #     group_interval: 15m
-    #     repeat_interval: 4h
+
+    routes:
+      # Critical + Emergency — page via email, fast repeat.
+      # alerting-philosophy.md §18: critical escalates to tech lead
+      # after 30 min unresolved; emergency after 15 min. Escalation
+      # itself is a manual/on-call-tool concern, not expressed here.
+      - receiver: ixora-email-critical
+        matchers:
+          - severity =~ "critical|emergency"
+        group_by:
+          - service
+          - environment
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 1h
+        continue: false
+
+      # Warning — Grafana UI email, slower repeat.
+      - receiver: ixora-default
+        matchers:
+          - severity = warning
+        group_by:
+          - category
+          - environment
+        group_wait: 2m
+        group_interval: 15m
+        repeat_interval: 4h
+        continue: false
+
+      # Info — Grafana UI email, daily digest cadence.
+      - receiver: ixora-default
+        matchers:
+          - severity = info
+        group_by:
+          - category
+        group_wait: 5m
+        group_interval: 15m
+        repeat_interval: 24h
+        continue: false

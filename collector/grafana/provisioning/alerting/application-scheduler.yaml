@@ -1,0 +1,67 @@
+# ============================================================
+# Ixora Observability Platform — Alert Rules
+# Phase 9 — Alerting Strategy
+# Category: Application — Scheduler
+#
+# ADR-030: No PII in labels or annotations.
+# alerting-philosophy.md: read before adding rules.
+# alerting-foundation.md §4.4, §11: category and severity reference.
+# ============================================================
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Application — Scheduler
+    folder: Ixora Alerting
+    interval: 1m
+    rules:
+      - uid: ixora-alert-scheduler-missed
+        title: "Application / Scheduler — Missed Executions"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: ixora-prometheus
+            model:
+              expr: sum(rate(ixora_scheduler_execution_total{outcome="success"}[10m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [0.0001]
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        labels:
+          environment: "{{ $labels.environment }}"
+          severity: warning
+          service: back_vibes-worker
+          team: backend
+          category: application
+          dashboard_uid: ixora-scheduler
+          runbook: /runbooks/application-scheduler-missed.md
+        annotations:
+          summary: "[warning] back_vibes-worker: Scheduler has zero successful dispatches"
+          description: "No successful ixora_scheduler_execution_total dispatches were recorded in the last 10 minutes. The scheduler loop may have stopped, or every dispatch attempt is failing."
+          dashboard: "/d/{{ $labels.dashboard_uid }}"
+          runbook: "{{ $labels.runbook }}"
+          business_impact: "Scheduled vibes (device automations) are not being dispatched — users relying on schedules see nothing execute."
+          expected_action: "Open D-06 Scheduler, confirm the dispatch loop is idle (not just quiet), then check the queue worker process is alive (`docker ps` / App Platform worker logs)."

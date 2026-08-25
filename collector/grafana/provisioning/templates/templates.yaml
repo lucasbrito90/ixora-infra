@@ -1,12 +1,13 @@
 # ============================================================
 # Ixora Observability Platform — Notification Templates
-# Phase 8.8 — Alerting Foundation (placeholder)
+# Phase 9 — Alerting Strategy
 #
 # This file provisions reusable Go template definitions for
 # Grafana alert notification messages.
 #
-# STATUS: PLACEHOLDER — templates defined but not applied to any receivers.
-# Phase 9 will wire templates to contact points.
+# STATUS: ixora-alert-body is wired to the ixora-email-critical contact
+# point (contact-points.yaml `message` setting). ixora-alert-title and
+# ixora-alert-resolved remain available for a future Slack receiver.
 #
 # TEMPLATE LANGUAGE: Go templates with Grafana alerting template functions.
 # Reference: https://grafana.com/docs/grafana/latest/alerting/manage-notifications/template-notifications/

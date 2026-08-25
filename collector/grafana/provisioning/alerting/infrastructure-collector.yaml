@@ -1,0 +1,67 @@
+# ============================================================
+# Ixora Observability Platform — Alert Rules
+# Phase 9 — Alerting Strategy
+# Category: Infrastructure — Collector
+#
+# ADR-030: No PII in labels or annotations.
+# alerting-philosophy.md: read before adding rules.
+# alerting-foundation.md §4.1, §11: category and severity reference.
+# ============================================================
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Infrastructure — Collector
+    folder: Ixora Alerting
+    interval: 1m
+    rules:
+      - uid: ixora-alert-collector-down
+        title: "Infrastructure / Collector — Collector Down"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: ixora-prometheus
+            model:
+              expr: sum(rate(ixora_telemetry_export_failed_total[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        labels:
+          environment: "{{ $labels.environment }}"
+          severity: emergency
+          service: ixora-collector
+          team: sre
+          category: infrastructure
+          dashboard_uid: ixora-collector
+          runbook: /runbooks/infrastructure-collector-down.md
+        annotations:
+          summary: "[emergency] ixora-collector: Telemetry export failing"
+          description: "The Collector is failing to export telemetry (metrics/logs/traces) to the observability backends. All downstream alerts may become unreliable — data gaps produce false NoData/Resolved states. Confirm on D-07 before assuming a wider outage."
+          dashboard: "/d/{{ $labels.dashboard_uid }}"
+          runbook: "{{ $labels.runbook }}"
+          business_impact: "Loss of observability across the entire platform — incidents may go undetected while this fires."
+          expected_action: "SSH to the observability VM, check `docker logs ixora-collector`, confirm the Collector process is running and its export pipeline is not backpressured."

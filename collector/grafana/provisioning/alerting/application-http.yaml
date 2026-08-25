@@ -1,0 +1,120 @@
+# ============================================================
+# Ixora Observability Platform — Alert Rules
+# Phase 9 — Alerting Strategy
+# Category: Application — HTTP API
+#
+# ADR-030: No PII in labels or annotations.
+# alerting-philosophy.md: read before adding rules.
+# alerting-foundation.md §4.2, §11: category and severity reference.
+# ============================================================
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Application — HTTP API
+    folder: Ixora Alerting
+    interval: 1m
+    rules:
+      - uid: ixora-alert-http-error-rate
+        title: "Application / HTTP API — Elevated Error Rate"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: ixora-prometheus
+            model:
+              expr: >-
+                sum(rate(ixora_http_server_duration_count{http_status_code=~"5.."}[5m]))
+                /
+                sum(rate(ixora_http_server_duration_count[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.01]
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        labels:
+          environment: "{{ $labels.environment }}"
+          severity: critical
+          service: back_vibes-api
+          team: backend
+          category: application
+          dashboard_uid: ixora-http
+          runbook: /runbooks/application-http-error-rate.md
+        annotations:
+          summary: "[critical] back_vibes-api: HTTP 5xx error rate elevated"
+          description: "The share of HTTP requests returning 5xx has been above 1% for 5+ minutes. This is a RED-method error signal — users are actively receiving failed responses."
+          dashboard: "/d/{{ $labels.dashboard_uid }}"
+          runbook: "{{ $labels.runbook }}"
+          business_impact: "A subset of API requests are failing; mobile app (front_vibes) and admin panel (ixora-admin) actions may be erroring for users."
+          expected_action: "Open D-05 HTTP API, identify the failing route(s), then check Tempo for failing traces and Loki for error logs in the same window."
+
+      - uid: ixora-alert-http-high-latency
+        title: "Application / HTTP API — High Latency"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: ixora-prometheus
+            model:
+              expr: histogram_quantile(0.95, sum(rate(ixora_http_server_duration_bucket[5m])) by (le))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [2000]
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        labels:
+          environment: "{{ $labels.environment }}"
+          severity: warning
+          service: back_vibes-api
+          team: backend
+          category: application
+          dashboard_uid: ixora-http
+          runbook: /runbooks/application-http-high-latency.md
+        annotations:
+          summary: "[warning] back_vibes-api: HTTP p95 latency elevated"
+          description: "P95 request duration has been above 2s for 5+ minutes. Requests are still succeeding but users are experiencing slow responses."
+          dashboard: "/d/{{ $labels.dashboard_uid }}"
+          runbook: "{{ $labels.runbook }}"
+          business_impact: "Degraded perceived performance across the mobile app and admin panel; not yet a hard failure."
+          expected_action: "Open D-05 HTTP API, identify the slow route(s) and correlate with D-07 Infrastructure (VM load) and D-04 Queue Workers (contention)."
