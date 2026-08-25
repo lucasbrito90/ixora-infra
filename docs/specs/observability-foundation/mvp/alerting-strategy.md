@@ -157,7 +157,7 @@ Done locally against `collector/docker-compose.yml`'s `prometheus`, `loki`, `tem
 | KL-S-1 | Thresholds are not yet baselined against real staging traffic | Possible false positives/negatives until tuned | Phase 10 — Level 2 tuning, per alerting-philosophy.md §15 |
 | KL-S-2 | No inhibition rules — a Collector outage can still page for every downstream alert | Alert fatigue risk during a Collector incident | Manual discipline for now: alerting-philosophy.md §26 step 3 already directs "check D-07 first"; automate in Phase 10 |
 | KL-S-3 | Single email receiver for all critical/emergency alerts (no per-team routing) | Fine for single-operator staging; will not scale to a real team | Add Slack/PagerDuty receivers when a team exists |
-| ~~KL-S-4~~ | ~~Email delivery unverified~~ | Resolved — confirmed against a real Mailtrap sandbox (§5). Staging still needs its own real SMTP relay (Mailtrap is a local/dev sandbox that never delivers to a real inbox) and its own `ALERT_EMAIL_ADDRESS` set in the host's `collector/.env` before this is live in production | Operator sets real staging SMTP + address per §2 when ready to go live |
+| ~~KL-S-4~~ | ~~Email delivery unverified~~ | Resolved and **deployed to the real staging host** (§7) — `GF_SMTP_ENABLED=true` + Mailtrap credentials are live in `/opt/ixora-observability/collector/.env` on `137.184.163.187`, verified via a real test notification captured in the Mailtrap API. Mailtrap remains a sandbox, though: mail never reaches a real inbox, only the operator's Mailtrap dashboard | A real SMTP relay (not Mailtrap) is still the eventual target for this to page a human through their actual inbox — swap `GF_SMTP_HOST`/`GF_SMTP_USER`/`GF_SMTP_PASSWORD`/`ALERT_EMAIL_ADDRESS` in the host's `.env` and restart `grafana` when ready |
 | KL-S-5 | `mute-timings.yaml`'s `weekly-maintenance-window` is defined but not yet attached to any route | No suppression happens automatically during the window | Attach via Grafana UI (documented in the file's header) or extend `notification-policies.yaml` schema support |
 | KL-S-6 | `alerting-foundation.md` §3.2 documents contact points/policies/mute-timings/templates as living in their own sibling directories under `provisioning/` | Following that doc literally produces files Grafana never reads, with no error — a silent no-op that looks correct until an alert fails to notify anyone | Resolved — corrected in this document (§2.1) and guarded by `validate.sh` check 99; the frozen Phase 8.8 doc is left as-is per this document's stated policy, with a pointer added at the top of its §3.2 |
 | KL-S-7 | Grafana's notification-template provisioning validator rejects unsupported template functions (e.g. `first`) with a single generic, line-number-free error for the whole file, and that failure crash-loops the container if any contact point's `message` references the broken template | A future template edit that uses an unsupported function is easy to ship and hard to diagnose from logs alone | Documented directly in `templates.yaml`'s header; any future template change must be smoke-tested with a real `docker compose up grafana` cycle, not just YAML-lint, before merging |
@@ -166,7 +166,45 @@ Done locally against `collector/docker-compose.yml`'s `prometheus`, `loki`, `tem
 
 ---
 
-## 7. Related documents
+## 7. Real staging rollout (2026-08-25)
+
+Everything above was validated locally first (§5). This section records deploying the same artifacts to the actual observability host, `137.184.163.187` (`ixora-observability-staging`, `grafana-staging.ixora-app.app`), and what happened on contact with a real, long-running deployment.
+
+### 7.1 Deploy
+
+`./scripts/deploy-observability.sh --host 137.184.163.187 --user root` — rsyncs `collector/` and `scripts/` (never `.env`), then runs the same preflight/validate/health-check sequence locally over SSH. Result: 30/30 checks passed, all 5 containers healthy, `grafana` recreated cleanly (no crash-loop — confirms the fixes in §2 hold on a real host, not just the local test stack).
+
+**Two gaps found on this first real deploy, both fixed:**
+
+- **Stale Phase 8.8 placeholder files.** rsync has no `--delete` flag in this script, so the old `contact-points.yaml`/`policies.yaml`/`mute-timings.yaml`/`templates.yaml` in the sibling directories (superseded by §2.1's move into `alerting/`) were still sitting on the host from the original Phase 8.8.5 deploy. Harmless (Grafana never read them either way) but confusing, and `validate.sh` check 99 correctly flagged it. Removed by hand over SSH; the repo itself only ever had the `README.md` pointers there, so nothing to fix in git.
+- **`docs/runbooks/` was never deployed at all.** `deploy-observability.sh` only ever rsynced `collector/` and `scripts/` — `validate.sh` checks 96/102 and every alert rule's `runbook` annotation expect `${DEPLOY_PATH}/docs/runbooks/`, which simply didn't exist on the host. Fixed properly in the script (not just worked around on the host) — see `feature/observability-deploy-sync-runbooks`, merged and re-deployed; confirmed the second deploy synced runbooks automatically.
+
+`validate.sh` on the real host: **checks 99–104 (Phase 9's own) all pass.** The remaining ~20 failures (checks 63–90) are pre-existing and unrelated to Phase 9 — they expect the full `docs/`/`opentofu/` tree on the host, which this deploy script deliberately never syncs (scope was always just `collector/` + `scripts/`, now plus `docs/runbooks/`). Not addressed here — out of scope for this phase.
+
+### 7.2 SMTP activated on the real host
+
+Same Mailtrap sandbox credentials used for local testing (§5), appended to the real host's `collector/.env` (chmod 600, `.env` untouched by the deploy script itself — added over SSH separately), `grafana` restarted. Verified with the same test-notification API call as §5, this time against `137.184.163.187` directly: HTTP 200, `status: ok`, and the Mailtrap API confirmed the message actually arrived (id `5663494648`, `07:00:46Z`). See KL-S-4.
+
+### 7.3 Real traffic reality check — and a temporary silence
+
+All 7 rules came up on the real host in `health: nodata` — real staging currently has no traffic hitting `ixora_smart_home_action_total`, `ixora_http_server_request_total`, etc. in the windows these rules query. Left alone, each rule's `DatasourceNoData` synthetic alert would page on its severity's `repeat_interval` (1h for critical/emergency, 4h for warning) indefinitely, which is pure noise, not a real Level 1 signal (alerting-philosophy.md §16 alert fatigue).
+
+Created a scoped Grafana silence (`POST /api/alertmanager/grafana/api/v2/silences`) matching `alertname=DatasourceNoData` AND `grafana_folder=Ixora Alerting` — this suppresses only the no-traffic noise; a **genuine** firing alert (which carries the rule's own title as `alertname`, not `DatasourceNoData`) is unaffected and would still page normally. Confirmed all 7 current `DatasourceNoData` instances show `status.state: suppressed` with this silence's ID.
+
+- **Silence ID:** `61a92621-c500-4119-b4b0-cf07e6255a7a`
+- **Scope:** `alertname=DatasourceNoData`, `grafana_folder=Ixora Alerting` (all 7 Phase 9 rules, NoData state only)
+- **Window:** 2026-08-25 → 2026-09-08 (14 days)
+- **Before it expires:** either real staging traffic exists by then and the rules naturally leave `NoData`, or the silence needs a deliberate decision — extend it, or accept the NoData paging as a signal that the corresponding feature genuinely isn't exercised on staging and the rule/threshold needs rethinking (not something to silence forever without revisiting, per the retirement-strategy guidance in alerting-philosophy.md §21).
+
+### 7.4 What's still not done
+
+- Real SMTP relay (not Mailtrap) for staging to page an actual human inbox.
+- Threshold baselining against real traffic (KL-S-1) — moot until traffic exists to baseline against.
+- The remaining ~6 rules' real-data end-to-end proof (KL-S-8) — only Smart Home was exercised this way, locally, before this deploy.
+
+---
+
+## 8. Related documents
 
 | Document | Relationship |
 | --- | --- |
