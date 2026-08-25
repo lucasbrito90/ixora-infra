@@ -1107,6 +1107,8 @@
 
 **Branch:** `feature/observability-alerting-strategy`
 
+**Real staging rollout (2026-08-25, `feature/observability-deploy-sync-runbooks` + `feature/observability-alerting-staging-rollout`):** deployed to the real observability host (`137.184.163.187`) via `deploy-observability.sh` — 30/30 deploy checks passed, `validate.sh` 99–104 (Phase 9's own) pass on the host. Found and fixed a real gap: the deploy script never synced `docs/runbooks/`, so every alert rule's `runbook` link and `validate.sh` checks 96/102 pointed at files that didn't exist on the host — fixed in the script, not just worked around. SMTP activated on the real host (Mailtrap sandbox, same as local testing) and verified via a real test notification captured in the Mailtrap API. All 7 rules came up `NoData` (no matching real staging traffic yet) — created a 14-day scoped Grafana silence (`alertname=DatasourceNoData` + `grafana_folder=Ixora Alerting`) so this doesn't page on pure absence-of-traffic noise while leaving genuine firing alerts unaffected. Full detail: `alerting-strategy.md` §7.
+
 ---
 
 ## Phase 8.8.5 — Observability Infrastructure Provisioning
