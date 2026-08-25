@@ -936,6 +936,10 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
+**Phase 7B.6 — External Providers Instrumentation — Complete (2026-08-24/25).** New `push.provider` span (`App\Telemetry\PushNotifications\PushProviderTelemetry`) wraps `FcmPushProvider::send()` in full — previously zero business telemetry beyond ad-hoc log lines. `App\Telemetry\SmartHome\SmartHomeProviderTelemetry::wrap()` generalized to a nullable device domain and extended to `HomeAssistantAdapter::listDevices()`, `readStatus()`, and `testConnection()` — explicitly deferred by Phase 7B.4.4 to "later phases." No new metrics; existing `ixora.push.delivery.total` and Smart Home business metrics already cover outcome. Lean process (like Phase 7B.5), no new `ixora-infra` boundary-spec docs. Full `back_vibes` suite green (1037/1037). Live-validated in staging: dispatched a real push notification, confirmed the `push.provider` span in the real staging Tempo via the Grafana MCP, correctly nested ahead of the two auto-instrumented OAuth/FCM `POST` client spans. Home Assistant coverage validated via tests only (no reachable real HA instance in staging). Full detail: `tasks.md` Phase 7B.6.
+
+---
+
 #### Phase 8.8.5 — Observability Infrastructure Provisioning — **Complete (IaC)**
 
 **Goal:** Provision a dedicated DigitalOcean Droplet to run the existing `collector/docker-compose.yml` stack. OpenTofu provisions infrastructure only; Docker Compose remains the runtime source of truth.
