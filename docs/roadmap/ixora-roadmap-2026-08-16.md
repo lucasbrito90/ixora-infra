@@ -114,7 +114,7 @@ A Observability Foundation evoluiu de especificações e ADRs para infraestrutur
 | 8.8.6 | Observability Infrastructure Hardening | Concluída | **9/9 - 100%** |
 | 8.8.8 | Backend OTLP Log Export | Concluída e validada em staging | **100%** |
 | 8.9 | SLO / Error Budget | Concluída nas fontes mais recentes | **100%** |
-| 9 | Alerting Strategy | Não iniciada no roadmap atual | **0%** |
+| 9 | Alerting Strategy | Nível 1 implementado e testado localmente; ativação em staging real pendente | **104/104 checks — Nível 1 completo** |
 | 9.5 | Incident Response & Runbooks | Não iniciada no roadmap atual | **0%** |
 | 10 | Performance Validation & Load Testing | Não iniciada | **0%** |
 | 11 | Production Readiness Review | Não iniciada | **0%** |
@@ -710,10 +710,18 @@ Itens explicitamente deferred nessa documentação incluem SLO dedicado de Push,
 
 ## Phase 9 - Alerting Strategy
 
-**Status:** Não iniciada  
-**Progresso:** **0%**
+**Status:** Nível 1 (alerting-philosophy.md §15) implementado e validado localmente ponta a ponta; ativação em staging real pendente de um passo manual do operador  
+**Progresso:** **104/104 checks de validate.sh — escopo do Nível 1 completo**
 
-Descrição registrada no roadmap atual: evolução da foundation de alerting para a estratégia operacional de alertas. Este documento não acrescenta thresholds, canais ou políticas que não tenham sido formalmente definidos como parte dessa fase.
+Evolução da foundation de alerting (Phase 8.8) para a estratégia operacional real: contact points reais (email via SMTP), árvore de roteamento por severidade, mute timing semanal, e as 7 primeiras regras de alerta de threshold (Collector Down, HTTP error rate/latência, Queue failure rate, Scheduler missed, Push failure, Smart Home failure), cada uma com runbook.
+
+Cinco bugs reais foram encontrados e corrigidos durante a validação (não apenas lint de YAML, mas testes contra um Grafana + Collector + Prometheus reais rodando localmente): arquivos de contact points/políticas/mute-timings precisam viver em `provisioning/alerting/`, não nos diretórios-irmãos que a documentação da Phase 8.8 descrevia (o Grafana nunca os lê); um `ALERT_EMAIL_ADDRESS` vazio derruba o Grafana inteiro; uma função de template não suportada (`first`) quebra o `templates.yaml` inteiro; três regras referenciavam nomes de métrica/label que não existem na instrumentação real do `back_vibes`; e os labels/annotations `environment`/`dashboard`/`runbook` eram templados contra um conjunto de labels vazio, sempre renderizando em branco mesmo em alertas genuinamente disparados.
+
+A validação final empurrou dados OTLP reais pelo pipeline real do Collector (via HTTP/JSON na porta 4318, sem precisar de ferramentas de protobuf) e confirmou a regra `ixora-alert-smart-home-failure` transicionando de `NoData` para `Pending` para `Alerting` exatamente no `for: 5m` configurado, com o e-mail real de disparo confirmado via API do Mailtrap.
+
+Itens deferidos por desenho (não por lacuna): contact points Slack/PagerDuty (sem canal de equipe ainda), alerta de disco de VM (precisa de Node Exporter), alertas de Security, regras de inibição nativas do Alertmanager (não expressáveis no schema de provisioning do Grafana OSS), alertas de Business/Push Notifications (bloqueados pela Phase 7B.5), e escalonamento automatizado além de e-mail. Detalhe completo em `ixora-infra/docs/specs/observability-foundation/mvp/alerting-strategy.md`.
+
+**Pendente antes de produção:** configurar SMTP real (não o sandbox Mailtrap usado na validação) e um `ALERT_EMAIL_ADDRESS` real no `collector/.env` do host de staging real — hoje `GF_SMTP_ENABLED=false` por padrão, o que mantém tudo inerte (sem crash, sem falha silenciosa) até esse passo manual do operador.
 
 ## Phase 9.5 - Incident Response & Runbooks
 
