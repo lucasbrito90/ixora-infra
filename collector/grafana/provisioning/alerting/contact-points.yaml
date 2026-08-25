@@ -1,0 +1,68 @@
+# ============================================================
+# Ixora Observability Platform — Grafana Contact Points
+# Phase 9 — Alerting Strategy
+#
+# This file provisions Grafana contact points (alert receivers).
+#
+# STATUS: ixora-email-critical is a REAL receiver (email, via SMTP).
+#         ixora-default remains the Grafana-UI-only fallback for
+#         info/warning severities until a team Slack channel exists.
+#
+# SECURITY (ADR-030):
+#   - The destination address is never hardcoded here. It is read at
+#     runtime from the ALERT_EMAIL_ADDRESS env var via Grafana's
+#     provisioning-file $__env{} expansion (collector/.env, not committed).
+#   - SMTP credentials (GF_SMTP_USER/PASSWORD) live in collector/.env
+#     and are consumed by Grafana core directly — never referenced here.
+#   - GF_SMTP_ENABLED must be true and SMTP configured (docker-compose.yml
+#     grafana.environment) or this receiver silently fails to send.
+#
+# STRUCTURE REFERENCE: alerting-foundation.md §5
+# PHILOSOPHY REFERENCE: alerting-philosophy.md §1–4, §13 (severity model)
+# ============================================================
+
+apiVersion: 1
+
+contactPoints:
+  # Default contact point — Grafana UI notifications only.
+  # Routed to info/warning severities (policies.yaml).
+  - orgId: 1
+    name: ixora-default
+    receivers:
+      - uid: ixora-receiver-default
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: "$__env{ALERT_EMAIL_ADDRESS}"
+
+  # Real receiver for critical + emergency severities.
+  # Same address as ixora-default today (single-operator staging) —
+  # kept as a distinct contact point so a dedicated on-call channel
+  # (Slack/PagerDuty) can replace it later without touching policies.yaml
+  # routing logic beyond the receiver name.
+  - orgId: 1
+    name: ixora-email-critical
+    receivers:
+      - uid: ixora-receiver-email-critical
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: "$__env{ALERT_EMAIL_ADDRESS}"
+          singleEmail: true
+          message: '{{ template "ixora-alert-body" . }}'
+
+  # Deferred — Slack integration.
+  # Add when a team channel (not a personal DM) exists to route to.
+  # See alerting-foundation.md §5.1 for the planned contact point set.
+  #
+  # - orgId: 1
+  #   name: ixora-slack-critical
+  #   receivers:
+  #     - uid: ixora-receiver-slack-critical
+  #       type: slack
+  #       disableResolveMessage: false
+  #       settings:
+  #         url: "${SLACK_WEBHOOK_CRITICAL}"
+  #         channel: "#on-call-alerts"
+  #         title: '{{ template "ixora-alert-title" . }}'
+  #         text: '{{ template "ixora-alert-body" . }}'

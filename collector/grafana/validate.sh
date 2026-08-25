@@ -1612,9 +1612,12 @@ fi
 # ── 65. contact-points.yaml is valid YAML ────────────────────
 
 echo ""
-echo "65. contact-points/contact-points.yaml is valid YAML"
+echo "65. provisioning/alerting/contact-points.yaml is valid YAML"
 
-CONTACT_YAML="${CONTACT_POINTS_DIR}/contact-points.yaml"
+# Phase 9 moved the real file into provisioning/alerting/ — see check 99
+# and alerting-strategy.md §2.1 (Grafana never reads the sibling
+# contact-points/ directory checked in check 59).
+CONTACT_YAML="${ALERTING_DIR}/contact-points.yaml"
 
 if [ -f "${CONTACT_YAML}" ]; then
   YAML_CHECK=$(python3 -c "
@@ -1637,15 +1640,17 @@ except Exception as e:
     fail "${YAML_CHECK#FAIL: }"
   fi
 else
-  fail "contact-points/contact-points.yaml not found"
+  fail "provisioning/alerting/contact-points.yaml not found"
 fi
 
 # ── 66. policies.yaml is valid YAML ──────────────────────────
 
 echo ""
-echo "66. notification-policies/policies.yaml is valid YAML"
+echo "66. provisioning/alerting/notification-policies.yaml is valid YAML"
 
-POLICIES_YAML="${POLICIES_DIR}/policies.yaml"
+# Phase 9 moved the real file into provisioning/alerting/ and renamed it
+# notification-policies.yaml — see check 99 and alerting-strategy.md §2.1.
+POLICIES_YAML="${ALERTING_DIR}/notification-policies.yaml"
 
 if [ -f "${POLICIES_YAML}" ]; then
   YAML_CHECK=$(python3 -c "
@@ -1666,15 +1671,17 @@ except Exception as e:
     fail "${YAML_CHECK#FAIL: }"
   fi
 else
-  fail "notification-policies/policies.yaml not found"
+  fail "provisioning/alerting/notification-policies.yaml not found"
 fi
 
 # ── 67. mute-timings.yaml is valid YAML ──────────────────────
 
 echo ""
-echo "67. mute-timings/mute-timings.yaml is valid YAML"
+echo "67. provisioning/alerting/mute-timings.yaml is valid YAML"
 
-MUTE_YAML="${MUTE_DIR}/mute-timings.yaml"
+# Phase 9 moved the real file into provisioning/alerting/ — see check 99
+# and alerting-strategy.md §2.1.
+MUTE_YAML="${ALERTING_DIR}/mute-timings.yaml"
 
 if [ -f "${MUTE_YAML}" ]; then
   YAML_CHECK=$(python3 -c "
@@ -1695,7 +1702,7 @@ except Exception as e:
     fail "${YAML_CHECK#FAIL: }"
   fi
 else
-  fail "mute-timings/mute-timings.yaml not found"
+  fail "provisioning/alerting/mute-timings.yaml not found"
 fi
 
 # ── 68. Recording rules directory exists ─────────────────────
@@ -2184,6 +2191,159 @@ if [ -f "${COMPOSE_FILE}" ] && grep -q "prometheus/rules" "${COMPOSE_FILE}"; the
   pass "docker-compose.yml mounts ./prometheus/rules"
 else
   fail "docker-compose.yml missing prometheus/rules volume mount"
+fi
+
+# ── 99. Alerting resource files live under provisioning/alerting/ ─
+#
+# Regression guard for a real Phase 9 bug: Grafana's file-provisioning
+# only scans provisioning/alerting/ — files left in the sibling
+# contact-points/, notification-policies/, mute-timings/, templates/
+# directories (as alerting-foundation.md §3.2 originally, incorrectly,
+# documented) are silently never loaded. See alerting-strategy.md §2.1.
+
+echo ""
+echo "99. Contact points / policies / mute timings / templates live under provisioning/alerting/"
+
+MISSING_IN_ALERTING=""
+for f in contact-points.yaml notification-policies.yaml mute-timings.yaml templates.yaml; do
+  if [ ! -f "${ALERTING_DIR}/${f}" ]; then
+    MISSING_IN_ALERTING="${MISSING_IN_ALERTING} ${f}"
+  fi
+done
+
+STRAY_IN_SIBLINGS=""
+for d in contact-points notification-policies mute-timings templates; do
+  if find "${PROVISIONING_DIR}/${d}" -maxdepth 1 -name '*.yaml' 2>/dev/null | grep -q .; then
+    STRAY_IN_SIBLINGS="${STRAY_IN_SIBLINGS} ${d}/"
+  fi
+done
+
+if [ -z "${MISSING_IN_ALERTING}" ] && [ -z "${STRAY_IN_SIBLINGS}" ]; then
+  pass "contact-points.yaml, notification-policies.yaml, mute-timings.yaml, templates.yaml all present under provisioning/alerting/, none stray in sibling directories"
+else
+  [ -n "${MISSING_IN_ALERTING}" ] && fail "missing under provisioning/alerting/:${MISSING_IN_ALERTING}"
+  [ -n "${STRAY_IN_SIBLINGS}" ] && fail "stray .yaml file(s) in sibling directories (never loaded by Grafana):${STRAY_IN_SIBLINGS}"
+fi
+
+# ── 100. Real (non-placeholder) email contact point present ──────
+
+echo ""
+echo "100. contact-points.yaml has a real receiver (not the empty-addresses placeholder)"
+
+CONTACT_YAML="${ALERTING_DIR}/contact-points.yaml"
+
+if [ -f "${CONTACT_YAML}" ]; then
+  if grep -q 'name: ixora-email-critical' "${CONTACT_YAML}" && ! grep -q 'addresses: ""' "${CONTACT_YAML}"; then
+    pass "ixora-email-critical receiver present with a non-empty addresses field"
+  else
+    fail "contact-points.yaml still looks like the Phase 8.8 placeholder (no ixora-email-critical receiver, or addresses is empty)"
+  fi
+else
+  fail "provisioning/alerting/contact-points.yaml not found"
+fi
+
+# ── 101. All 7 Phase 9 alert rule files present ───────────────────
+
+echo ""
+echo "101. All 7 Phase 9 alert rule files present under provisioning/alerting/"
+
+MISSING_RULE_FILES=""
+for f in infrastructure-collector.yaml application-http.yaml application-queue.yaml \
+         application-scheduler.yaml application-push.yaml business-smart-home.yaml; do
+  if [ ! -f "${ALERTING_DIR}/${f}" ]; then
+    MISSING_RULE_FILES="${MISSING_RULE_FILES} ${f}"
+  fi
+done
+
+if [ -z "${MISSING_RULE_FILES}" ]; then
+  pass "all 6 Phase 9 alert rule group files present (7 rules total — application-http.yaml holds 2)"
+else
+  fail "missing alert rule file(s):${MISSING_RULE_FILES}"
+fi
+
+# ── 102. All 7 Phase 9 runbooks present ───────────────────────────
+
+echo ""
+echo "102. All 7 Phase 9 runbooks present under docs/runbooks/"
+
+RUNBOOKS_DIR="${DOCS_DIR}/runbooks"
+MISSING_RUNBOOKS=""
+for f in infrastructure-collector-down.md application-http-error-rate.md \
+         application-http-high-latency.md application-queue-failure-rate.md \
+         application-scheduler-missed.md application-push-failure.md \
+         business-smart-home-failure.md; do
+  if [ ! -f "${RUNBOOKS_DIR}/${f}" ]; then
+    MISSING_RUNBOOKS="${MISSING_RUNBOOKS} ${f}"
+  fi
+done
+
+if [ -z "${MISSING_RUNBOOKS}" ]; then
+  pass "all 7 Phase 9 runbooks present"
+else
+  fail "missing runbook(s):${MISSING_RUNBOOKS}"
+fi
+
+# ── 103. No alert rule references a known-nonexistent metric ─────
+#
+# Regression guard for the three metric/label names found wrong in
+# Phase 9 testing against back_vibes/app/Telemetry (alerting-strategy.md
+# §3.1): http_status_code (no such label — real one is
+# outcome="server_error"), ixora_scheduler_execution_total (real name is
+# ixora_scheduler_event_total), and ixora_telemetry_export_failed_total
+# (never instrumented — use the ixora:collector:export_failure_rate:5m
+# recording rule instead).
+
+echo ""
+echo "103. No alert rule expr references a known-nonexistent metric/label"
+
+# Comment lines legitimately mention the old (wrong) names as an
+# explanation of the fix — strip comments per file before matching so
+# only a real reference (e.g. inside `expr:`) trips this check.
+STALE_REFS=""
+for f in "${ALERTING_DIR}"/*.yaml; do
+  if grep -vE '^\s*#' "$f" | grep -qE 'http_status_code|ixora_scheduler_execution_total|ixora_telemetry_export_failed_total'; then
+    STALE_REFS="${STALE_REFS} ${f}"
+  fi
+done
+
+if [ -z "${STALE_REFS}" ]; then
+  pass "no alert rule references http_status_code, ixora_scheduler_execution_total, or ixora_telemetry_export_failed_total"
+else
+  fail "stale metric/label reference found in: ${STALE_REFS}"
+fi
+
+# ── 104. No annotation templates a static rule label ──────────────
+#
+# Regression guard for a real Phase 9 bug, confirmed against a genuinely
+# firing alert (real OTLP data pushed through the actual Collector
+# pipeline, not a synthetic test): Grafana evaluates annotation
+# templates (`{{ $labels.X }}`) against the labels in the QUERY RESULT
+# only. Every Phase 9 rule aggregates with `sum(...)` (or references a
+# label-less recording rule), which strips all labels from the query
+# result — so `{{ $labels.dashboard_uid }}` / `{{ $labels.runbook }}`
+# rendered "[no value]" even though dashboard_uid/runbook ARE present as
+# static labels on the rule (query-result labels and the rule's own
+# static labels are different template contexts). Fixed by hardcoding
+# the literal dashboard/runbook path in each rule's annotations, the
+# same way summary/business_impact/expected_action already are.
+# alerting-strategy.md §3.3 has the full writeup and the live Mailtrap
+# proof (message timestamps matching the alert's Pending->Alerting
+# transition).
+
+echo ""
+echo "104. No alert rule annotation templates \$labels.dashboard_uid or \$labels.runbook"
+
+TEMPLATED_ANNOTATIONS=""
+for f in "${ALERTING_DIR}"/*.yaml; do
+  if grep -vE '^\s*#' "$f" | grep -qE '\{\{\s*\$labels\.(dashboard_uid|runbook)\s*\}\}'; then
+    TEMPLATED_ANNOTATIONS="${TEMPLATED_ANNOTATIONS} ${f}"
+  fi
+done
+
+if [ -z "${TEMPLATED_ANNOTATIONS}" ]; then
+  pass "dashboard/runbook annotations are literal strings, not \$labels templates"
+else
+  fail "annotation still templates a static rule label (always renders [no value]) in: ${TEMPLATED_ANNOTATIONS}"
 fi
 
 # ── Summary ───────────────────────────────────────────────────

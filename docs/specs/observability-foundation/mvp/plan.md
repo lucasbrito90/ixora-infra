@@ -1,6 +1,6 @@
 # Observability Foundation MVP — implementation plan
 
-**Status:** Phase 8.8.6 complete — Observability Infrastructure Hardening (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards, 8.4 D-02 Smart Home Business Dashboard, 8.5 Platform Overview Dashboard D-01, 8.6 Dashboard Integration & Operational Validation, 8.7 D-03 Push Notifications, 8.8 Alerting Foundation, 8.9 Recording Rules & SLO Foundation, 8.8.5 Observability Infrastructure Provisioning also complete)  
+**Status:** Phase 8.8.6 complete — Observability Infrastructure Hardening (Phases 7A Backend SDK Foundation, 7B.1 HTTP + Routing, 7B.2 Queue + Console, 7B.3 generic Scheduler, 7B.4.1–7B.4.9 Smart Home Business Telemetry + Foundation Baseline, 7B.6 External Providers Instrumentation, 8.0 Dashboard Requirements, 8.1 Grafana Foundation, 8.2 D-07 Infrastructure Dashboard, 8.3 Application Dashboards, 8.4 D-02 Smart Home Business Dashboard, 8.5 Platform Overview Dashboard D-01, 8.6 Dashboard Integration & Operational Validation, 8.7 D-03 Push Notifications, 8.8 Alerting Foundation, 8.9 Recording Rules & SLO Foundation, 8.8.5 Observability Infrastructure Provisioning, **9 Alerting Strategy (current roadmap numbering, Level 1, production activation pending)** also complete)  
 **Spec:** [`spec.md`](spec.md)  
 **Feature ID:** `observability-foundation/mvp`
 
@@ -937,6 +937,38 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 ---
 
 **Phase 7B.6 — External Providers Instrumentation — Complete (2026-08-24/25).** New `push.provider` span (`App\Telemetry\PushNotifications\PushProviderTelemetry`) wraps `FcmPushProvider::send()` in full — previously zero business telemetry beyond ad-hoc log lines. `App\Telemetry\SmartHome\SmartHomeProviderTelemetry::wrap()` generalized to a nullable device domain and extended to `HomeAssistantAdapter::listDevices()`, `readStatus()`, and `testConnection()` — explicitly deferred by Phase 7B.4.4 to "later phases." No new metrics; existing `ixora.push.delivery.total` and Smart Home business metrics already cover outcome. Lean process (like Phase 7B.5), no new `ixora-infra` boundary-spec docs. Full `back_vibes` suite green (1037/1037). Live-validated in staging: dispatched a real push notification, confirmed the `push.provider` span in the real staging Tempo via the Grafana MCP, correctly nested ahead of the two auto-instrumented OAuth/FCM `POST` client spans. Home Assistant coverage validated via tests only (no reachable real HA instance in staging). Full detail: `tasks.md` Phase 7B.6.
+
+---
+
+#### Phase 9 — Alerting Strategy — **Complete (Level 1; production activation pending an operator step)**
+
+> **Numbering note:** this file's own `## Phase 9 — Grafana dashboards` heading further below is historical (pre-8.0–8.7 renumbering, already complete). The current cross-repo roadmap reassigns "Phase 9" to Alerting Strategy — this section — the same kind of collision already documented for the old vs. current "Phase 9.5". See `alerting-strategy.md`'s numbering note.
+
+**Goal:** Move the platform from Level 0 (no alerts) to Level 1 of the alert maturity model (alerting-philosophy.md §15) — real contact points, a real severity-based routing tree, and the first tier of threshold alert rules on Golden Signals, tested end-to-end rather than only provisioned.
+
+**Deliverables:**
+
+- **Real contact points + routing:** `ixora-default` (UI/email fallback) and `ixora-email-critical` (real email via Grafana SMTP), a 3-branch severity-based notification policy tree, and a weekly maintenance mute timing — `collector/grafana/provisioning/alerting/{contact-points,notification-policies,mute-timings}.yaml`.
+- **7 Level 1 alert rules:** Collector Down (emergency), HTTP elevated error rate (critical) + high latency (warning), Queue Workers failure rate (warning), Scheduler missed executions (warning), Push Queue delivery failure (warning), Smart Home elevated failure rate (critical) — each with the full required label/annotation set (alerting-philosophy.md §23–24) and a corresponding runbook.
+- **7 runbooks** under `docs/runbooks/`, one per alert, following the alerting-foundation.md §9 template.
+- **`alerting-strategy.md`** — the full implementation record: every correction made to the Phase 8.8 planning template on contact with real deployment, and the evidence for each.
+- **validate.sh extended to 104 checks** (99–104: real contact point, correct file locations, all 7 rule files, all 7 runbooks, no stale metric references, no broken annotation templates); checks 65–67 (predated this phase) corrected to point at the right paths.
+
+**Five real bugs found and fixed, verified against a live local Grafana + Collector + Prometheus stack, not just YAML review:**
+
+1. Grafana's file-provisioning only scans `provisioning/alerting/` — contact points/policies/mute-timings/templates left in the sibling directories `alerting-foundation.md` §3.2 documented are silently never loaded (no error, just inert). Files moved into `alerting/`; correction pointer added to the frozen §3.2 rather than rewriting it.
+2. An empty `ALERT_EMAIL_ADDRESS` doesn't fail gracefully — Grafana rejects the email contact point at provisioning time and crash-loops the *entire* container. Fixed with a non-empty `docker-compose.yml` default.
+3. `templates.yaml`'s original body template piped `.Alerts.Firing | first` into `formatDate`; `first` isn't a registered function in Grafana's notification template engine, and the failure took down the whole file — and, via the contact point referencing it, Grafana itself — with a generic, line-number-free error. Root-caused by bisecting the template against a live container; the line was dropped.
+4. Three of the eight originally planned alert expressions referenced metric/label names that don't exist in `back_vibes/app/Telemetry` (`http_status_code`, `ixora_scheduler_execution_total`, `ixora_telemetry_export_failed_total`) — caught by diffing the foundation doc's planning table against the real instrumentation, and fixed using the real names/labels plus the existing Phase 8.9 `ixora:collector:export_failure_rate:5m` recording rule.
+5. Both the `environment` label and the `dashboard`/`runbook` annotations were templated (`{{ $labels.X }}`) against label sets that don't carry what the template expected — query-result labels (always empty, since every rule aggregates with `sum(...)`) vs. the rule's own static labels (only merged in for routing/notification, not annotation templating). Both silently rendered empty, confirmed reaching a **genuine** firing alert's real email, not just Grafana's synthetic `DatasourceNoData` test alerts. Fixed by making both static/literal, the same way `summary`/`business_impact`/`expected_action` already were.
+
+**Real end-to-end proof, not a synthetic test:** `otlp/backend` in `collector/config.yaml` accepts OTLP over plain HTTP/JSON on :4318 in addition to gRPC on :4317 — no protobuf tooling needed, just a bearer-token `curl`-shaped POST. Pushed a real `ixora.smart_home.action.total` series (shaped exactly like `SmartHomeActionTelemetry`'s real metric) with a climbing failure ratio through the actual Collector → Prometheus → Grafana pipeline. `ixora-alert-smart-home-failure` genuinely transitioned `nodata` → `Pending` (06:29:00Z) → `Alerting` (06:34:00Z, exactly `for: 5m` later) — and the Mailtrap account API (not just an SMTP "accepted" response) confirmed a real `[FIRING:1] ... Business / Smart Home — Elevated Failure Rate ...` email reached the sandbox inbox 30 seconds after the transition. Only this one rule was exercised with real breaching data; the other 6 share the same pattern and were confirmed PromQL-valid earlier, but not individually pushed through (`alerting-strategy.md` KL-S-8/KL-S-9, low priority to close further).
+
+**Deferred by design (all explicitly out of Phase 9 scope in `alerting-foundation.md`, not gaps):** Slack/PagerDuty contact points (no team channel yet), VM disk saturation alert (needs Node Exporter), Security-category alerts, Alertmanager-native inhibition rules (not expressible in Grafana OSS's provisioning schema), Business/Push Notifications alerts (blocked on Phase 7B.5's push delivery metric), automated escalation beyond email.
+
+**Result:** 104/104 `validate.sh` PASS locally. **Not yet live in staging** — the real staging Grafana host still needs real SMTP credentials and a real `ALERT_EMAIL_ADDRESS` in its `collector/.env` before this pages anyone in production; `GF_SMTP_ENABLED=false` by default keeps it inert until then. Full detail: `tasks.md` Phase 9 notes.
+
+**Branch:** `feature/observability-alerting-strategy`
 
 ---
 
