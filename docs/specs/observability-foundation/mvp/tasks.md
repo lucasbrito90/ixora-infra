@@ -738,9 +738,35 @@
 - Generalizes the validated Smart Home architecture (Phases 7B.4.1–7B.4.8) into platform-wide Business Telemetry standards.
 - No Smart Home-specific assumptions remain — all rules stated in domain-neutral terms with Smart Home as reference implementation only.
 - Future domains (Push Notifications, Marketplace, AI, Matter, Google Home, Alexa) can implement Business Telemetry by following this foundation without redefining architecture.
-- **Next:** Phase 8.0 — Dashboard Requirements Review.
+- **Next:** Phase 8.0 — Dashboard Requirements Review (Phases 7B.5 Push Notifications and 7B.6 External Providers were implemented later, out of original chronological order, once TD-6 and the D-03 dashboard work surfaced the need — see their own sections below).
 
 **Branch:** `feature/observability-business-telemetry-foundation`
+
+---
+
+## Phase 7B.6 — External Providers Instrumentation
+
+**Prerequisite:** Phase 7B.4.4 (Smart Home Provider Boundary — explicitly deferred `listDevices()`, `readStatus()`, `testConnection()` to "later phases," see `backend-smart-home-provider-boundary.md §9`), Phase 7B.5 (Push Notifications Business Metrics — `ixora.push.delivery.total` shipped, but `FcmPushProvider::send()` itself had zero business span), business-telemetry-foundation.md §7.3 ("Adding a new provider to an existing domain").
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P7B6-1 | Architecture review: identify provider calls uncovered by generic Guzzle auto-instrumentation's business context — FCM (`FcmPushProvider::send()`, zero business telemetry) and Home Assistant (`listDevices()`/`readStatus()`/`testConnection()`, explicitly deferred by Phase 7B.4.4) | **Done** | See implementation notes below |
+| P7B6-2 | Generalize `SmartHomeProviderTelemetry::wrap()` to accept a nullable device domain; wire into the three previously-uncovered `HomeAssistantAdapter` methods | **Done** | `app/Telemetry/SmartHome/SmartHomeProviderTelemetry.php`, `app/SmartHome/Adapters/HomeAssistantAdapter.php` |
+| P7B6-3 | New `PushProviderTelemetry` class (`push.provider` span) wrapping the whole of `FcmPushProvider::send()`; register in `TelemetryServiceProvider`; wire via `PushNotificationServiceProvider` | **Done** | `app/Telemetry/PushNotifications/PushProviderTelemetry.php` |
+| P7B6-4 | Tests: feature test for `PushProviderTelemetry` (mirrors `SmartHomeProviderTelemetryTest.php`), null-domain coverage added to `SmartHomeProviderTelemetryTest.php`, `FcmPushProviderTest.php` updated for the new constructor dependency | **Done** | Full suite 1037/1037 green |
+| P7B6-5 | Live validation in staging: dispatch a real push notification, confirm the `push.provider` span reaches the real staging Tempo, nested under the queue consumer span and directly ancestor to the two auto-instrumented `POST` client spans (OAuth token exchange + FCM send) | **Done** | See implementation notes below |
+
+**Phase 7B.6 implementation notes:**
+
+- **Scope decision (chosen with the user):** both providers (FCM + Home Assistant) in one pass, using the same lean, direct-to-implementation process as Phase 7B.5 rather than the fully formal multi-sub-phase review process Smart Home's Phase 7B.4.x used — no new `ixora-infra` boundary-spec/failure-semantics docs were written for this phase; the architecture reasoning lives in the two Telemetry classes' own docblocks instead, consistent with 7B.5's precedent.
+- **No new metrics.** `ixora.push.delivery.total` (7B.5) and the existing Smart Home business metrics already cover delivery/action outcome — this phase adds span-level granularity for the provider network hop only, per business-telemetry-foundation.md §7.3 (per-adapter, no shared base class or interface change).
+- **Design symmetry with the validated Smart Home Provider boundary:** neither `push.provider` nor `smart_home.provider` records a `provider.name`/`ixora.provider.name` attribute — both are single-adapter-per-domain today, so the span's existence already identifies the provider; a future second provider per domain gets its own call site producing the same span name, not a label on this one. Neither records url/method/status/duration attributes — already owned by `opentelemetry-auto-guzzle`'s nested CLIENT spans for every `Illuminate\Support\Facades\Http` call inside the wrapped segment.
+- **`SmartHomeProviderTelemetry::wrap()` signature changed from `wrap(string $deviceDomain, ...)` to `wrap(?string $deviceDomain, ...)`** — backward-compatible for `executeAction()`'s and the new `readStatus()`'s non-null calls; `listDevices()` and `testConnection()` (no single device) pass `null` and the span carries no `ixora.provider.device_domain` attribute at all, instead of a synthetic/placeholder value.
+- **Live validation:** dispatched a real `account_security_notice` push notification against the real staging queue worker (`doctl apps console`), then queried the real staging Tempo directly (`grafana_api_request` proxying `/api/datasources/proxy/uid/ixora-tempo/api/search` and `/api/traces/{id}`) — confirmed a `push.provider` (`SPAN_KIND_INTERNAL`) span present in the real trace, positioned immediately before two `POST` (`SPAN_KIND_CLIENT`) spans — the OAuth token exchange and the FCM send call — nested under the queue `process`/`receive` consumer spans, exactly as designed. Home Assistant's new coverage (`listDevices`/`readStatus`/`testConnection`) was validated via the test suite only — staging has no reachable real Home Assistant instance to exercise live.
+- Full `back_vibes` suite green (1037/1037, +12 tests) after this phase; `pint --dirty` passes.
+- **Next:** no further Business Telemetry phases currently planned — Phase 9 (Alerting Strategy) is next on the roadmap.
+
+**Branch:** `feature/observability-external-providers-instrumentation`
 
 ---
 
