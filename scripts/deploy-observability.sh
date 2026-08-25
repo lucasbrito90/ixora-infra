@@ -255,6 +255,31 @@ if [[ -n "${REMOTE_HOST}" ]]; then
       "${REMOTE_HOST}" "${DEPLOY_PATH}"
   fi
 
+  # ── rsync docs/runbooks/ ─────────────────────────────────────────────
+  #
+  # validate.sh (checks 96, 102) resolves runbooks relative to the deploy
+  # root as ${DEPLOY_PATH}/docs/runbooks/ (SCRIPT_DIR_PARENT/docs from
+  # collector/grafana/validate.sh). Alert rule `runbook` annotations also
+  # link to /runbooks/<slug>.md, which the reverse proxy is expected to
+  # serve from this path. Found missing during Phase 9's first real
+  # deploy — validate.sh reported all 7 runbooks absent on the host even
+  # though they exist in the repo, because nothing ever synced them.
+  printf '\033[0;34m[INFO] Syncing docs/runbooks/ to remote...\033[0m\n'
+  if [[ "${DRY_RUN}" -eq 0 ]]; then
+    ssh_run "mkdir -p ${DEPLOY_PATH}/docs/runbooks"
+    rsync -avz \
+      --exclude='.git' \
+      --protect-args \
+      --no-perms \
+      -e "${RSYNC_TRANSPORT}" \
+      "${REPO_ROOT}/docs/runbooks/" \
+      "${REMOTE_USER}@${REMOTE_HOST}:${DEPLOY_PATH}/docs/runbooks/"
+    printf '\033[0;32m[OK]   docs/runbooks/ synced to remote\033[0m\n'
+  else
+    printf '\033[0;33m[DRY-RUN] Would sync docs/runbooks/ to %s:%s/docs/runbooks/\033[0m\n' \
+      "${REMOTE_HOST}" "${DEPLOY_PATH}"
+  fi
+
   # ── Fix permissions; never touch .env ────────────────────────────────
   if [[ "${DRY_RUN}" -eq 0 ]]; then
     ssh_run "chown -R root:root ${DEPLOY_PATH}/collector && chmod -R o-w ${DEPLOY_PATH}/collector"
