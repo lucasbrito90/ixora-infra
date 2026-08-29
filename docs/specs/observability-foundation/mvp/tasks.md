@@ -1111,6 +1111,30 @@
 
 ---
 
+## Phase 9.5 — Incident Response & Runbooks
+
+> **Numbering note:** this file's own `## Phase 9.5 — Telemetry Decision Guide + Observability Playbook` section further below is a *historical* heading from before the current roadmap renumbering — that work is complete. The current cross-repo roadmap (`docs/roadmap/ixora-roadmap-2026-08-16.md`) reassigns "Phase 9.5" to **Incident Response & Runbooks**, the subject of this section. Same kind of collision already documented for the old vs. current "Phase 9" above. See `incident-response-policy.md` and the roadmap's own numbering note for the full explanation.
+
+**Status:** Complete — documentation; staging exercise pending.
+
+**Prerequisite:** Phase 9 Alerting Strategy complete (7 runbooks deployed; Level 1 alerting live on staging host).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P9.5-1 | Create `docs/operations/incident-response-policy.md` — roles, communication channels, evidence/timeline template, postmortem checklist | **Done** | Closes Phase 9.5 gaps not covered by alerting-philosophy.md or observability-playbook.md; references existing severity/investigation docs instead of duplicating |
+| P9.5-2 | Cross-reference incident response policy from alerting-philosophy.md, observability-playbook.md, tasks.md, plan.md, roadmap | **Done** | This section and sibling tracking docs |
+| P9.5-3 | Execute a real staging incident exercise following the documented process; record outcome using the evidence/timeline template | **Pending** | Required before this phase can be marked fully complete — no exercise has been run yet (`incident-response-policy.md` KL-IR-1) |
+
+**Phase 9.5 implementation notes:**
+
+- **Documentation deliverables are complete:** `incident-response-policy.md` defines functional roles (IC, On-call, Comms) for the current single-operator reality, documents Mailtrap sandbox as the only real notification channel today, provides a canonical evidence/timeline template (ADR-030 compliant), and generalizes the postmortem checklist already embedded in the 7 Phase 9 runbooks without rewriting those runbooks.
+- **Explicitly not done:** no real incident response exercise has been executed in staging against this process. The 7 Phase 9 runbooks were validated individually (alert firing, SMTP delivery); that is not the same as walking through the full incident response process (roles → acknowledge → investigate → recover → document → postmortem).
+- **Deferred by design (tracked in incident-response-policy.md §4.2):** real SMTP relay (non-Mailtrap), Slack/team channel, PagerDuty/on-call rotation — same pattern as Phase 9 §1.2 deferrals.
+
+**Branch:** `feature/observability-incident-response-policy`
+
+---
+
 ## Phase 8.8.5 — Observability Infrastructure Provisioning
 
 **Prerequisite:** Full observability stack in `collector/` (Phases 3–8.9); staging VPC exists in OpenTofu.

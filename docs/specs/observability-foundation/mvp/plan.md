@@ -972,6 +972,27 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
+#### Phase 9.5 — Incident Response & Runbooks — **Partial (documentation complete; staging exercise pending)**
+
+> **Numbering note:** this file's own `## Phase 9.5 — Telemetry Decision Guide + Observability Playbook` heading further below is historical (already complete). The current cross-repo roadmap reassigns "Phase 9.5" to Incident Response & Runbooks — this section — the same kind of collision already documented for the old vs. current "Phase 9" above. See `incident-response-policy.md` and the roadmap's numbering note.
+
+**Goal:** Formalize the incident response **process** — roles, communication, evidence collection, and postmortem — complementing the technical investigation content already in `observability-playbook.md` and the per-alert runbooks from Phase 9. Close the gaps for "clear responsibilities" and "postmortem model available" without duplicating severity definitions or the 14 playbook scenarios.
+
+**Deliverables:**
+
+- **`incident-response-policy.md`** — canonical process document: functional roles (single-operator today), severity → response table (referencing alerting-philosophy.md §13/§18), communication channels (Mailtrap sandbox state), evidence/timeline template, postmortem checklist aligned with existing runbook postmortem sections, document boundaries, known limitations.
+- **Cross-references** from alerting-philosophy.md, observability-playbook.md, tasks.md, plan.md, and roadmap.
+
+**Explicitly pending:**
+
+- **Real staging incident exercise** — walk through the documented process end-to-end (alert or simulated incident → acknowledge → investigate per runbook/playbook → recover → fill evidence/timeline template → postmortem if Critical/Emergency). Tracked as P9.5-3 in `tasks.md`. Documented as KL-IR-1 in `incident-response-policy.md`.
+
+**Result:** Documentation and cross-references complete. **Phase 9.5 is not fully complete** until P9.5-3 (staging exercise) is executed and recorded. The 7 Phase 9 runbooks remain unchanged; future runbooks should link to the canonical postmortem template in `incident-response-policy.md` §6 instead of duplicating it.
+
+**Branch:** `feature/observability-incident-response-policy`
+
+---
+
 #### Phase 8.8.5 — Observability Infrastructure Provisioning — **Complete (IaC)**
 
 **Goal:** Provision a dedicated DigitalOcean Droplet to run the existing `collector/docker-compose.yml` stack. OpenTofu provisions infrastructure only; Docker Compose remains the runtime source of truth.

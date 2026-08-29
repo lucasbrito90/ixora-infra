@@ -385,6 +385,7 @@ After incident resolution:
 
 | Document | Use when |
 | --- | --- |
+| [incident-response-policy.md](incident-response-policy.md) | Roles, communication, evidence/timeline template, and postmortem during an incident |
 | [telemetry-decision-guide.md](../architecture/telemetry-decision-guide.md) | Fixing bad instrumentation |
 | [telemetry-naming-convention.md](../architecture/telemetry-naming-convention.md) | Metric/log/query naming |
 | [scheduler-smart-home-operational-checklist.md](scheduler-smart-home-operational-checklist.md) | Product ops without full observability stack |

@@ -697,6 +697,7 @@ Alert fires
 | [telemetry-availability-policy.md](telemetry-availability-policy.md) | Best-effort export — alerts may have data gaps during Collector downtime |
 | [alerting-foundation.md](../specs/observability-foundation/mvp/alerting-foundation.md) | Implementation spec — provisioning, categories, runbook standard, validation |
 | [dashboard-conventions.md](../specs/observability-foundation/mvp/dashboard-conventions.md) | Every alert must reference a dashboard UID |
+| [incident-response-policy.md](../operations/incident-response-policy.md) | Roles, communication, evidence collection, and postmortem for real incident response — this guide defines severity and alert model; that document defines the response process |
 
 ### Document boundaries
 
