@@ -115,7 +115,7 @@ A Observability Foundation evoluiu de especificações e ADRs para infraestrutur
 | 8.8.8 | Backend OTLP Log Export | Concluída e validada em staging | **100%** |
 | 8.9 | SLO / Error Budget | Concluída nas fontes mais recentes | **100%** |
 | 9 | Alerting Strategy | Nível 1 implementado e testado localmente; ativação em staging real pendente | **104/104 checks — Nível 1 completo** |
-| 9.5 | Incident Response & Runbooks | Não iniciada no roadmap atual | **0%** |
+| 9.5 | Incident Response & Runbooks | Documentação concluída (`incident-response-policy.md`); exercício real de staging pendente | **2/3 — parcial** |
 | 10 | Performance Validation & Load Testing | Não iniciada | **0%** |
 | 11 | Production Readiness Review | Não iniciada | **0%** |
 | 11.5 | Final Documentation & Release Review | Não iniciada | **0%** |
@@ -725,10 +725,10 @@ Itens deferidos por desenho (não por lacuna): contact points Slack/PagerDuty (s
 
 ## Phase 9.5 - Incident Response & Runbooks
 
-**Status:** Não iniciada  
-**Progresso:** **0%**
+**Status:** Parcial — documentação concluída; exercício de staging pendente  
+**Progresso:** **2/3 — parcial**
 
-Descrição: formalização de incident response e runbooks de operação para investigação e recuperação.
+Descrição: formalização de incident response e runbooks de operação para investigação e recuperação. Entregue: `docs/operations/incident-response-policy.md` (papéis, comunicação, template de evidência/timeline, postmortem canônico) e referências cruzadas nos documentos relacionados. Pendente: executar um exercício real de incidente em staging seguindo o processo documentado e registrar o resultado com o template de evidência/timeline (P9.5-3 em `tasks.md`).
 
 > **Numeração histórica:** uma versão antiga do roadmap usava "Phase 9.5" para Telemetry Decision Guide + Observability Playbook, que já foi concluída. O roadmap atual reutiliza `9.5` para **Incident Response & Runbooks**. Este documento preserva o nome atual e registra o conflito em vez de misturar as duas iniciativas.
 
