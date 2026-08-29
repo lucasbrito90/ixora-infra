@@ -1115,7 +1115,7 @@
 
 > **Numbering note:** this file's own `## Phase 9.5 — Telemetry Decision Guide + Observability Playbook` section further below is a *historical* heading from before the current roadmap renumbering — that work is complete. The current cross-repo roadmap (`docs/roadmap/ixora-roadmap-2026-08-16.md`) reassigns "Phase 9.5" to **Incident Response & Runbooks**, the subject of this section. Same kind of collision already documented for the old vs. current "Phase 9" above. See `incident-response-policy.md` and the roadmap's own numbering note for the full explanation.
 
-**Status:** Complete — documentation; staging exercise pending.
+**Status:** Complete.
 
 **Prerequisite:** Phase 9 Alerting Strategy complete (7 runbooks deployed; Level 1 alerting live on staging host).
 
@@ -1123,12 +1123,13 @@
 | --- | --- | --- | --- |
 | P9.5-1 | Create `docs/operations/incident-response-policy.md` — roles, communication channels, evidence/timeline template, postmortem checklist | **Done** | Closes Phase 9.5 gaps not covered by alerting-philosophy.md or observability-playbook.md; references existing severity/investigation docs instead of duplicating |
 | P9.5-2 | Cross-reference incident response policy from alerting-philosophy.md, observability-playbook.md, tasks.md, plan.md, roadmap | **Done** | This section and sibling tracking docs |
-| P9.5-3 | Execute a real staging incident exercise following the documented process; record outcome using the evidence/timeline template | **Pending** | Required before this phase can be marked fully complete — no exercise has been run yet (`incident-response-policy.md` KL-IR-1) |
+| P9.5-3 | Execute a real staging incident exercise following the documented process; record outcome using the evidence/timeline template | **Done** | [INC-20260829-001](../../../operations/incidents/INC-20260829-001-queue-failure-drill.md) — real synthetic breach pushed through the real Collector, `ixora-alert-queue-failure-rate` fired genuinely (`nodata` → `Pending` → `Alerting`), investigated via the runbook, recovered, and documented with the §5/§6 templates. Real Mailtrap-delivered notification confirmed. |
 
 **Phase 9.5 implementation notes:**
 
 - **Documentation deliverables are complete:** `incident-response-policy.md` defines functional roles (IC, On-call, Comms) for the current single-operator reality, documents Mailtrap sandbox as the only real notification channel today, provides a canonical evidence/timeline template (ADR-030 compliant), and generalizes the postmortem checklist already embedded in the 7 Phase 9 runbooks without rewriting those runbooks.
-- **Explicitly not done:** no real incident response exercise has been executed in staging against this process. The 7 Phase 9 runbooks were validated individually (alert firing, SMTP delivery); that is not the same as walking through the full incident response process (roles → acknowledge → investigate → recover → document → postmortem).
+- **Staging exercise (P9.5-3) completed 2026-08-29** against `ixora-alert-queue-failure-rate` (1 of the 7 Phase 9 rules — the other 6 share the same reduce→threshold pattern and were not individually re-drilled). Full incident record: [INC-20260829-001](../../../operations/incidents/INC-20260829-001-queue-failure-drill.md).
+- **Real finding from the exercise, not assumed beforehand:** the genuine FIRING notification took ~7.5 minutes to reach Mailtrap instead of the ~2 minute `group_wait` expected for a fresh notification group — plausibly caused by the alert joining an already-"warm" group shared with the recurring, silenced `DatasourceNoData` alerts. Not conclusively root-caused; tracked as KL-IR-6 in `incident-response-policy.md` §9, worth investigating before relying on this timing for a real Critical/Emergency incident.
 - **Deferred by design (tracked in incident-response-policy.md §4.2):** real SMTP relay (non-Mailtrap), Slack/team channel, PagerDuty/on-call rotation — same pattern as Phase 9 §1.2 deferrals.
 
 **Branch:** `feature/observability-incident-response-policy`

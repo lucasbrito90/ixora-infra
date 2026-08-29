@@ -255,11 +255,12 @@ Canonical paths: [alerting-philosophy.md §18](../architecture/alerting-philosop
 
 | ID | Limitation | Impact |
 | --- | --- | --- |
-| KL-IR-1 | **No real incident response exercise has been executed in staging against this process** | The policy is documented but unvalidated — first real incident will be the first end-to-end test of roles, comms, and templates |
+| ~~KL-IR-1~~ | ~~No real incident response exercise has been executed in staging~~ | Resolved 2026-08-29 — see [INC-20260829-001](incidents/INC-20260829-001-queue-failure-drill.md): a real synthetic breach was pushed through the real Collector, `ixora-alert-queue-failure-rate` fired genuinely, the process (investigate via runbook → recover → document with §5/§6) was walked through end-to-end, and a real notification was confirmed delivered via Mailtrap. Only 1 of the 7 Phase 9 rules was exercised this way — the other 6 share the same pattern and are considered low-priority to repeat individually |
 | KL-IR-2 | **Single operator** — all three roles (IC, On-call, Comms) held by one person | No handoff, no backup on-call, no parallel investigation |
 | KL-IR-3 | **Communication is sandbox-only** — Mailtrap does not deliver to a real inbox | Alerts may go unnoticed unless the operator checks Mailtrap or Grafana UI |
 | KL-IR-4 | **Thresholds not baselined** against real staging traffic ([alerting-strategy.md KL-S-1](../specs/observability-foundation/mvp/alerting-strategy.md)) | False positives/negatives possible until Phase 10 tuning |
 | KL-IR-5 | **`DatasourceNoData` silence expires 2026-09-08** | After expiry, no-traffic rules may page on NoData unless real traffic exists or silence is renewed ([alerting-strategy.md §7.3](../specs/observability-foundation/mvp/alerting-strategy.md)) |
+| KL-IR-6 | **Notification delivery delay observed for a `warning`-severity alert sharing a notification group with a silenced, recurring alert.** During the INC-20260829-001 drill, a genuinely firing alert took ~7.5 minutes to notify instead of the ~2 minute `group_wait` expected for a fresh group — plausibly because the `category=application, environment=staging` group was already "warm" from the recurring (silenced) `DatasourceNoData` alerts sharing those labels, causing the new alert to wait for `group_interval` (15m) instead. **Not conclusively root-caused** — no notification-attempt log lines were available at `info` level to confirm | For `warning` this is a minor delay; for a `critical`/`emergency` alert sharing a group with recurring noise, a similar delay would meaningfully undermine the response-time targets in §3 — investigate before relying on this for a real Critical/Emergency incident |
 
 ---
 

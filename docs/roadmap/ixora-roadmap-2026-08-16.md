@@ -115,7 +115,7 @@ A Observability Foundation evoluiu de especificações e ADRs para infraestrutur
 | 8.8.8 | Backend OTLP Log Export | Concluída e validada em staging | **100%** |
 | 8.9 | SLO / Error Budget | Concluída nas fontes mais recentes | **100%** |
 | 9 | Alerting Strategy | Nível 1 implementado e testado localmente; ativação em staging real pendente | **104/104 checks — Nível 1 completo** |
-| 9.5 | Incident Response & Runbooks | Documentação concluída (`incident-response-policy.md`); exercício real de staging pendente | **2/3 — parcial** |
+| 9.5 | Incident Response & Runbooks | Concluída — documentação + exercício real de staging executado | **3/3 - 100%** |
 | 10 | Performance Validation & Load Testing | Não iniciada | **0%** |
 | 11 | Production Readiness Review | Não iniciada | **0%** |
 | 11.5 | Final Documentation & Release Review | Não iniciada | **0%** |
@@ -725,10 +725,10 @@ Itens deferidos por desenho (não por lacuna): contact points Slack/PagerDuty (s
 
 ## Phase 9.5 - Incident Response & Runbooks
 
-**Status:** Parcial — documentação concluída; exercício de staging pendente  
-**Progresso:** **2/3 — parcial**
+**Status:** Concluída  
+**Progresso:** **3/3 - 100%**
 
-Descrição: formalização de incident response e runbooks de operação para investigação e recuperação. Entregue: `docs/operations/incident-response-policy.md` (papéis, comunicação, template de evidência/timeline, postmortem canônico) e referências cruzadas nos documentos relacionados. Pendente: executar um exercício real de incidente em staging seguindo o processo documentado e registrar o resultado com o template de evidência/timeline (P9.5-3 em `tasks.md`).
+Descrição: formalização de incident response e runbooks de operação para investigação e recuperação. Entregue: `docs/operations/incident-response-policy.md` (papéis, comunicação, template de evidência/timeline, postmortem canônico), referências cruzadas nos documentos relacionados, e um exercício real de incidente executado em staging em 2026-08-29 — dado sintético real empurrado pelo Collector real disparou `ixora-alert-queue-failure-rate` de verdade (`nodata` → `Pending` → `Alerting`), investigado via o runbook, recuperado, e documentado com o template de evidência/timeline e o checklist de postmortem. E-mail real de disparo confirmado via Mailtrap. Registro completo: `docs/operations/incidents/INC-20260829-001-queue-failure-drill.md`. O exercício revelou um achado real não previsto: a notificação demorou ~7,5 minutos em vez dos ~2 minutos esperados, possivelmente por compartilhar o grupo de notificação com os alertas `DatasourceNoData` silenciados recorrentes — não totalmente confirmado, registrado como KL-IR-6 para investigação futura antes de depender desse tempo em um incidente Critical/Emergency real.
 
 > **Numeração histórica:** uma versão antiga do roadmap usava "Phase 9.5" para Telemetry Decision Guide + Observability Playbook, que já foi concluída. O roadmap atual reutiliza `9.5` para **Incident Response & Runbooks**. Este documento preserva o nome atual e registra o conflito em vez de misturar as duas iniciativas.
 

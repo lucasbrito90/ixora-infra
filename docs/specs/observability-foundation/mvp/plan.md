@@ -972,7 +972,7 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
-#### Phase 9.5 — Incident Response & Runbooks — **Partial (documentation complete; staging exercise pending)**
+#### Phase 9.5 — Incident Response & Runbooks — **Complete**
 
 > **Numbering note:** this file's own `## Phase 9.5 — Telemetry Decision Guide + Observability Playbook` heading further below is historical (already complete). The current cross-repo roadmap reassigns "Phase 9.5" to Incident Response & Runbooks — this section — the same kind of collision already documented for the old vs. current "Phase 9" above. See `incident-response-policy.md` and the roadmap's numbering note.
 
@@ -983,11 +983,11 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 - **`incident-response-policy.md`** — canonical process document: functional roles (single-operator today), severity → response table (referencing alerting-philosophy.md §13/§18), communication channels (Mailtrap sandbox state), evidence/timeline template, postmortem checklist aligned with existing runbook postmortem sections, document boundaries, known limitations.
 - **Cross-references** from alerting-philosophy.md, observability-playbook.md, tasks.md, plan.md, and roadmap.
 
-**Explicitly pending:**
+**Staging exercise (2026-08-29):** Walked through the documented process end-to-end against a real, genuinely firing alert — not a simulation. Pushed real synthetic OTLP data (`ixora.queue.job.total`) through the real Collector on the observability host; `ixora-alert-queue-failure-rate` transitioned `nodata` → `Pending` → `Alerting` for real, was investigated using its runbook's PromQL validation step, recovered, and documented with the §5 evidence/timeline template and §6 postmortem checklist. A real Mailtrap-delivered notification confirmed the human-facing side of the process, not just the Grafana-internal state. Full record: `docs/operations/incidents/INC-20260829-001-queue-failure-drill.md`. Tracked as P9.5-3 in `tasks.md`; closes KL-IR-1 in `incident-response-policy.md`.
 
-- **Real staging incident exercise** — walk through the documented process end-to-end (alert or simulated incident → acknowledge → investigate per runbook/playbook → recover → fill evidence/timeline template → postmortem if Critical/Emergency). Tracked as P9.5-3 in `tasks.md`. Documented as KL-IR-1 in `incident-response-policy.md`.
+**Real finding from the drill:** the notification took ~7.5 minutes to arrive instead of the ~2 minute `group_wait` expected for a fresh notification group — plausibly because the alert joined an already-active group shared with the recurring, silenced `DatasourceNoData` alerts. Not conclusively root-caused (no notification-attempt logs available at `info` level); tracked as KL-IR-6, worth confirming before relying on this timing for a real Critical/Emergency incident.
 
-**Result:** Documentation and cross-references complete. **Phase 9.5 is not fully complete** until P9.5-3 (staging exercise) is executed and recorded. The 7 Phase 9 runbooks remain unchanged; future runbooks should link to the canonical postmortem template in `incident-response-policy.md` §6 instead of duplicating it.
+**Result:** Documentation, cross-references, and the staging exercise are all complete. Only 1 of the 7 Phase 9 runbooks was exercised this way (the other 6 share the same alert pattern; considered low priority to repeat individually). The 7 Phase 9 runbooks remain unchanged; future runbooks should link to the canonical postmortem template in `incident-response-policy.md` §6 instead of duplicating it.
 
 **Branch:** `feature/observability-incident-response-policy`
 
