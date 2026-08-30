@@ -1,10 +1,10 @@
 # Observability Backup Strategy — Phase 8.8.6
 
-**Status:** Architecture only — **no backups implemented**  
+**Status:** Staging automation implemented — local tarball backup + restore scripts; production object-storage upload deferred  
 **Prerequisite:** [observability-infrastructure-provisioning.md](observability-infrastructure-provisioning.md)  
 **ADR:** [ADR-031](../../../decisions/ADR-031-retention-storage-and-cost-control.md)
 
-> This document designs the backup architecture. No cron jobs, scripts, or automation are implemented in Phase 8.8.6.
+> Staging backup automation is delivered in Phase 8.8.7: `scripts/backup-observability-volumes.sh` and `scripts/restore-observability-volume.sh` create local per-volume tarballs with 4-generation retention. No cron is installed by the scripts — the operator installs the weekly crontab on the observability host (see [observability-backup-restore.md](../../../runbooks/observability-backup-restore.md)). Production Spaces upload remains a future phase.
 
 ---
 
@@ -173,11 +173,12 @@ Backup retention can exceed operational retention for compliance; it must not co
 
 ## 7. Future implementation phases
 
-| Phase | Deliverable |
-| --- | --- |
-| 8.8.7+ (proposed) | Backup scripts + cron + Spaces upload |
-| 9.x | Backup monitoring + alert on failure |
-| Production | Cross-region copy + restore drill quarterly |
+| Phase | Deliverable | Status |
+| --- | --- | --- |
+| 8.8.7 (staging) | Backup scripts + restore runbook + weekly cron (operator-installed) | **Done** — `scripts/backup-observability-volumes.sh`, `scripts/restore-observability-volume.sh`, [observability-backup-restore.md](../../../runbooks/observability-backup-restore.md) |
+| 8.8.7+ (production) | Spaces upload + encryption | Deferred |
+| 9.x | Backup monitoring + alert on failure | Deferred |
+| Production | Cross-region copy + restore drill quarterly | Deferred |
 
 ---
 
