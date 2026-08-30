@@ -1,0 +1,114 @@
+date: 2026-08-30T05:53:00-07:00
+scenario: front_vibes OTel SDK integration test — Phase 8 (frontend SDK)
+environment: staging (otel-mobile-staging.ixora-app.app → Collector :4319 → Tempo/Loki)
+test_runner: manual curl + Grafana MCP query
+
+# ── Endpoint validation ───────────────────────────────────────────────────────
+
+endpoint_tls:
+  url: https://otel-mobile-staging.ixora-app.app
+  ip: 137.184.163.187 (DigitalOcean staging Droplet)
+  tls: PASS (Let's Encrypt cert, TLSv1.3)
+  auth_enforcement: PASS (401 for invalid Bearer token confirmed)
+
+# ── Trace ingestion (Tempo) ───────────────────────────────────────────────────
+
+trace_test:
+  method: POST /v1/traces with valid Bearer token
+  http_status: 200 ({"partialSuccess":{}})
+  span_name: screen.VibesPage
+  trace_id: e20c3fd5220a8c804e3e6072763aff1c
+  service_name: front_vibes-android
+  deployment_environment: staging
+  user_id_attribute: "42" (integer, not firebase_uid/email — ADR-030)
+
+tempo_query:
+  query: /api/search?tags=service.name%3Dfront_vibes-android
+  result:
+    - traceID: e20c3fd5220a8c804e3e6072763aff1c
+      rootServiceName: front_vibes-android
+      rootTraceName: screen.VibesPage
+      startTimeUnixNano: "1788069106000000000"
+      durationMs: 2000
+  status: CONFIRMED — trace visible in Tempo
+
+# ── Log ingestion (Loki) ──────────────────────────────────────────────────────
+
+log_test:
+  method: POST /v1/logs with valid Bearer token
+  http_status: 200 ({"partialSuccess":{}})
+  severity: ERROR (severityNumber: 17)
+  body: "SDK integration test — front_vibes OTel Phase 8"
+  attributes:
+    error.type: integration_test
+    user.id: "42"
+    deployment.environment: staging
+    service.name: front_vibes-android
+
+loki_query:
+  logql: '{service_name="front_vibes-android"}'
+  result:
+    line: '{"body":"SDK integration test — front_vibes OTel Phase 8","severity":"ERROR","attributes":{"error.type":"integration_test","user.id":"42"},"resources":{"deployment.environment":"staging","service.name":"front_vibes-android","telemetry.sdk.language":"webjs"},...}'
+    labels: '{job="front_vibes-android", level="ERROR", service_name="front_vibes-android"}'
+  status: CONFIRMED — log record visible in Loki
+
+# ── SDK implementation summary ────────────────────────────────────────────────
+
+packages_installed:
+  - "@opentelemetry/api"                       # Core OTel API (no-op providers)
+  - "@opentelemetry/sdk-trace-web"             # WebTracerProvider + BatchSpanProcessor
+  - "@opentelemetry/sdk-logs"                  # LoggerProvider + BatchLogRecordProcessor
+  - "@opentelemetry/api-logs"                  # Logger API
+  - "@opentelemetry/exporter-trace-otlp-http"  # OTLP/HTTP trace exporter
+  - "@opentelemetry/exporter-logs-otlp-http"   # OTLP/HTTP log exporter
+  - "@opentelemetry/instrumentation-fetch"      # Auto-instrumentation of window.fetch
+  - "@opentelemetry/resources"                 # resourceFromAttributes()
+  - "@opentelemetry/semantic-conventions"       # ATTR_SERVICE_NAME, etc.
+  - "@opentelemetry/sdk-metrics"               # MeterProvider + PeriodicExportingMetricReader
+  - "@opentelemetry/exporter-metrics-otlp-http" # OTLP/HTTP metric exporter
+
+files_created:
+  - src/telemetry/otel.ts           — bootstrap, kill switch, sampling wrapper, flush
+  - src/telemetry/sampling.ts       — pure ADR-031 sampling functions (testable)
+  - src/telemetry/pii-sanitizer.ts  — pure PII sanitization (testable)
+  - src/telemetry/__tests__/sampling.spec.ts      — 7 tests
+  - src/telemetry/__tests__/pii-sanitizer.spec.ts — 11 tests
+  - src/telemetry/__tests__/otel.spec.ts          — 12 tests
+
+files_modified:
+  - src/main.ts         — initTelemetry() bootstrap, global error handlers, appStateChange flush
+  - src/router/index.ts — navigation instrumentation (beforeEach/afterEach screen spans)
+  - src/services/auth.service.ts — setTelemetryUserId on sync/logout
+  - .env.staging        — documented VITE_OTEL_ENDPOINT + VITE_OTEL_INGEST_API_KEY (no real token)
+
+architecture_decisions:
+  context_zone: SKIPPED — zone.js (~80 KB) not justified for root-level spans; StackContextManager sufficient
+  sampling_model: tail-sampling via exporter wrapper (SamplingSpanExporter / SamplingLogExporter)
+    reason: head sampling at span START can't know final error status; wrapper checks SpanStatusCode.ERROR
+  capacitor_http: NOT instrumented in this slice (CapacitorHttp.request() path used only for local HTTP API)
+    reason: staging always uses HTTPS → window.fetch path → covered by FetchInstrumentation
+    documented: explicitly in src/telemetry/otel.ts comments and prompt scope
+
+test_results:
+  test_files: 31 passed (31)
+  tests: 339 passed (339)
+  lint: PASS (0 errors)
+  typecheck: PASS (0 errors)
+  build: PASS
+  build:staging: PASS (with VITE_OTEL_INGEST_API_KEY injected at CLI, not committed)
+
+pii_compliance_adr_030:
+  firebase_uid: never logged (auth.service sets integer user.id only)
+  email: never in spans or logs
+  bearer_tokens: explicitly marked as "[NOT RECORDED]" in fetch spans; sanitizeErrorMessage redacts them from error messages
+  firebase_id_token: never in telemetry
+  user_id_type: integer (laravelUser.id), not firebase_uid
+
+security_note:
+  token_not_committed: CONFIRMED — .env.staging has placeholder comment only; real value injected via VITE_OTEL_INGEST_API_KEY env var at build time
+  git_diff_verified: no real token in any committed file
+
+notes:
+  - First real end-to-end telemetry from front_vibes-android service to Tempo/Loki in staging
+  - screen.VibesPage span type demonstrates navigation instrumentation pattern
+  - SDK is a no-op in development when VITE_OTEL_ENDPOINT is unset (kill switch confirmed by test suite)
