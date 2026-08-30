@@ -1,0 +1,43 @@
+date: 2026-08-29T19:39:29-07:00
+scenario: smoke (1 VU, 3 iterations, GET-only)
+k6_version: v1.0.0-rc1
+target: https://staging-api.ixora-app.app
+environment: basic-xxs App Platform + db-s-1vcpu-1gb Postgres
+
+checks_total: 21
+checks_succeeded: 21 (100.00%)
+checks_failed: 0 (0.00%)
+
+check_results:
+  firebase_sign_in_status_200: PASS
+  firebase_sign_in_idToken_present: PASS
+  auth_sync_status_2xx: PASS
+  GET_api_health_200: PASS
+  GET_api_vibes_200: PASS
+  GET_api_vibes_has_data_key: PASS
+  GET_api_schedules_200: PASS
+  GET_api_sounds_200: PASS
+  GET_api_preset_vibes_200: PASS
+
+thresholds:
+  checks_rate_gt_95pct: PASS (100.00%)
+  http_req_duration_p95_lt_3000ms: PASS (p95=822.9ms)
+  http_req_failed_rate_lt_5pct: PASS (0.00%)
+
+http_req_duration:
+  avg: 426.41ms
+  min: 104.67ms
+  med: 357.23ms
+  max: 1.59s
+  p90: 558.76ms
+  p95: 822.9ms
+
+http_reqs_total: 17
+http_reqs_failed: 0
+data_received: 56 kB
+data_sent: 5.0 kB
+iteration_duration_avg: 3.56s
+duration_total: 12.6s
+
+alerts_triggered: none
+staging_impact: none observed (volume equivalent to manual curl testing)
