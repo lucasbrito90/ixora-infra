@@ -1068,6 +1068,26 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
+#### Phase 12 — Observability Foundation Release — **Complete**
+
+**Goal:** Publish the Observability Foundation formally as a versioned, reproducible operational baseline.
+
+**Scope:** create an immutable release/tag; validate artifacts, documentation, and rollback; record changelog and acceptance evidence; communicate the baseline and next increments.
+
+**What was delivered:**
+
+- Annotated tag `v1.3.0-observability-foundation`, created and pushed at the `staging` HEAD of all three contributing repositories (`ixora-infra`, `back_vibes`, `front_vibes`). **This deviates from the `v1.1.0`/`v1.2.0` precedent**, which tagged `main` after a real production promotion — no production environment exists yet for Ixora (explicitly deferred until an MVP milestone), so this tag marks a staging baseline rather than a production release. A future production promotion, once `opentofu/production/` exists, would be a separate later release.
+- `docs/releases/v1.3.0-observability-foundation.md` brought fully up to date before tagging — it was first drafted during Phase 11.5, before Phase 8 (mobile SDK), the mobile OTLP exposure/CORS fix, and the distributed-tracing confirmation work landed; all three are now reflected, along with an expanded repos/PR table, validation results, and rollback notes covering `front_vibes` and the Collector/Caddy mobile changes.
+- Rollback procedures reviewed for accuracy against the real current state of each layer (Git history, the real host's actual config, the App Platform deploy model) — not executed as a live drill, since nothing in this release is in a failed state requiring one.
+- Changelog and acceptance evidence: already captured throughout this session in `qa/observability-*/evidence-*.txt`, cross-referenced from the release note.
+- Baseline communicated via the Trello board (card moved to Done), this `plan.md`/`tasks.md` update, and the central cross-repo roadmap.
+
+**Result:** Release published, verifications complete, staging baseline formally adopted. Card completion criterion ("release publicada, verificações pós-release concluídas e baseline operacional oficialmente adotada") met.
+
+**Branch:** `docs/v1.3.0-release-update-phase12`
+
+---
+
 #### Phase 8.8.5 — Observability Infrastructure Provisioning — **Complete (IaC)**
 
 **Goal:** Provision a dedicated DigitalOcean Droplet to run the existing `collector/docker-compose.yml` stack. OpenTofu provisions infrastructure only; Docker Compose remains the runtime source of truth.

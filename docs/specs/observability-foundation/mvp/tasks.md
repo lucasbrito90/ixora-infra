@@ -1219,6 +1219,23 @@
 
 ---
 
+## Phase 12 — Observability Foundation Release
+
+**Status:** Complete (2026-08-30).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P12-1 | Create an immutable release tag | **Done** | `v1.3.0-observability-foundation` annotated tag, pushed to `ixora-infra`, `back_vibes`, and `front_vibes` at their `staging` HEAD |
+| P12-2 | Validate artifacts, documentation, and rollback | **Done** | Release note cross-checked against real current state before tagging; rollback procedures reviewed for accuracy (not drilled live — nothing is in a failed state requiring one) |
+| P12-3 | Record changelog and acceptance evidence | **Done** | `docs/releases/v1.3.0-observability-foundation.md`; evidence files under `qa/observability-*/` |
+| P12-4 | Communicate the baseline and next increments | **Done** | Trello card, this `tasks.md`/`plan.md` update, central roadmap |
+
+**Note on tag scope:** unlike the prior `v1.1.0`/`v1.2.0` releases, which tagged `main` after a real production promotion, this tag marks the **staging baseline** — no production environment exists yet (explicitly deferred until an MVP milestone, per operator decision documented in the Phase 11 section above). If/when this is promoted to a real production environment, that will be a separate, later release.
+
+**Branch:** `docs/v1.3.0-release-update-phase12`
+
+---
+
 ## Phase 8.8.5 — Observability Infrastructure Provisioning
 
 **Prerequisite:** Full observability stack in `collector/` (Phases 3–8.9); staging VPC exists in OpenTofu.
