@@ -53,7 +53,8 @@ write_files:
       }
 
       # OTLP HTTP - HTTPS reverse proxy to Collector (:4318)
-      # App Platform and mobile clients use this hostname with Bearer auth at the Collector.
+      # App Platform clients use this hostname with Bearer auth at the Collector.
+      # (Mobile clients use a dedicated hostname/site block below, when configured.)
       ${otel_hostname} {
           # Block scanning attempts for sensitive paths
           @non_otlp {
