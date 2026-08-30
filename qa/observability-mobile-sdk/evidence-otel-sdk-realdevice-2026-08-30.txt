@@ -1,0 +1,164 @@
+date: 2026-08-30T06:45:00Z
+scenario: front_vibes OTel SDK — real end-to-end validation on a physical Android device
+environment: staging (otel-mobile-staging.ixora-app.app -> Collector :4319 -> Tempo/Loki)
+device: Motorola Edge 2023, Android 15, connected via USB (adb + Chrome DevTools Protocol)
+context: |
+  The previous evidence file (evidence-otel-sdk-2026-08-30.txt) validated the OTLP
+  endpoint's infrastructure (TLS, Bearer auth) via manual curl requests — it proved
+  the pipeline works, but never exercised the actual front_vibes app code (main.ts
+  bootstrap, router navigation hooks, fetch instrumentation, global error handlers).
+  This test closes that gap: a real debug APK, built with the real staging OTel
+  config, installed and run on a real device, with a real uncaught exception
+  triggered inside the running WebView via CDP (Runtime.evaluate), observed over
+  the real network (CDP Network domain) and confirmed in Tempo/Loki.
+
+# ── Real bugs found and fixed during this test ────────────────────────────────
+
+bug_1_stale_local_token:
+  symptom: first attempt returned 401 Unauthorized on every OTLP export
+  root_cause: local ixora-infra/collector/.env's OTEL_INGEST_API_KEY_MOBILE did not
+    match the value actually deployed on the real observability host — confirmed
+    by comparing sha256 hashes of both values without ever printing either plaintext
+  fix: rebuilt using the real host's token (fetched over SSH into a temp file,
+    exported into the build env, then securely deleted — never committed,
+    never printed to any log)
+  scope: local dev/test hygiene issue only — no code or infra change required
+
+bug_2_missing_cors_on_mobile_receiver:
+  symptom: intermittent net::ERR_FAILED on OTLP export attempts, CDP network
+    capture showed corsErrorStatus.corsError = "PreflightMissingAllowOriginHeader"
+  root_cause: collector/config.yaml's otlp/mobile receiver (port 4319) had no
+    `cors` block. Unlike the backend receiver (:4318, server-to-server, App
+    Platform — never subject to browser CORS), the mobile receiver is called
+    from fetch() inside a Capacitor Android WebView, whose page origin is the
+    fixed `https://localhost` (confirmed via the real device's own remote-
+    debugging page URL, not assumed). A cross-origin fetch with a custom
+    `Authorization` header always triggers a CORS preflight (OPTIONS) — without
+    an `Access-Control-Allow-Origin` response, the browser/WebView silently
+    drops the real request regardless of whether the server would have accepted it.
+  fix: added `cors: allowed_origins: ["https://localhost"], allowed_headers:
+    ["Authorization", "Content-Type"], max_age: 7200` under
+    receivers.otlp/mobile.protocols.http in collector/config.yaml (this PR).
+  deployed: real observability host (137.184.163.187) — config backed up
+    (config.yaml.bak-20260830-*), swapped in, collector container restarted
+    (docker compose restart collector), verified clean startup via container logs
+    (no config errors, all extensions/receivers started normally).
+  note: this is a real, previously-undiscovered gap in the mobile OTLP exposure
+    work (ixora-infra PR #28) — curl-based validation never exercises the
+    browser CORS preflight path, only a real browser/WebView fetch() does.
+
+# ── Test 1 — error trigger before fixes (both bugs present) ───────────────────
+
+pre_fix_test:
+  method: Runtime.evaluate via CDP -> setTimeout(() => { throw new Error(...) })
+  network_observed:
+    - "POST /v1/traces -> 401"
+    - "POST /v1/logs -> 401"
+    - "OPTIONS /v1/traces -> net::ERR_FAILED (PreflightMissingAllowOriginHeader)"
+    - "OPTIONS /v1/logs -> net::ERR_FAILED (PreflightMissingAllowOriginHeader)"
+  loki_result: no matching log ingested (as expected — both auth and CORS blocked it)
+  tempo_result: no matching trace ingested
+
+# ── Test 2 — after both fixes (real token + CORS) ──────────────────────────────
+
+post_fix_test:
+  method: same as above — real uncaught exception thrown inside the running app
+    via CDP Runtime.evaluate, marker string "manual-otel-realdevice-test2"
+  network_observed:
+    - "OPTIONS /v1/traces -> 204"
+    - "OPTIONS /v1/logs -> 204"
+    - "POST /v1/traces -> 200"
+    - "POST /v1/logs -> 200"
+  loki_result: CONFIRMED
+    logql: '{service_name="front_vibes-android"}'
+    body: "manual-otel-realdevice-test2 1788072451726"
+    severity: ERROR
+    resources:
+      service.name: front_vibes-android
+      service.version: "0.0.1-otel-realdevice-test2"   # unique build marker, proves this exact test run
+      deployment.environment: staging
+  tempo_result: CONFIRMED
+    query: /api/search?tags=service.name=front_vibes-android
+    traceID: 9bbd56aca8328866fd1fbd71d48e9c77
+    rootTraceName: js.uncaught_exception
+    rootServiceName: front_vibes-android
+
+# ── Test 3 — real navigation span + real fetch span (forced 100% sampling) ────
+
+navigation_test:
+  method: |
+    Real taps on the physical device (adb input tap), not synthetic events:
+    (a) 5 taps switching between IonTabs bottom-tab routes (Presets, Devices,
+        Settings, Home, My Vibes) — produced NO new trace or metric export,
+        even with Math.random forced to 0 (100% sampling). See finding below.
+    (b) 1 tap on a vibe card's edit button — a real vue-router push to
+        /vibes/:id/edit, not a tab switch — this DID produce a real export.
+  tempo_result: CONFIRMED (independently re-verified via direct Tempo
+    GET /api/traces/{traceID}, not just the search endpoint)
+    traceID: 88d18d59f955a252e1d45ae7aa0281fc
+    span_1:
+      name: screen.VibesPage
+      attributes: { user.id: "2" }               # integer, not firebase_uid/email (ADR-030)
+    span_2 (same trace, from @opentelemetry/instrumentation-fetch):
+      name: GET
+      url.full: https://staging-api.ixora-app.app/api/vibes/3
+      http.response.status_code: 200
+      http.request.header.authorization: "[NOT RECORDED]"   # PII redaction confirmed live (ADR-030)
+  loki_result: n/a for this specific test (no ERROR-level log emitted by a
+    successful navigation — only the trace was expected here)
+
+# ── Real finding: IonTabs bottom-tab switches may not re-fire router guards ───
+
+finding_ionic_tabs_navigation:
+  observation: |
+    Switching between already-mounted IonTabs bottom-tab routes (tapping
+    Presets/Devices/Settings/Home/My Vibes in sequence) produced zero new
+    trace exports AND zero new ixora.mobile.screen.duration metric data
+    points, even with sampling forced to 100%. A single real vue-router push
+    to a *new* route (vibes/:id/edit, triggered by tapping a card's edit
+    button) worked correctly on the first try.
+  interpretation: |
+    Since the metric pipeline is NOT gated by sampling (every recorded point
+    is always exported), and no new metric point appeared either, this is
+    not a sampling artifact — it suggests Ionic's IonTabs/ion-router-outlet
+    may not always invoke vue-router's beforeEach/afterEach guards when
+    switching between bottom-tab routes that are already mounted/cached,
+    at least in some navigation patterns. Not confirmed as a definitive bug
+    (could also be an artifact of this specific test session's navigation
+    history), but real enough to warrant a dedicated follow-up investigation
+    — it would mean `screen.*` spans under-report time spent on tabs reached
+    via the bottom bar after the first visit.
+  status: OPEN — flagged as a follow-up, not a blocker for this PR. The
+    core navigation-instrumentation mechanism is proven correct via the
+    /vibes/:id/edit test above; this finding is about IonTabs's specific
+    interaction with vue-router's guards, a narrower question.
+
+# ── What this proves ────────────────────────────────────────────────────────
+
+conclusions:
+  - The actual front_vibes app code (main.ts's window.onerror handler,
+    emitErrorSpan/emitErrorLog in telemetry/otel.ts) genuinely captures a real
+    uncaught exception and exports it — not just the infrastructure around it.
+  - Screen-navigation spans (screen.*) and fetch-instrumentation spans both
+    genuinely export from a real device performing a real route push, in the
+    same trace, with correct user.id propagation and correct PII redaction
+    of the Authorization header — confirmed via a direct Tempo trace lookup,
+    not just a search-endpoint match.
+  - The mobile OTLP path (Caddy -> Collector :4319 -> Tempo/Loki) now works
+    end-to-end for a real device/WebView client, CORS included.
+  - Two infra-side bugs were found and fixed during this test (stale local
+    secret, missing CORS) — the front_vibes SDK implementation itself
+    required no code changes as a result of either.
+  - One open, non-blocking finding: IonTabs bottom-tab switching may not
+    always re-trigger vue-router guards (see finding_ionic_tabs_navigation
+    above) — flagged for follow-up investigation, not fixed in this PR.
+
+not_yet_tested:
+  - Navigation span sampling at its real 5% rate (as opposed to forced 100%)
+    was not statistically confirmed — would require many repeated real
+    navigations for a statistically meaningful hit rate; low-priority
+    follow-up, since the export mechanism itself is now proven correct.
+  - CapacitorHttp.request() network path (local-dev-only, not staging) was not
+    exercised — out of scope per the original prompt.
+  - Whether IonTabs bottom-tab switching under-reports screen time (see
+    finding above) — needs dedicated investigation, not covered here.
