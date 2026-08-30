@@ -1,0 +1,58 @@
+date: 2026-08-29T20:01:59-07:00
+scenario: write-flows-crud smoke (1 VU, 2 iterations, CRUD vibes + schedules)
+k6_version: v1.0.0-rc1
+target: https://staging-api.ixora-app.app
+environment: basic-xxs App Platform + db-s-1vcpu-1gb Postgres
+
+checks_total: 17
+checks_succeeded: 17 (100.00%)
+checks_failed: 0 (0.00%)
+
+check_results:
+  firebase_sign_in_status_200: PASS
+  firebase_sign_in_idToken_present: PASS
+  auth_sync_status_2xx: PASS
+  POST_api_vibes_201: PASS (×2 iterations)
+  POST_api_vibes_id_in_response: PASS (×2 iterations)
+  POST_api_schedules_201: PASS (×2 iterations)
+  POST_api_schedules_id_in_response: PASS (×2 iterations)
+  PATCH_api_vibes_id_200: PASS (×2 iterations)
+  DELETE_api_schedules_id_204: PASS (×2 iterations)
+  DELETE_api_vibes_id_200: PASS (×2 iterations)
+
+thresholds:
+  checks_rate_gt_95pct: PASS (100.00%)
+  http_req_duration_p95_lt_3000ms: PASS (p95=614.87ms)
+  http_req_failed_rate_lt_5pct: PASS (0.00%)
+
+http_req_duration:
+  avg: 382.62ms
+  min: 114.08ms
+  med: 352.55ms
+  max: 705.46ms
+  p90: 527.13ms
+  p95: 614.87ms
+
+http_reqs_total: 12
+http_reqs_failed: 0
+data_received: 17 kB
+data_sent: 5.2 kB
+iteration_duration_avg: 3.59s
+duration_total: 8.0s
+
+operations_per_iteration:
+  vibes_created: 2
+  schedules_created: 2
+  vibes_patched: 2
+  schedules_deleted: 2
+  vibes_deleted: 2
+
+cleanup_verification:
+  method: GET /api/vibes and GET /api/schedules with same user token, post-run
+  query: python3 filter for items with '[k6-load]' in name field
+  vibes_orphaned: 0
+  schedules_orphaned: 0
+  result: CONFIRMED — zero [k6-load] resources left in staging
+
+alerts_triggered: none
+staging_impact: none observed (2 iterations = 4 writes + 4 deletes, well within basic-xxs capacity)
