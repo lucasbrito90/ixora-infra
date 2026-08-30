@@ -1168,6 +1168,31 @@
 
 ---
 
+## Phase 11 — Production Readiness Review
+
+> **Numbering note:** this file's own `## Phase 11 — QA` section further below is historical (old numbering, predates the current renumbering). The current cross-repo roadmap reassigns "Phase 11" to Production Readiness Review — this section — the same kind of collision already documented for Phases 9, 9.5, and 10.
+
+**Status:** Review complete; **decision is NO-GO**. The card's completion criterion ("checklist de readiness completo, riscos críticos encerrados e decisão de release documentada") is only partially met — the checklist and decision are both done, but critical risks are explicitly NOT closed yet (that's the substance of the NO-GO). Left in Backlog rather than Done pending the operator's call on how to track this — see `production-readiness-review.md`.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P11-1 | Cross-repo investigation: backups, secrets, migrations, rollback, security posture, open KL-*/TD-* risks, disaster recovery/SPOFs (`back_vibes` + `ixora-infra`) | **Done** | Findings independently re-verified before inclusion, not forwarded raw |
+| P11-2 | Write the review document with a go/no-go decision | **Done** | `production-readiness-review.md` |
+| P11-3 | Close/mitigate the blocking findings (no production infra, no backups, no rate limiting, dead CI) | **Pending** | This is the actual work a "Go" decision requires — tracked as future phases/cards, not resolved by the review itself |
+
+**Phase 11 implementation notes:**
+
+- **Headline finding: there is no `ixora-infra/opentofu/production/` at all** — only `staging/`. Every other finding is a fixable gap on infrastructure that already exists; this one means there's currently no environment to evaluate production readiness against.
+- **Backups are architecture-only** — `backup-strategy.md`'s own header says so. No automation, no tested restore, anywhere.
+- **No rate limiting exists on any `back_vibes` API endpoint** — confirmed by grepping every middleware/provider for `throttle`/`RateLimiter::for`: zero hits, including on the Firebase auth endpoints.
+- **Real, previously-unnoticed finding surfaced during this review:** `back_vibes/.github/workflows/deploy-staging.yml` (a legacy SSH-based deploy path superseded by App Platform) is still active and triggers on every push to `staging`, still attempting `php artisan migrate --force` over SSH. Confirmed via `gh run list`: the 5 most recent runs (2026-08-03 through 2026-08-25) all failed at ~37-40s each, almost certainly at the SSH step. `deploy-pipeline.md` had already flagged this exact dual-deploy-path scenario as tech debt — it just hadn't been acted on. Dead, consistently-red CI, unaddressed for 3+ weeks.
+- **Secrets management held up under scrutiny** — no leaked secrets found, proper `sensitive = true` marking, and the OTEL_* env var gap from the Phase 8.9 TD-5 incident is confirmed fixed in the current `terraform.tfvars.example`.
+- **Migrations and rollback are both well-documented** (`deploy-pipeline.md`) even though production doesn't exist yet — the manual migration step and the git-revert/App-Platform-redeploy rollback options are real, specific, and sound procedures once there's a production environment to apply them to.
+
+**Branch:** `feature/production-readiness-review`
+
+---
+
 ## Phase 8.8.5 — Observability Infrastructure Provisioning
 
 **Prerequisite:** Full observability stack in `collector/` (Phases 3–8.9); staging VPC exists in OpenTofu.

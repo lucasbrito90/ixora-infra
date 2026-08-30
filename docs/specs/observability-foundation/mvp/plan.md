@@ -1021,6 +1021,33 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
+#### Phase 11 — Production Readiness Review — **Review complete; decision is NO-GO**
+
+> **Numbering note:** this file's own `## Phase 11 — QA` heading further below is historical (old numbering). The current roadmap reassigns "Phase 11" to Production Readiness Review — this section — the same kind of collision already documented for Phases 9, 9.5, and 10.
+
+**Goal:** Assess whether the application, infrastructure, and operations meet minimum requirements for a production launch — security, reliability, observability, backups, migrations, secrets, rollback, capacity, open risks — and issue a documented go/no-go decision.
+
+**Method:** a dedicated cross-repo investigation (`back_vibes` + `ixora-infra`; `front_vibes`/`ixora-admin` explicitly out of scope for this pass) covering backups, secrets, migrations, rollback, security posture, open KL-*/TD-* items, and disaster-recovery/single-point-of-failure exposure — every finding independently re-verified before inclusion, not forwarded raw. Combined with this session's own already-closed Phase 9/9.5/10 work (alerting, incident response, load testing).
+
+**Headline finding — the actual blocker:** `ixora-infra/opentofu/` contains only a `staging/` environment. **No production infrastructure is defined as code at all.** Every other finding below is a fixable gap on infrastructure that already exists; this one means there is currently no environment to evaluate production readiness against.
+
+**Other findings:**
+
+- **Backups: architecture-only.** `backup-strategy.md`'s own header states no backups are implemented — no automation, no tested restore, for either the observability stack or (documented, at least) the managed Postgres cluster's backup behavior.
+- **No rate limiting anywhere in `back_vibes`'s API** — confirmed by grepping every middleware/provider for `throttle`/`RateLimiter::for`. The Firebase auth endpoints (`/api/auth/firebase`, `/api/auth/sync`) have no request-rate protection.
+- **Real, previously-unnoticed finding:** `back_vibes/.github/workflows/deploy-staging.yml`, a legacy SSH-based deploy path superseded by App Platform, is still active, still triggers on every push to `staging`, and has failed on its 5 most recent runs (2026-08-03 through 2026-08-25) — almost certainly at the SSH connection step, since its target Droplet from the pre-App-Platform era likely no longer exists. `deploy-pipeline.md` had already flagged this exact dual-deploy-path risk as tech debt; it just hadn't been acted on. Dead, consistently-red CI, unaddressed for 3+ weeks.
+- **Secrets management held up under scrutiny** — no leaked secrets, correct `sensitive = true` marking on 17 variables, and the Phase 8.9 TD-5-adjacent OTEL env var gap is confirmed fixed in the current `terraform.tfvars.example`.
+- **Migrations and rollback are both well-documented** (`deploy-pipeline.md`) — a real, specific manual migration procedure and real rollback options (git revert, App Platform's native redeploy-previous-version, forward-fix) — sound procedures once a production environment exists to apply them to.
+- **Open KL-*/TD-* risks compiled** (not new, mostly already-tracked single-operator-scale trade-offs): KL-A-1/2/6, KL-S-1/2/3, KL-IR-2/3/5, KL-RR-1/2/4. Already-resolved items (KL-A-3/4/5, KL-IR-1/6, TD-5, TD-6) correctly not re-flagged.
+
+**Decision:** **NO-GO.** Documented in full, with a prioritized "what Go requires" list (production OpenTofu environment first, then real backups, rate limiting, and fixing/removing the dead CI workflow), in `production-readiness-review.md`.
+
+**Result:** The review itself (§P11-1/P11-2 in `tasks.md`) is complete and the decision is documented — but the card's completion criterion also requires critical risks to be *closed*, which they explicitly are not yet. Left as a partial/NO-GO outcome rather than marked fully done, pending the operator's call on how to track the remediation work (P11-3).
+
+**Branch:** `feature/production-readiness-review`
+
+---
+
 #### Phase 8.8.5 — Observability Infrastructure Provisioning — **Complete (IaC)**
 
 **Goal:** Provision a dedicated DigitalOcean Droplet to run the existing `collector/docker-compose.yml` stack. OpenTofu provisions infrastructure only; Docker Compose remains the runtime source of truth.
