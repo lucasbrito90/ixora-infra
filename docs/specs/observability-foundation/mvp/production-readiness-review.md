@@ -45,10 +45,10 @@ These are not reopened by this review. They inform §6 (some of their own known 
 
 ## 4. Findings by area
 
-### 4.1 Backups — **Critical gap**
+### 4.1 Backups — **Partial gap** (narrower than first assessed — see below)
 
 - `backup-strategy.md`'s own header states: **"Status: Architecture only — no backups implemented."** No cron jobs, no scripts, no automation exist anywhere in the repo for the observability stack (Prometheus/Loki/Tempo/Grafana volumes).
-- `opentofu/staging/database.tf` has no explicit backup configuration for the managed Postgres cluster. DigitalOcean managed Postgres includes automatic daily backups by platform default, but this is **not asserted anywhere in code or docs** — an unverified assumption, not a confirmed fact.
+- `opentofu/staging/database.tf` has no explicit backup configuration for the managed Postgres cluster — but this was live-verified 2026-08-30 via `doctl databases backups <cluster-id>`: **8 consecutive daily automatic backups exist**, one per day from 2026-08-22 through 2026-08-29 (~19:15 UTC each), confirming DigitalOcean's managed-Postgres automatic backup default is genuinely active. This was an unverified assumption when this review was first written; it is now a confirmed fact, not a gap. Not yet documented in-repo (nothing references this in `database.tf` or `backup-strategy.md`), and no restore has ever been tested.
 - No restore has ever been tested or documented. The strategy doc's own "Future implementation phases" table lists a restore drill as a future, production-only item.
 
 ### 4.2 Secrets management — **Solid**
@@ -109,7 +109,7 @@ TD-1/TD-3/TD-4 were searched for and not found under those IDs — either they d
 | Finding | Severity | Blocks Go? |
 | --- | --- | --- |
 | No production infrastructure exists (§4.6) | **Blocker** | Yes — nothing to evaluate readiness against |
-| No backups implemented (§4.1) | **Critical** | Yes |
+| Postgres backup undocumented + untested restore; observability stack has zero backup (§4.1) | **Medium** (downgraded 2026-08-30 — DB auto-backups confirmed active) | Not for staging; would be for a real production launch |
 | No rate limiting on any endpoint (§4.5) | **High** | Yes |
 | Dead CI failing for 3+ weeks (§4.4) | **Medium** | No, but should be fixed promptly regardless |
 | Migration procedure manual/unenforced (§4.3) | **Low** (moot until production exists) | No |
@@ -122,7 +122,7 @@ TD-1/TD-3/TD-4 were searched for and not found under those IDs — either they d
 In rough priority order:
 
 1. **Stand up `ixora-infra/opentofu/production/`** — a real production environment definition, with its own (larger) Postgres sizing, App Platform spec, and explicit HA/failover decisions. This is the prerequisite for everything else in this section meaning anything.
-2. **Implement real backups** — at minimum, confirm and document DigitalOcean managed Postgres's automatic backup behavior for the production cluster, and run at least one real restore drill before launch. Observability data (Prometheus/Loki/Tempo) backup can reasonably stay lower priority (it's operational telemetry, not user data) but should not stay permanently undocumented-as-unimplemented.
+2. **Document the confirmed Postgres auto-backup behavior in-repo, run a real restore drill, and back up the observability stack.** Postgres backups themselves are already happening (confirmed 2026-08-30); the remaining work is documentation, a tested restore, and closing the observability-stack gap (Prometheus/Loki/Tempo/Grafana volumes on the single Droplet currently have none).
 3. **Add rate limiting** to `back_vibes`'s public API, especially `/api/auth/firebase` and `/api/auth/sync` — Laravel's built-in `RateLimiter`/`throttle` middleware is a low-effort, well-trodden path here.
 4. **Disable or fix `back_vibes/.github/workflows/deploy-staging.yml`** — either remove the dead legacy SSH workflow entirely (App Platform already handles staging deploys) or fix it if there's a reason to keep it. Either way, stop leaving broken CI red and ignored.
 5. Revisit this review once 1–4 are done — a second, real go/no-go pass against an actual production environment, not a hypothetical one.
