@@ -116,10 +116,19 @@ output "observability_grafana_url" {
 }
 
 output "observability_otlp_http_url" {
-  description = "Public OTLP HTTP endpoint (Caddy → Collector :4318). Used by App Platform and mobile clients. Requires DNS A record pointing to observability_public_ipv4 after apply."
+  description = "Public OTLP HTTP endpoint (Caddy → Collector :4318). Used by App Platform backend clients. Requires DNS A record pointing to observability_public_ipv4 after apply."
   value = (
     var.observability_enabled && var.observability_otel_hostname != null
     ? "https://${var.observability_otel_hostname}"
+    : null
+  )
+}
+
+output "observability_otlp_mobile_http_url" {
+  description = "Public OTLP HTTP endpoint for mobile clients (Caddy → Collector :4319). Requires observability_otel_mobile_hostname to be set and DNS A record pointing to observability_public_ipv4 after apply."
+  value = (
+    var.observability_enabled && var.observability_otel_mobile_hostname != null
+    ? "https://${var.observability_otel_mobile_hostname}"
     : null
   )
 }
@@ -152,8 +161,16 @@ output "observability_dns_requirements" {
       fqdn    = var.observability_otel_hostname
       value   = local.observability_public_ipv4
       ttl     = var.observability_dns_ttl
-      purpose = "OTLP HTTP HTTPS endpoint"
+      purpose = "OTLP HTTP HTTPS endpoint (backend / App Platform → Collector :4318)"
     }
+    otel_mobile = var.observability_otel_mobile_hostname != null ? {
+      type    = "A"
+      name    = local.obs_otel_mobile_record_name
+      fqdn    = var.observability_otel_mobile_hostname
+      value   = local.observability_public_ipv4
+      ttl     = var.observability_dns_ttl
+      purpose = "OTLP HTTP HTTPS endpoint (mobile → Collector :4319)"
+    } : null
   } : null
 }
 

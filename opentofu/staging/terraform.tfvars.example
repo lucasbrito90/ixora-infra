@@ -101,6 +101,7 @@ nuxt_public_api_base_url = "https://staging-api.ixora-app.app/api"
 # observability_ssh_allowed_cidrs   = ["YOUR.PUBLIC.IP/32"]
 # observability_grafana_hostname    = "grafana-staging.ixora-app.app"
 # observability_otel_hostname       = "otel-staging.ixora-app.app"
+# observability_otel_mobile_hostname = "otel-mobile-staging.ixora-app.app"
 # observability_use_block_volume    = false          # Strategy A: root disk (default)
 # observability_use_reserved_ip     = false          # Reserve a floating IP for DNS stability
 #
