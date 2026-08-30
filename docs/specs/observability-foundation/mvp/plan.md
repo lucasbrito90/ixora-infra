@@ -1111,7 +1111,7 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
-## Phase 8 — Frontend SDK
+## Phase 8 — Frontend SDK — **Complete (2026-08-30)**
 
 **Goal:** `front_vibes` Android emits OTLP to Collector.
 
@@ -1123,7 +1123,29 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ### Exit criteria
 
-- Staging APK exports sample traces/logs on key flows.
+- Staging APK exports sample traces/logs on key flows. **Met** — confirmed on a real physical device, not just unit tests or a synthetic endpoint check.
+
+### What was delivered
+
+- `@opentelemetry/sdk-trace-web` + `sdk-logs` + `sdk-metrics` with HTTP/JSON OTLP exporters (gRPC isn't viable in a WebView); no `context-zone` (root-level spans only — navigation and network — don't need deep async propagation, saving ~80 KB of bundle size).
+- Tail-sampling via an exporter wrapper implementing ADR-031's mobile policy (5% success / 100% error) — a head sampler can't know a span's final status at start time.
+- Global error handlers (`app.config.errorHandler`, `unhandledrejection`, `window.onerror`) — none existed in `front_vibes` before this phase.
+- Navigation instrumentation (`screen.*` spans, `ixora.mobile.screen.duration` metric) and fetch instrumentation, both PII-scrubbed per ADR-030 (`user.id` integer only, `Authorization` header excluded, query strings stripped).
+- A real, unrelated bug fixed during review: every route lacked `vue-router`'s `name`, so the original screen-name fallback read the *resolved* URL — for routes ending in a dynamic segment (`devices/:id`, `presets/:id`) this leaked the literal ID into the span name. Fixed with explicit `meta.screenName` per route and a template-based fallback (`front_vibes/src/router/screen-name.ts`), unit-tested.
+
+### Infra prerequisite this phase surfaced (not originally scoped)
+
+Exporting from a real mobile client required two `ixora-infra` fixes that didn't exist yet:
+1. The Collector's mobile OTLP receiver (:4319) had no public exposure at all — fixed by adding a dedicated `otel-mobile-staging.ixora-app.app` hostname through Caddy (PR #28).
+2. Once exposed, real-device testing found the receiver had no CORS configuration — unlike the backend receiver (server-to-server, never subject to browser CORS), front_vibes's SDK runs inside a WebView making a genuine cross-origin `fetch()`, which every browser preflights. Fixed by adding `cors: allowed_origins: ["https://localhost"]` to the receiver config, deployed to the real host (PR #31).
+
+### Real-device validation (2026-08-30)
+
+Unlike the curl-based validation used to prove the infra endpoint alone, this phase was confirmed by building a real staging debug APK, installing it on a physical Motorola Edge 2023 via `adb`, and using the Chrome DevTools Protocol to trigger real errors and real navigations inside the actually-running app — then independently confirming the results via direct Tempo/Loki API lookups (not just a search-endpoint match). Both infra bugs above were found only because of this device-level test; a curl-based check would not have caught either. Evidence: `qa/observability-mobile-sdk/evidence-otel-sdk-2026-08-30.txt` (endpoint) and `evidence-otel-sdk-realdevice-2026-08-30.txt` (real device, error trace + navigation trace + fetch span, all independently re-verified).
+
+**Known limitation, not fixed here:** switching between `IonTabs` bottom-tab routes produced no new trace or metric export even with sampling forced to 100%, while a genuine `vue-router` push worked correctly on the first attempt. Not confirmed as a definitive bug — tracked separately on Trello ("Investigar: IonTabs pode não re-disparar guards do vue-router ao trocar de aba") rather than blocking this phase's completion.
+
+**Branches:** `front_vibes` `feature/observability-frontend-sdk` (PR #5) · `ixora-infra` `feature/observability-mobile-otlp-exposure` (PR #28), `feature/observability-mobile-cors` (PR #31), `docs/frontend-sdk-integration-evidence` (PR #30)
 
 ---
 
