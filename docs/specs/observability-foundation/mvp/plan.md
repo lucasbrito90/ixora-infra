@@ -1048,6 +1048,26 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
+#### Phase 11.5 — Final Documentation & Release Review — **Complete**
+
+> **Numbering note:** this file's own `## Phase 11.5 — Appium mobile telemetry validation` heading further below is historical (old numbering — same collision already documented for Phases 9, 9.5, 10, and 11). The current roadmap and Trello board assign "Phase 11.5" to "Final Documentation & Release Review" — this section.
+
+**Goal:** Consolidate the technical and operational documentation needed to release the Observability Foundation with full traceability — review ADRs, runbooks, diagrams, and variables; confirm links/versions/operational commands are current; record changes, limitations, and accepted pending items; produce the release note.
+
+**Method:** a read-only audit of the 4 Observability Foundation ADRs (028–031), all 10 observability-related runbooks, the main specs (`spec.md`, `alerting-strategy.md`, `backup-strategy.md`, `production-readiness-review.md`, `tasks.md`, `plan.md`), diagram references, and the `observability_*` OpenTofu variables — followed by fixing what the audit found and writing the release note.
+
+**Findings:**
+
+- **ADRs, runbooks, diagrams, variables:** no inconsistencies found. All ADR cross-references resolve to real files; all runbook dashboard UIDs match the real Grafana provisioning JSONs; architecture diagrams are embedded Mermaid (no external diagram files to go missing); all 17 documented `observability_*` variables exist in `variables.tf` with matching names/types and correct `sensitive` marking.
+- **One real inconsistency found and fixed:** `production-readiness-review.md` still described backups, rate limiting, and the dead SSH deploy workflow as open gaps needing future work, with no mention that all three were remediated and deployed to staging earlier the same day (2026-08-30, see the Phase 11 section above). Fixed with inline "RESOLVED 2026-08-30" notes in §4.1/§4.4/§4.5, an updated severity table, and a corrected "what Go requires" list — the historical NO-GO decision itself was left unchanged, consistent with this repo's convention of layering updates onto frozen decision records instead of rewriting them.
+- **No release note existed yet** for the Observability Foundation. Two prior releases (`v1.1.0-push-notifications.md`, `v1.2.0-scheduler-smart-home-automations.md`) provided a reusable structure, followed to produce `docs/releases/v1.3.0-observability-foundation.md`.
+
+**Result:** Documentation reviewed, brought consistent with the real, currently-deployed environment, and a release note produced covering all phases of this foundation (telemetry SDK through the Phase 11 remediation). Card criterion ("documentação revisada, consistente com o ambiente real e aprovada para acompanhar a release") met.
+
+**Branch:** `docs/phase11.5-final-documentation-release-review`
+
+---
+
 #### Phase 8.8.5 — Observability Infrastructure Provisioning — **Complete (IaC)**
 
 **Goal:** Provision a dedicated DigitalOcean Droplet to run the existing `collector/docker-compose.yml` stack. OpenTofu provisions infrastructure only; Docker Compose remains the runtime source of truth.

@@ -1193,6 +1193,32 @@
 
 ---
 
+## Phase 11.5 — Final Documentation & Release Review
+
+> **Numbering note:** this file's own `## Phase 11.5 — Appium mobile telemetry validation` section further below is historical (old numbering, predates the current renumbering — same collision already documented for Phases 9, 9.5, 10, and 11). The current cross-repo roadmap and Trello board assign "Phase 11.5" to the card "Final Documentation & Release Review" — this section.
+
+**Status:** Complete.
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P11.5-1 | Audit ADRs (028–031): status, cross-references resolve to real files | **Done** | No inconsistencies found |
+| P11.5-2 | Audit runbooks: operational commands, dashboard UIDs, cross-doc references | **Done** | No inconsistencies found |
+| P11.5-3 | Audit main specs (spec.md, alerting-strategy.md, backup-strategy.md, production-readiness-review.md, tasks.md, plan.md) for consistency with what's actually implemented | **Done** | Found `production-readiness-review.md` out of sync with the 2026-08-30 remediation — fixed |
+| P11.5-4 | Verify diagrams referenced in docs exist | **Done** | Architecture diagrams are embedded Mermaid blocks, not external files — none missing |
+| P11.5-5 | Verify OpenTofu `observability_*` variables match documentation, sensitive marking correct | **Done** | All 17 documented variables exist with matching names/types; no sensitive value incorrectly unmarked |
+| P11.5-6 | Confirm all session feature branches merged to `staging` | **Done** | Confirmed via `git log`/`git branch -a` |
+| P11.5-7 | Write the Observability Foundation release note | **Done** | `docs/releases/v1.3.0-observability-foundation.md` |
+
+**Phase 11.5 implementation notes:**
+
+- Audit was performed read-only, no files modified during the investigation pass — findings applied afterward.
+- The one real inconsistency found: `production-readiness-review.md` still described backups, rate limiting, and the dead SSH workflow as open gaps needing future action, without reflecting that all three were remediated and deployed to staging earlier the same day (2026-08-30). Fixed with inline "RESOLVED 2026-08-30" annotations in §4.1/§4.4/§4.5, an updated severity table (§5), and a corrected "what Go requires" list (§6) — the historical **NO-GO** decision itself (§1) was left unchanged, per this repo's convention of layering updates onto frozen decision records rather than rewriting them.
+- No release note existed yet for the Observability Foundation; two prior releases (`v1.1.0-push-notifications.md`, `v1.2.0-scheduler-smart-home-automations.md`) provided a reusable structure, followed for `v1.3.0-observability-foundation.md`.
+
+**Branch:** `docs/phase11.5-final-documentation-release-review`
+
+---
+
 ## Phase 8.8.5 — Observability Infrastructure Provisioning
 
 **Prerequisite:** Full observability stack in `collector/` (Phases 3–8.9); staging VPC exists in OpenTofu.
