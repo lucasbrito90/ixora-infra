@@ -336,6 +336,12 @@ variable "observability_otel_hostname" {
   default     = "otel-staging.ixora-app.app"
 }
 
+variable "observability_otel_mobile_hostname" {
+  description = "Public HTTPS hostname for mobile OTLP HTTP ingestion (Caddy reverse proxy to Collector :4319). Optional — when null, no DNS record or Caddy site block is created for the mobile port."
+  type        = string
+  default     = null
+}
+
 variable "observability_https_allowed_cidrs" {
   description = "CIDR blocks allowed inbound on TCP/443 (Caddy — Grafana + OTLP HTTP). Default 0.0.0.0/0 for App Platform and mobile clients."
   type        = list(string)
@@ -381,7 +387,7 @@ variable "observability_use_reserved_ip" {
 # ── Observability DNS (Phase 8.8.6) ──────────────────────────────────────────
 
 variable "observability_manage_dns" {
-  description = "When true, create DigitalOcean DNS A records for observability_grafana_hostname and observability_otel_hostname pointing to the Droplet public IP. Requires observability_dns_zone_name to be set and the DNS zone to exist in DigitalOcean DNS. When false, use observability_dns_requirements output for manual DNS steps."
+  description = "When true, create DigitalOcean DNS A records for observability_grafana_hostname, observability_otel_hostname, and (when set) observability_otel_mobile_hostname pointing to the Droplet public IP. Requires observability_dns_zone_name to be set and the DNS zone to exist in DigitalOcean DNS. When false, use observability_dns_requirements output for manual DNS steps."
   type        = bool
   default     = false
 }

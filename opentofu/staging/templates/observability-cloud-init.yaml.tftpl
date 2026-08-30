@@ -72,6 +72,28 @@ write_files:
           reverse_proxy 127.0.0.1:4318
       }
 
+%{ if otel_mobile_enabled ~}
+      # OTLP HTTP (mobile) - HTTPS reverse proxy to Collector (:4319)
+      # Mobile clients (front_vibes) use this hostname with Bearer auth at the Collector.
+      ${otel_mobile_hostname} {
+          # Block scanning attempts for sensitive paths
+          @non_otlp {
+              not path /v1/traces
+              not path /v1/metrics
+              not path /v1/logs
+          }
+          respond @non_otlp 404
+
+          # Security headers
+          header {
+              X-Content-Type-Options "nosniff"
+              -Server
+          }
+
+          reverse_proxy 127.0.0.1:4319
+      }
+%{ endif ~}
+
   - path: /etc/systemd/system/ixora-observability.service
     permissions: "0644"
     owner: root:root
