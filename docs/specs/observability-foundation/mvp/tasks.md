@@ -52,7 +52,7 @@
 | 8.4 — Smart Home Business Dashboard (D-02) | 0 | 0 | 7 | 0 |
 | 7B.5 — Push Notifications | 3 | 0 | 0 | 0 |
 | 7B.6 — External Providers | 3 | 0 | 0 | 0 |
-| 8 — Frontend SDK | 5 | 0 | 0 | 0 |
+| 8 — Frontend SDK | 0 | 0 | 5 | 0 |
 | 9 — Dashboards | 5 | 0 | 0 | 0 |
 | 9.5 — Decision Guide + Playbook | 0 | 0 | 2 | 0 |
 | 10 — Operational readiness | 4 | 0 | 0 | 0 |
@@ -1300,15 +1300,21 @@
 
 ## Phase 8 — Frontend SDK
 
+**Status:** Complete (2026-08-30) — implemented, fixed, and validated end-to-end on a real physical device.
+
 | ID | Task | Status | Reference |
 | --- | --- | --- | --- |
-| P8-1 | Evaluate OTel JS SDK for Capacitor Android | **Pending** | |
-| P8-2 | Instrument errors and key navigation spans | **Pending** | [`ADR-029`](../../../decisions/ADR-029-telemetry-data-model.md) |
-| P8-3 | Mobile sampling per ADR-031 | **Pending** | |
-| P8-4 | Staging build exports to Collector | **Pending** | |
-| P8-5 | Verify no PII in mobile telemetry | **Pending** | [`ADR-030`](../../../decisions/ADR-030-observability-security-and-privacy.md) |
+| P8-1 | Evaluate OTel JS SDK for Capacitor Android | **Done** | `@opentelemetry/sdk-trace-web` + `sdk-logs` + `sdk-metrics`, HTTP/JSON exporters (gRPC not viable in a WebView) — no `context-zone` (root-level spans only, ~80 KB saved) |
+| P8-2 | Instrument errors and key navigation spans | **Done** | `front_vibes/src/telemetry/otel.ts`, `src/main.ts` (global error handlers), `src/router/index.ts` + `src/router/screen-name.ts` (`screen.*` spans) |
+| P8-3 | Mobile sampling per ADR-031 | **Done** | `front_vibes/src/telemetry/sampling.ts` — 5% success / 100% error, tail-sampling via exporter wrapper (head sampling can't know final span status at start) |
+| P8-4 | Staging build exports to Collector | **Done** | Required a prerequisite infra fix not originally scoped here: the mobile OTLP receiver (:4319) had no public exposure (`ixora-infra` PR #28) and no CORS (`ixora-infra` PR #31) — both fixed and deployed to the real host |
+| P8-5 | Verify no PII in mobile telemetry | **Done** | `front_vibes/src/telemetry/pii-sanitizer.ts` (email/Bearer token/JWT redaction), `user.id` (integer) never `firebase_uid`/email, `Authorization` header explicitly excluded from fetch spans — verified live on real exported data, not just unit tests |
 
-**Branch:** `feature/observability-frontend-sdk`
+**Real-device validation (2026-08-30):** unlike the curl-based endpoint validation used for the infra prerequisite, this phase was validated by building a real staging debug APK, installing it on a physical Motorola Edge 2023 via `adb`, and using the Chrome DevTools Protocol to trigger real errors and real navigations inside the actually-running app. Two real bugs were found and fixed only because of this: a stale local test token (dev hygiene only) and the missing CORS config in P8-4 above. Confirmed via direct Tempo/Loki lookups: a real `js.uncaught_exception` trace+log, and a real `screen.VibesPage` navigation span sharing a trace with a real `@opentelemetry/instrumentation-fetch` span (`GET /api/vibes/3`, `Authorization` redacted). Evidence: `qa/observability-mobile-sdk/evidence-otel-sdk-2026-08-30.txt` (endpoint) and `evidence-otel-sdk-realdevice-2026-08-30.txt` (real device).
+
+**Known limitation found, not fixed here:** switching between `IonTabs` bottom-tab routes did not produce any new trace or metric export even with sampling forced to 100%, while a genuine `vue-router` push (e.g. into a vibe's edit page) worked correctly. Not confirmed as a definitive bug — tracked as a separate Trello card ("Investigar: IonTabs pode não re-disparar guards do vue-router ao trocar de aba") for dedicated follow-up, not a blocker for this phase's completion.
+
+**Branches:** `front_vibes` `feature/observability-frontend-sdk` (PR #5) · `ixora-infra` `feature/observability-mobile-otlp-exposure` (PR #28), `feature/observability-mobile-cors` (PR #31), `docs/frontend-sdk-integration-evidence` (PR #30)
 
 ---
 

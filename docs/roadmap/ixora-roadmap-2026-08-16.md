@@ -770,7 +770,7 @@ Alguns documentos mais antigos possuem uma numeração anterior à reorganizaç�
 | --- | --- | ---: | --- |
 | Phase 7B.5 - Push Notifications instrumentation | Pending | **0/3 - 0%** | Spans/metrics específicos de Push e auditoria de dados proibidos. O dashboard D-03 foi implementado usando métricas da Queue, não esta instrumentação específica. |
 | Phase 7B.6 - External Providers instrumentation | Pending | **0/3 - 0%** | Spans/métricas para provider calls não cobertas pela auto-instrumentation genérica. |
-| Old Phase 8 - Frontend SDK (`front_vibes`) | Pending | **0/5 - 0%** | OTel no Capacitor/mobile, erros/navigation, sampling, staging export, privacy. A numeração `8` foi depois reutilizada pelo bloco de Grafana no tracking atual. |
+| Old Phase 8 - Frontend SDK (`front_vibes`) | Concluída (30/08/2026) | **5/5 - 100%** | SDK OTel (traces/logs/métricas) implementado e validado ponta a ponta em dispositivo físico real (Motorola Edge 2023) — não só testes unitários ou curl. Exigiu 2 correções de infra não previstas no escopo original (exposição pública da porta mobile do Collector e CORS), ambas encontradas só pelo teste em dispositivo real e já aplicadas no host real de staging. Achado aberto (não bloqueante): troca de aba no IonTabs pode não redisparar os guards do vue-router — registrado em card próprio no Trello para investigação. A numeração `8` foi depois reutilizada pelo bloco de Grafana no tracking atual. |
 | Old Phase 9.5 - Telemetry Decision Guide + Observability Playbook | Done | **2/2 - 100%** | Documentação já concluída; não confundir com o atual 9.5 Incident Response & Runbooks. |
 | Old QA/Appium observability items | Pending no snapshot antigo | **0%** | O roadmap atual reorganizou essas etapas como performance/readiness/release. |
 
