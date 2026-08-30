@@ -1136,6 +1136,35 @@
 
 ---
 
+## Phase 10 — Performance Validation & Load Testing
+
+> **Numbering note:** this file's own `## Phase 10 — Operational readiness` section further below is a *historical* heading (all tasks still Pending, never implemented, predates the current roadmap renumbering). The current cross-repo roadmap (`docs/roadmap/ixora-roadmap-2026-08-16.md`) reassigns "Phase 10" to **Performance Validation & Load Testing**, the subject of this section — same kind of collision already documented for Phase 9 and Phase 9.5 above.
+
+**Status:** Foundation delivered (2026-08-29) — read-only k6 smoke scenario authored and verified against real staging. Load-test execution, results-vs-targets comparison, and bottleneck resolution/acceptance are still pending.
+
+**Prerequisite:** Phase 9 Alerting Strategy + Phase 9.5 Incident Response complete (so any real performance issue found is both detectable and has a documented response process).
+
+| ID | Task | Status | Reference |
+| --- | --- | --- | --- |
+| P10-1 | Author k6 read-only smoke/baseline scenario against real `back_vibes` staging endpoints (`/api/health`, `/api/vibes`, `/api/schedules`, `/api/sounds`, `/api/preset-vibes`), reusing the existing Firebase auth pattern from `qa/scheduler-e2e/scripts/staging-api-qa.sh` | **Done** | `ixora-infra/qa/load-testing/scripts/{auth.js,read-flows-smoke.js}` |
+| P10-2 | Minimal acceptance smoke run (1 VU × 3 iterations) against real staging | **Done** | `ixora-infra/qa/load-testing/evidence/smoke-2026-08-29.txt` — 21/21 checks PASS, 0% errors, p(95)=822.9ms |
+| P10-3 | Document environment constraints (staging is `basic-xxs` App Platform + single-node `db-s-1vcpu-1gb` Postgres — not sized for a real capacity ceiling test) and conservative default load profile | **Done** | `ixora-infra/qa/load-testing/README.md` |
+| P10-4 | Wire k6 output to the existing Prometheus/Grafana stack | **Blocked (documented, not a defect)** | Prometheus is `127.0.0.1:9090`-only on the observability host; needs k6 run from the host itself or an SSH tunnel — see README §Prometheus |
+| P10-5 | Operator-run conservative baseline load test (more than smoke, still staging-safe VUs) with real Prometheus/Grafana data | **Pending** | Requires an explicit VU/duration decision with the operator before running — deliberately not automated |
+| P10-6 | Write flows (POST /api/vibes, /api/schedules, Smart Home dispatch, push) | **Pending** | Deferred — needs a data cleanup strategy for shared staging first |
+| P10-7 | Compare results against targets; document bottlenecks resolved or formally accepted (card completion criterion) | **Pending** | Blocked on P10-5/P10-6 |
+
+**Phase 10 implementation notes:**
+
+- **This is a foundation slice, not the full phase.** The Trello card's completion criterion ("testes reproduzíveis executados, resultados comparados às metas e gargalos críticos resolvidos ou formalmente aceitos") needs P10-5 through P10-7 to actually close.
+- **Read-only by design:** no endpoint in this slice creates, modifies, or deletes real data — safe to run against shared staging test data without a cleanup step.
+- **Environment reality check:** staging's `basic-xxs` + single-node `db-s-1vcpu-1gb` sizing (`ixora-infra/opentofu/staging/app-api.tf`, `variables.tf`) means this environment cannot answer "what's our real production capacity ceiling" — only "does the app behave correctly and observably under modest concurrent use." Any "critical bottleneck" found here needs to be read in that light before treating it as a production sizing signal.
+- **`qa/` at the workspace root has no `.git`** — the load-testing scripts live under `ixora-infra/qa/load-testing/` instead, so they're actually version-controlled. Internal structure mirrors the existing `qa/scheduler-e2e/`-style convention (`scripts/` + `evidence/` + `README.md`).
+
+**Branch:** `feature/load-testing-foundation`
+
+---
+
 ## Phase 8.8.5 — Observability Infrastructure Provisioning
 
 **Prerequisite:** Full observability stack in `collector/` (Phases 3–8.9); staging VPC exists in OpenTofu.

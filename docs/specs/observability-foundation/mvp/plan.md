@@ -993,6 +993,28 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
+#### Phase 10 — Performance Validation & Load Testing — **Foundation delivered (2026-08-29); load-test execution and bottleneck resolution still pending**
+
+> **Numbering note:** this file's own `## Phase 10 — Operational readiness` heading further below is historical (all tasks still Pending, predates the current renumbering). The current roadmap reassigns "Phase 10" to Performance Validation & Load Testing — this section — the same kind of collision already documented for Phase 9 and Phase 9.5.
+
+**Goal:** Validate `back_vibes` performance/stability under realistic load before production readiness work, using reproducible k6 scripts wired into the existing Prometheus/Grafana stack.
+
+**Deliverables (this slice):**
+
+- **k6 read-only smoke/baseline scenario** (`ixora-infra/qa/load-testing/scripts/{auth.js,read-flows-smoke.js}`) exercising `/api/health`, `/api/vibes`, `/api/schedules`, `/api/sounds`, `/api/preset-vibes` against real staging, reusing the exact Firebase auth flow already established in `qa/scheduler-e2e/scripts/staging-api-qa.sh` rather than inventing a new one.
+- **Acceptance smoke run** (1 VU × 3 iterations) against real staging: 21/21 checks PASS, 0% `http_req_failed`, p(95) = 822.9ms. Evidence: `qa/load-testing/evidence/smoke-2026-08-29.txt`.
+- **`qa/load-testing/README.md`** documenting the environment constraints, running instructions, the Firebase-token lifetime limitation, and the Prometheus wiring status.
+
+**Environment reality check:** staging's API runs on DigitalOcean App Platform `basic-xxs` (smallest tier) against a single-node `db-s-1vcpu-1gb` Postgres cluster (`ixora-infra/opentofu/staging/app-api.tf`, `variables.tf`) — a cost-minimum environment, not one sized to find a real capacity ceiling. This phase's "load" targets are deliberately conservative (single-digit VUs); a "bottleneck" found here says more about this tier's size than about production readiness, and should be read that way rather than over-indexed on.
+
+**Explicitly deferred in this slice:** write-flow load testing (would mutate shared staging data — needs a cleanup strategy first), sustained/ramping load profiles (needs explicit operator sign-off on acceptable staging impact), and full Prometheus/Grafana wiring (blocked on Prometheus's `127.0.0.1`-only binding on the observability host — needs k6 run from the host or an SSH tunnel, not a code change).
+
+**Result:** Foundation is real and verified against actual staging, not just written. The card's own completion criterion ("resultados comparados às metas e gargalos críticos resolvidos ou formalmente aceitos") requires an actual load-test run and results write-up, which hasn't happened yet — tracked as P10-5–P10-7 in `tasks.md`.
+
+**Branch:** `feature/load-testing-foundation`
+
+---
+
 #### Phase 8.8.5 — Observability Infrastructure Provisioning — **Complete (IaC)**
 
 **Goal:** Provision a dedicated DigitalOcean Droplet to run the existing `collector/docker-compose.yml` stack. OpenTofu provisions infrastructure only; Docker Compose remains the runtime source of truth.
