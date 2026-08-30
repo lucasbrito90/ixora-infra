@@ -83,23 +83,82 @@ post_fix_test:
     rootTraceName: js.uncaught_exception
     rootServiceName: front_vibes-android
 
+# ── Test 3 — real navigation span + real fetch span (forced 100% sampling) ────
+
+navigation_test:
+  method: |
+    Real taps on the physical device (adb input tap), not synthetic events:
+    (a) 5 taps switching between IonTabs bottom-tab routes (Presets, Devices,
+        Settings, Home, My Vibes) — produced NO new trace or metric export,
+        even with Math.random forced to 0 (100% sampling). See finding below.
+    (b) 1 tap on a vibe card's edit button — a real vue-router push to
+        /vibes/:id/edit, not a tab switch — this DID produce a real export.
+  tempo_result: CONFIRMED (independently re-verified via direct Tempo
+    GET /api/traces/{traceID}, not just the search endpoint)
+    traceID: 88d18d59f955a252e1d45ae7aa0281fc
+    span_1:
+      name: screen.VibesPage
+      attributes: { user.id: "2" }               # integer, not firebase_uid/email (ADR-030)
+    span_2 (same trace, from @opentelemetry/instrumentation-fetch):
+      name: GET
+      url.full: https://staging-api.ixora-app.app/api/vibes/3
+      http.response.status_code: 200
+      http.request.header.authorization: "[NOT RECORDED]"   # PII redaction confirmed live (ADR-030)
+  loki_result: n/a for this specific test (no ERROR-level log emitted by a
+    successful navigation — only the trace was expected here)
+
+# ── Real finding: IonTabs bottom-tab switches may not re-fire router guards ───
+
+finding_ionic_tabs_navigation:
+  observation: |
+    Switching between already-mounted IonTabs bottom-tab routes (tapping
+    Presets/Devices/Settings/Home/My Vibes in sequence) produced zero new
+    trace exports AND zero new ixora.mobile.screen.duration metric data
+    points, even with sampling forced to 100%. A single real vue-router push
+    to a *new* route (vibes/:id/edit, triggered by tapping a card's edit
+    button) worked correctly on the first try.
+  interpretation: |
+    Since the metric pipeline is NOT gated by sampling (every recorded point
+    is always exported), and no new metric point appeared either, this is
+    not a sampling artifact — it suggests Ionic's IonTabs/ion-router-outlet
+    may not always invoke vue-router's beforeEach/afterEach guards when
+    switching between bottom-tab routes that are already mounted/cached,
+    at least in some navigation patterns. Not confirmed as a definitive bug
+    (could also be an artifact of this specific test session's navigation
+    history), but real enough to warrant a dedicated follow-up investigation
+    — it would mean `screen.*` spans under-report time spent on tabs reached
+    via the bottom bar after the first visit.
+  status: OPEN — flagged as a follow-up, not a blocker for this PR. The
+    core navigation-instrumentation mechanism is proven correct via the
+    /vibes/:id/edit test above; this finding is about IonTabs's specific
+    interaction with vue-router's guards, a narrower question.
+
 # ── What this proves ────────────────────────────────────────────────────────
 
 conclusions:
   - The actual front_vibes app code (main.ts's window.onerror handler,
     emitErrorSpan/emitErrorLog in telemetry/otel.ts) genuinely captures a real
     uncaught exception and exports it — not just the infrastructure around it.
+  - Screen-navigation spans (screen.*) and fetch-instrumentation spans both
+    genuinely export from a real device performing a real route push, in the
+    same trace, with correct user.id propagation and correct PII redaction
+    of the Authorization header — confirmed via a direct Tempo trace lookup,
+    not just a search-endpoint match.
   - The mobile OTLP path (Caddy -> Collector :4319 -> Tempo/Loki) now works
     end-to-end for a real device/WebView client, CORS included.
-  - Both bugs found here were infra-side (stale local secret, missing CORS) —
-    the front_vibes SDK implementation itself required no changes as a result
-    of this test.
+  - Two infra-side bugs were found and fixed during this test (stale local
+    secret, missing CORS) — the front_vibes SDK implementation itself
+    required no code changes as a result of either.
+  - One open, non-blocking finding: IonTabs bottom-tab switching may not
+    always re-trigger vue-router guards (see finding_ionic_tabs_navigation
+    above) — flagged for follow-up investigation, not fixed in this PR.
 
 not_yet_tested:
-  - Navigation span sampling (5% success rate) was not statistically confirmed
-    in this session — only the 100%-sampled error path was exercised, since
-    that is deterministic and directly proves the code path. Confirming the
-    success-path sampling would require many repeated real navigations to get
-    a statistically meaningful hit rate; left as a lower-priority follow-up.
+  - Navigation span sampling at its real 5% rate (as opposed to forced 100%)
+    was not statistically confirmed — would require many repeated real
+    navigations for a statistically meaningful hit rate; low-priority
+    follow-up, since the export mechanism itself is now proven correct.
   - CapacitorHttp.request() network path (local-dev-only, not staging) was not
     exercised — out of scope per the original prompt.
+  - Whether IonTabs bottom-tab switching under-reports screen time (see
+    finding above) — needs dedicated investigation, not covered here.
