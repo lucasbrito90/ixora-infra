@@ -119,7 +119,7 @@ A Observability Foundation evoluiu de especificações e ADRs para infraestrutur
 | 10 | Performance Validation & Load Testing | Concluída — leitura e escrita testadas contra staging real, sem nenhum gargalo encontrado, conclusão formalmente aceita pelo operador | **7/7 - 100%** |
 | 11 | Production Readiness Review | Revisão concluída — decisão NO-GO; backups, rate limiting e CI morto já remediados; só falta infra de produção (adiada até MVP) | **Remediação parcial — 3 dos 4 achados críticos fechados** |
 | 11.5 | Final Documentation & Release Review | Concluída (30/08/2026) — auditoria de ADRs/runbooks/diagramas/variáveis sem inconsistências relevantes; production-readiness-review.md corrigido; release note publicada | **7/7 - 100%** |
-| 12 | Observability Foundation Release | Não iniciada | **0%** |
+| 12 | Observability Foundation Release | Concluída (30/08/2026) — tag v1.3.0-observability-foundation publicada em staging nos 3 repos | **4/4 - 100%** |
 
 > **Nota sobre a Phase 8 (cartão pai):** em um snapshot do tracking o cartão pai aparecia como "não iniciado", embora suas subtasks 8.1 em diante estivessem majoritariamente ou totalmente concluídas. Por isso este documento **não atribui um percentual artificial ao cartão pai**.
 
@@ -755,10 +755,10 @@ Descrição: revisão final da documentação e da entrega antes do fechamento d
 
 ## Phase 12 - Observability Foundation Release
 
-**Status:** Não iniciada  
-**Progresso:** **0%**
+**Status:** Concluída (30/08/2026)  
+**Progresso:** **4/4 - 100%**
 
-Descrição: fechamento/release da Observability Foundation após as validações anteriores.
+Descrição: fechamento/release da Observability Foundation após as validações anteriores. Tag anotada `v1.3.0-observability-foundation` criada e empurrada no HEAD de `staging` dos 3 repositórios envolvidos (`ixora-infra`, `back_vibes`, `front_vibes`) — diferente do padrão de v1.1.0/v1.2.0 (que tagueavam `main` após promoção real pra produção), já que ainda não existe ambiente de produção (adiado explicitamente até um marco de MVP). A release note (`ixora-infra/docs/releases/v1.3.0-observability-foundation.md`), escrita originalmente na Phase 11.5, foi atualizada pra refletir o SDK mobile (Phase 8), a exposição/CORS do OTLP mobile, e a confirmação de tracing distribuído front_vibes → back_vibes. Rollback revisado quanto à precisão (não executado como drill ao vivo). Baseline comunicada via Trello, tasks.md/plan.md e este roadmap.
 
 ---
 
