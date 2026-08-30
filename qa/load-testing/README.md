@@ -29,11 +29,12 @@
 
 ```
 qa/load-testing/
-├── README.md              ← this file
-├── .env.example           ← credential template (copy to .env, never commit)
+├── README.md               ← this file
+├── .env.example            ← credential template (copy to .env, never commit)
 ├── scripts/
-│   ├── auth.js            ← reusable Firebase login + /api/auth/sync module
-│   └── read-flows-smoke.js ← GET-only scenario (Phase 10.1 acceptance test)
+│   ├── auth.js             ← reusable Firebase login + /api/auth/sync module
+│   ├── read-flows-smoke.js ← GET-only scenario (Phase 10.1 acceptance test)
+│   └── write-flows-crud.js ← CRUD write scenario — vibes + schedules (Phase 10.2)
 └── evidence/
     └── smoke-YYYY-MM-DD.txt  ← one file per test run
 ```
@@ -84,6 +85,41 @@ k6 run scripts/read-flows-smoke.js
 
 Expected output: all thresholds green, 0% `http_req_failed`, p(95) < 3s.
 
+### write-flows-crud.js — CRUD write scenario
+
+Full create → update → delete lifecycle for vibes and schedules. Per-iteration cleanup is guaranteed — no data is left in staging after the test.
+
+```bash
+# Smoke (acceptance — minimal):
+K6_VUS=1 K6_ITERATIONS=2 k6 run scripts/write-flows-crud.js
+
+# Conservative baseline (default options, 1 VU × 5 iters):
+k6 run scripts/write-flows-crud.js
+```
+
+Expected output: all thresholds green, every `POST` → 201, every `DELETE` → 204/200.
+
+**After any run**, confirm zero orphaned resources (search for `[k6-load]` prefix):
+
+```bash
+# Using the same token from your .env credentials:
+ID_TOKEN=$(curl -sS -X POST \
+  "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}" \
+  -H 'Content-Type: application/json' \
+  -d "{\"email\":\"${E2E_USER_EMAIL}\",\"password\":\"${E2E_USER_PASSWORD}\",\"returnSecureToken\":true}" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['idToken'])")
+
+curl -sS "https://staging-api.ixora-app.app/api/vibes" \
+  -H "Authorization: Bearer ${ID_TOKEN}" | python3 -c \
+  "import sys,json; d=json.load(sys.stdin)['data']; print([v['name'] for v in d if '[k6-load]' in v['name']])"
+
+curl -sS "https://staging-api.ixora-app.app/api/schedules" \
+  -H "Authorization: Bearer ${ID_TOKEN}" | python3 -c \
+  "import sys,json; d=json.load(sys.stdin)['data']; print([s['name'] for s in d if '[k6-load]' in s['name']])"
+```
+
+Both lists should be empty (`[]`).
+
 ---
 
 ## Firebase token limitation
@@ -114,15 +150,22 @@ Prometheus remote-write is already enabled on the host: `--web.enable-remote-wri
 
 ---
 
-## Scope — what this slice does NOT cover
+## Scope — what this suite covers
+
+| Script | Coverage | Status |
+| --- | --- | --- |
+| `read-flows-smoke.js` | GET /api/health, /vibes, /schedules, /sounds, /preset-vibes | Done (Phase 10.1) |
+| `write-flows-crud.js` | POST + PATCH + DELETE for vibes and schedules; per-iteration cleanup | Done (Phase 10.2) |
+
+## Scope — what remains deferred
 
 | Deferred | Why |
 | --- | --- |
-| Write flows (POST /api/schedules, POST /api/vibes, etc.) | Shared staging data — mutations need careful cleanup strategy |
 | Sustained load / ramp-up curves, VUs beyond ~5-10 | Needs explicit operator sign-off on staging capacity before every increase — not something to automate |
 | Grafana dashboard/panel for the k6 metrics | Data is in Prometheus (validated 2026-08-30) but not yet visualized |
 | Token refresh for long runs | Not needed for short runs; implement when needed |
-| Smart Home / push notification flows | Separate Phase 10 slice |
+| Smart Home dispatch flows | Triggers real Home Assistant commands — deferred to future slice |
+| Push notification flows | Triggers real FCM delivery — deferred to future slice |
 
 ---
 
@@ -132,6 +175,7 @@ Prometheus remote-write is already enabled on the host: `--web.enable-remote-wri
 | --- | --- | --- | --- |
 | 2026-08-29 | Smoke (1 VU, 3 iters) | **PASS** — 21/21 checks, 0% errors, p(95)=822.9ms | `evidence/smoke-2026-08-29.txt` |
 | 2026-08-30 | Baseline (3 VUs, 10 shared iters, default options), Prometheus output enabled | **PASS** — 63/63 checks, 0% errors, p(95)=645.19ms. No alert fired; staging unaffected post-run. | `evidence/baseline-2026-08-30.txt` |
+| 2026-08-29 | write-flows-crud smoke (1 VU, 2 iters) | **PASS** — 17/17 checks, 0% errors, p(95)=614.87ms. Zero `[k6-load]` orphans confirmed via GET /api/vibes + /api/schedules post-run. | `evidence/write-flows-smoke-2026-08-29.txt` |
 
 ---
 
