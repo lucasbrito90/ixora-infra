@@ -1,0 +1,105 @@
+date: 2026-08-30T06:45:00Z
+scenario: front_vibes OTel SDK — real end-to-end validation on a physical Android device
+environment: staging (otel-mobile-staging.ixora-app.app -> Collector :4319 -> Tempo/Loki)
+device: Motorola Edge 2023, Android 15, connected via USB (adb + Chrome DevTools Protocol)
+context: |
+  The previous evidence file (evidence-otel-sdk-2026-08-30.txt) validated the OTLP
+  endpoint's infrastructure (TLS, Bearer auth) via manual curl requests — it proved
+  the pipeline works, but never exercised the actual front_vibes app code (main.ts
+  bootstrap, router navigation hooks, fetch instrumentation, global error handlers).
+  This test closes that gap: a real debug APK, built with the real staging OTel
+  config, installed and run on a real device, with a real uncaught exception
+  triggered inside the running WebView via CDP (Runtime.evaluate), observed over
+  the real network (CDP Network domain) and confirmed in Tempo/Loki.
+
+# ── Real bugs found and fixed during this test ────────────────────────────────
+
+bug_1_stale_local_token:
+  symptom: first attempt returned 401 Unauthorized on every OTLP export
+  root_cause: local ixora-infra/collector/.env's OTEL_INGEST_API_KEY_MOBILE did not
+    match the value actually deployed on the real observability host — confirmed
+    by comparing sha256 hashes of both values without ever printing either plaintext
+  fix: rebuilt using the real host's token (fetched over SSH into a temp file,
+    exported into the build env, then securely deleted — never committed,
+    never printed to any log)
+  scope: local dev/test hygiene issue only — no code or infra change required
+
+bug_2_missing_cors_on_mobile_receiver:
+  symptom: intermittent net::ERR_FAILED on OTLP export attempts, CDP network
+    capture showed corsErrorStatus.corsError = "PreflightMissingAllowOriginHeader"
+  root_cause: collector/config.yaml's otlp/mobile receiver (port 4319) had no
+    `cors` block. Unlike the backend receiver (:4318, server-to-server, App
+    Platform — never subject to browser CORS), the mobile receiver is called
+    from fetch() inside a Capacitor Android WebView, whose page origin is the
+    fixed `https://localhost` (confirmed via the real device's own remote-
+    debugging page URL, not assumed). A cross-origin fetch with a custom
+    `Authorization` header always triggers a CORS preflight (OPTIONS) — without
+    an `Access-Control-Allow-Origin` response, the browser/WebView silently
+    drops the real request regardless of whether the server would have accepted it.
+  fix: added `cors: allowed_origins: ["https://localhost"], allowed_headers:
+    ["Authorization", "Content-Type"], max_age: 7200` under
+    receivers.otlp/mobile.protocols.http in collector/config.yaml (this PR).
+  deployed: real observability host (137.184.163.187) — config backed up
+    (config.yaml.bak-20260830-*), swapped in, collector container restarted
+    (docker compose restart collector), verified clean startup via container logs
+    (no config errors, all extensions/receivers started normally).
+  note: this is a real, previously-undiscovered gap in the mobile OTLP exposure
+    work (ixora-infra PR #28) — curl-based validation never exercises the
+    browser CORS preflight path, only a real browser/WebView fetch() does.
+
+# ── Test 1 — error trigger before fixes (both bugs present) ───────────────────
+
+pre_fix_test:
+  method: Runtime.evaluate via CDP -> setTimeout(() => { throw new Error(...) })
+  network_observed:
+    - "POST /v1/traces -> 401"
+    - "POST /v1/logs -> 401"
+    - "OPTIONS /v1/traces -> net::ERR_FAILED (PreflightMissingAllowOriginHeader)"
+    - "OPTIONS /v1/logs -> net::ERR_FAILED (PreflightMissingAllowOriginHeader)"
+  loki_result: no matching log ingested (as expected — both auth and CORS blocked it)
+  tempo_result: no matching trace ingested
+
+# ── Test 2 — after both fixes (real token + CORS) ──────────────────────────────
+
+post_fix_test:
+  method: same as above — real uncaught exception thrown inside the running app
+    via CDP Runtime.evaluate, marker string "manual-otel-realdevice-test2"
+  network_observed:
+    - "OPTIONS /v1/traces -> 204"
+    - "OPTIONS /v1/logs -> 204"
+    - "POST /v1/traces -> 200"
+    - "POST /v1/logs -> 200"
+  loki_result: CONFIRMED
+    logql: '{service_name="front_vibes-android"}'
+    body: "manual-otel-realdevice-test2 1788072451726"
+    severity: ERROR
+    resources:
+      service.name: front_vibes-android
+      service.version: "0.0.1-otel-realdevice-test2"   # unique build marker, proves this exact test run
+      deployment.environment: staging
+  tempo_result: CONFIRMED
+    query: /api/search?tags=service.name=front_vibes-android
+    traceID: 9bbd56aca8328866fd1fbd71d48e9c77
+    rootTraceName: js.uncaught_exception
+    rootServiceName: front_vibes-android
+
+# ── What this proves ────────────────────────────────────────────────────────
+
+conclusions:
+  - The actual front_vibes app code (main.ts's window.onerror handler,
+    emitErrorSpan/emitErrorLog in telemetry/otel.ts) genuinely captures a real
+    uncaught exception and exports it — not just the infrastructure around it.
+  - The mobile OTLP path (Caddy -> Collector :4319 -> Tempo/Loki) now works
+    end-to-end for a real device/WebView client, CORS included.
+  - Both bugs found here were infra-side (stale local secret, missing CORS) —
+    the front_vibes SDK implementation itself required no changes as a result
+    of this test.
+
+not_yet_tested:
+  - Navigation span sampling (5% success rate) was not statistically confirmed
+    in this session — only the 100%-sampled error path was exercised, since
+    that is deterministic and directly proves the code path. Confirming the
+    success-path sampling would require many repeated real navigations to get
+    a statistically meaningful hit rate; left as a lower-priority follow-up.
+  - CapacitorHttp.request() network path (local-dev-only, not staging) was not
+    exercised — out of scope per the original prompt.

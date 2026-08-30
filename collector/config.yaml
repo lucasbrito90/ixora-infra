@@ -84,6 +84,23 @@ receivers:
         # A single port + auth extension per-key is acceptable
         # alternative; kept separate for clarity and blast radius.
         # tls: (same as backend when certs are provisioned)
+        cors:
+          # front_vibes runs its OTel SDK inside the Capacitor Android WebView,
+          # which loads app content from the fixed origin https://localhost
+          # (Capacitor's default androidScheme/hostname — confirmed via a real
+          # device's remote-debugging page URL, not assumed). Unlike the backend
+          # receiver (:4318, server-to-server, no browser involved), this is a
+          # real cross-origin fetch() with a custom Authorization header, so the
+          # browser/WebView always preflights it — without this, the OPTIONS
+          # preflight has no Access-Control-Allow-Origin and every export from
+          # the real app silently fails (confirmed via real-device CDP network
+          # capture: "PreflightMissingAllowOriginHeader").
+          allowed_origins:
+            - "https://localhost"
+          allowed_headers:
+            - "Authorization"
+            - "Content-Type"
+          max_age: 7200
 
   # Self-monitoring: Collector exports its own metrics.
   # Consumed by the metrics pipeline below.

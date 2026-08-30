@@ -41,6 +41,8 @@ App Platform services (`back_vibes-api`, worker, scheduler) export OTLP to the o
 
 Mobile uses a **separate public hostname and ingest key** from the backend — configured in app build env, not App Platform. The backend hostname (`otel-staging.ixora-app.app`) must not be used for mobile clients; it routes to Collector port 4318 which validates `OTEL_INGEST_API_KEY_BACKEND` only.
 
+**CORS is required on the mobile receiver, unlike the backend one.** The backend exports server-to-server (App Platform → Collector, never subject to browser CORS). Mobile exports run inside the front_vibes Capacitor Android WebView, whose page origin is the fixed `https://localhost` — a genuine cross-origin `fetch()` with a custom `Authorization` header, which every browser/WebView preflights with `OPTIONS`. `receivers.otlp/mobile.protocols.http.cors` in `collector/config.yaml` allows `https://localhost` for exactly this reason; this was a real gap found and fixed only when testing against a real device (curl-based validation never exercises the CORS preflight path). See `qa/observability-mobile-sdk/evidence-otel-sdk-realdevice-2026-08-30.txt`.
+
 ---
 
 ## 2. Variable ownership
