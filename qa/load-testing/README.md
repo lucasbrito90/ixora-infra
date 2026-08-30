@@ -1,7 +1,7 @@
 # Load Testing — Phase 10 Foundation
 
 **Phase:** 10 — Performance Validation & Load Testing (first slice, read-only)  
-**Status:** Foundation delivered — smoke tested 2026-08-29  
+**Status:** Foundation delivered — smoke tested 2026-08-29; operator baseline run + Prometheus output validated 2026-08-30  
 **Tooling:** [k6](https://k6.io/) v1.0.0-rc1  
 **Target:** `https://staging-api.ixora-app.app`
 
@@ -106,7 +106,9 @@ k6 run -o experimental-prometheus-rw scripts/read-flows-smoke.js
 1. Running k6 **on the observability host** (SSH in, install k6 there, run tests from there)
 2. An **SSH tunnel**: `ssh -L 9090:127.0.0.1:9090 root@137.184.163.187` then run k6 locally pointing at `http://127.0.0.1:9090/api/v1/write`
 
-For the Phase 10 acceptance smoke test (2026-08-29), Prometheus output was **not used** — the volume (3 iterations) produces no meaningful time-series data. Prometheus integration should be validated as a separate operator step before any longer-duration baseline run.
+For the Phase 10 acceptance smoke test (2026-08-29), Prometheus output was **not used** — the volume (3 iterations) produces no meaningful time-series data.
+
+**Validated 2026-08-30 (operator baseline run):** used the SSH tunnel approach (option 2 above) and confirmed 16 `k6_*` metrics landed in the real Prometheus, tagged `testrun="phase10-baseline-2026-08-30"` with a per-endpoint `name` label. See `evidence/baseline-2026-08-30.txt`. No Grafana dashboard/panel has been built for these yet — the data is queryable but not yet visualized; that's a follow-up, not a blocker.
 
 Prometheus remote-write is already enabled on the host: `--web.enable-remote-write-receiver` is present in `docker-compose.yml` line 180.
 
@@ -117,8 +119,8 @@ Prometheus remote-write is already enabled on the host: `--web.enable-remote-wri
 | Deferred | Why |
 | --- | --- |
 | Write flows (POST /api/schedules, POST /api/vibes, etc.) | Shared staging data — mutations need careful cleanup strategy |
-| Sustained load / ramp-up curves | Needs operator sign-off on staging capacity first |
-| Prometheus metrics in Grafana dashboard | Requires either k6 on the host or SSH tunnel (see above) |
+| Sustained load / ramp-up curves, VUs beyond ~5-10 | Needs explicit operator sign-off on staging capacity before every increase — not something to automate |
+| Grafana dashboard/panel for the k6 metrics | Data is in Prometheus (validated 2026-08-30) but not yet visualized |
 | Token refresh for long runs | Not needed for short runs; implement when needed |
 | Smart Home / push notification flows | Separate Phase 10 slice |
 
@@ -129,6 +131,7 @@ Prometheus remote-write is already enabled on the host: `--web.enable-remote-wri
 | Date | Scenario | Result | File |
 | --- | --- | --- | --- |
 | 2026-08-29 | Smoke (1 VU, 3 iters) | **PASS** — 21/21 checks, 0% errors, p(95)=822.9ms | `evidence/smoke-2026-08-29.txt` |
+| 2026-08-30 | Baseline (3 VUs, 10 shared iters, default options), Prometheus output enabled | **PASS** — 63/63 checks, 0% errors, p(95)=645.19ms. No alert fired; staging unaffected post-run. | `evidence/baseline-2026-08-30.txt` |
 
 ---
 
