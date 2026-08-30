@@ -2,7 +2,9 @@
 
 **Status:** Architecture design — **manual workflow today, automation future**  
 **Constraint:** No App Platform resource changes in Phase 8.8.6  
-**Collector endpoint:** `https://otel-staging.ixora-app.app` (Caddy → Collector :4318)
+**Collector endpoints:**
+- Backend (App Platform): `https://otel-staging.ixora-app.app` (Caddy → Collector :4318)
+- Mobile (front_vibes): `https://otel-mobile-staging.ixora-app.app` (Caddy → Collector :4319)
 
 ---
 
@@ -33,11 +35,11 @@ App Platform services (`back_vibes-api`, worker, scheduler) export OTLP to the o
 
 | Variable | Value |
 | --- | --- |
-| Endpoint | Same HTTPS hostname |
+| Endpoint | `https://otel-mobile-staging.ixora-app.app` (dedicated mobile hostname → Caddy → Collector :4319) |
 | Auth header | `Authorization=Bearer <OTEL_INGEST_API_KEY_MOBILE>` |
 | Protocol | `http/protobuf` |
 
-Mobile keys are separate from backend keys — configured in app build env, not App Platform.
+Mobile uses a **separate public hostname and ingest key** from the backend — configured in app build env, not App Platform. The backend hostname (`otel-staging.ixora-app.app`) must not be used for mobile clients; it routes to Collector port 4318 which validates `OTEL_INGEST_API_KEY_BACKEND` only.
 
 ---
 
@@ -114,14 +116,27 @@ The ingest key exists in **two places**:
 
 ---
 
-## 4. Network path (unchanged)
+## 4. Network paths (unchanged for backend; mobile added)
+
+### 4.1 Backend (App Platform)
 
 ```
 App Platform (VPC-attached)
     → egress public internet
     → https://otel-staging.ixora-app.app:443
     → Caddy on observability Droplet
-    → 127.0.0.1:4318 (Collector OTLP HTTP)
+    → 127.0.0.1:4318 (Collector OTLP HTTP — bearertokenauth backend key)
+    → processors → Prometheus / Loki / Tempo
+```
+
+### 4.2 Mobile (front_vibes)
+
+```
+Mobile app (staging build)
+    → egress public internet
+    → https://otel-mobile-staging.ixora-app.app:443
+    → Caddy on observability Droplet
+    → 127.0.0.1:4319 (Collector OTLP HTTP — bearertokenauth/mobile key)
     → processors → Prometheus / Loki / Tempo
 ```
 
@@ -132,10 +147,11 @@ Private VPC routing to Droplet private IP is **not validated** — future phase 
 ## 5. Implementation prerequisites (future phase)
 
 - [ ] Observability host deployed and healthy
-- [ ] OTLP HTTPS verified with test Bearer token
+- [ ] OTLP HTTPS verified with test Bearer token (backend on :4318, mobile on :4319)
+- [ ] DNS A record for `otel-mobile-staging.ixora-app.app` (when using dedicated mobile exposure)
 - [ ] Decision on secret storage (state vs DO secrets)
 - [ ] Key rotation runbook
-- [ ] Worker and scheduler confirmed using same endpoint
+- [ ] Worker and scheduler confirmed using same backend endpoint
 - [ ] Mobile SDK phase coordinated separately
 
 ---

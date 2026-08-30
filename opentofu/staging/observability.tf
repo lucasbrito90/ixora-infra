@@ -17,9 +17,11 @@ locals {
   ]
 
   observability_cloud_init = var.observability_enabled ? templatefile("${path.module}/templates/observability-cloud-init.yaml.tftpl", {
-    deploy_path      = var.observability_deploy_path
-    grafana_hostname = var.observability_grafana_hostname
-    otel_hostname    = var.observability_otel_hostname
+    deploy_path          = var.observability_deploy_path
+    grafana_hostname     = var.observability_grafana_hostname
+    otel_hostname        = var.observability_otel_hostname
+    otel_mobile_hostname = var.observability_otel_mobile_hostname
+    otel_mobile_enabled  = var.observability_otel_mobile_hostname != null
   }) : ""
 
   # Public IP for DNS: Reserved IP when enabled, otherwise Droplet ephemeral IP.
@@ -42,14 +44,28 @@ locals {
     ? trimsuffix(var.observability_otel_hostname, ".${var.observability_dns_zone_name}")
     : var.observability_otel_hostname
   )
+  obs_otel_mobile_record_name = (
+    var.observability_dns_zone_name != null && var.observability_otel_mobile_hostname != null
+    ? trimsuffix(var.observability_otel_mobile_hostname, ".${var.observability_dns_zone_name}")
+    : var.observability_otel_mobile_hostname
+  )
 
-  # Combined guard for DNS record creation: all required inputs must be present.
+  # Combined guard for grafana + backend OTLP DNS records.
   obs_dns_records_enabled = (
     var.observability_enabled
     && var.observability_manage_dns
     && var.observability_dns_zone_name != null
     && var.observability_grafana_hostname != null
     && var.observability_otel_hostname != null
+  )
+
+  # Independent guard for mobile OTLP DNS — optional hostname, not required
+  # for the grafana/backend records above to be created.
+  obs_dns_records_mobile_enabled = (
+    var.observability_enabled
+    && var.observability_manage_dns
+    && var.observability_dns_zone_name != null
+    && var.observability_otel_mobile_hostname != null
   )
 }
 
@@ -197,6 +213,16 @@ resource "digitalocean_record" "observability_otel" {
   domain = var.observability_dns_zone_name
   type   = "A"
   name   = local.obs_otel_record_name
+  value  = local.observability_public_ipv4
+  ttl    = var.observability_dns_ttl
+}
+
+resource "digitalocean_record" "observability_otel_mobile" {
+  count = local.obs_dns_records_mobile_enabled ? 1 : 0
+
+  domain = var.observability_dns_zone_name
+  type   = "A"
+  name   = local.obs_otel_mobile_record_name
   value  = local.observability_public_ipv4
   ttl    = var.observability_dns_ttl
 }
