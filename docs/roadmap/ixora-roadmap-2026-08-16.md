@@ -118,7 +118,7 @@ A Observability Foundation evoluiu de especificações e ADRs para infraestrutur
 | 9.5 | Incident Response & Runbooks | Concluída — documentação + exercício real de staging executado | **3/3 - 100%** |
 | 10 | Performance Validation & Load Testing | Concluída — leitura e escrita testadas contra staging real, sem nenhum gargalo encontrado, conclusão formalmente aceita pelo operador | **7/7 - 100%** |
 | 11 | Production Readiness Review | Revisão concluída — decisão NO-GO; backups, rate limiting e CI morto já remediados; só falta infra de produção (adiada até MVP) | **Remediação parcial — 3 dos 4 achados críticos fechados** |
-| 11.5 | Final Documentation & Release Review | Não iniciada | **0%** |
+| 11.5 | Final Documentation & Release Review | Concluída (30/08/2026) — auditoria de ADRs/runbooks/diagramas/variáveis sem inconsistências relevantes; production-readiness-review.md corrigido; release note publicada | **7/7 - 100%** |
 | 12 | Observability Foundation Release | Não iniciada | **0%** |
 
 > **Nota sobre a Phase 8 (cartão pai):** em um snapshot do tracking o cartão pai aparecia como "não iniciado", embora suas subtasks 8.1 em diante estivessem majoritariamente ou totalmente concluídas. Por isso este documento **não atribui um percentual artificial ao cartão pai**.
@@ -748,10 +748,10 @@ Descrição: revisão formal da prontidão para produção, cobrindo `back_vibes
 
 ## Phase 11.5 - Final Documentation & Release Review
 
-**Status:** Não iniciada  
-**Progresso:** **0%**
+**Status:** Concluída (30/08/2026)  
+**Progresso:** **7/7 - 100%**
 
-Descrição: revisão final da documentação e da entrega antes do fechamento da foundation.
+Descrição: revisão final da documentação e da entrega antes do fechamento da foundation. Auditoria somente-leitura dos 4 ADRs da Observability Foundation (028-031), dos 10 runbooks relacionados, dos specs principais (spec.md, alerting-strategy.md, backup-strategy.md, production-readiness-review.md, tasks.md, plan.md), dos diagramas referenciados e das variáveis `observability_*` do OpenTofu. Nenhuma inconsistência relevante encontrada em ADRs, runbooks, diagramas ou variáveis. Único achado real: `production-readiness-review.md` ainda descrevia backups, rate limiting e o workflow SSH morto como pendências abertas, sem refletir a remediação feita no mesmo dia (30/08/2026) — corrigido com anotações "RESOLVED 2026-08-30" nas seções relevantes, mantendo a decisão histórica NO-GO intacta. Release note publicada em `ixora-infra/docs/releases/v1.3.0-observability-foundation.md`, seguindo o padrão das releases v1.1.0/v1.2.0.
 
 ## Phase 12 - Observability Foundation Release
 
