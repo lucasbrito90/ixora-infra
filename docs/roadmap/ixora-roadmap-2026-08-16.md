@@ -117,7 +117,7 @@ A Observability Foundation evoluiu de especificações e ADRs para infraestrutur
 | 9 | Alerting Strategy | Nível 1 implementado e testado localmente; ativação em staging real pendente | **104/104 checks — Nível 1 completo** |
 | 9.5 | Incident Response & Runbooks | Concluída — documentação + exercício real de staging executado | **3/3 - 100%** |
 | 10 | Performance Validation & Load Testing | Concluída — leitura e escrita testadas contra staging real, sem nenhum gargalo encontrado, conclusão formalmente aceita pelo operador | **7/7 - 100%** |
-| 11 | Production Readiness Review | Não iniciada | **0%** |
+| 11 | Production Readiness Review | Revisão concluída — decisão NO-GO (sem infra de produção definida, sem backups implementados, sem rate limiting) | **2/3 — revisão feita, riscos críticos ainda abertos** |
 | 11.5 | Final Documentation & Release Review | Não iniciada | **0%** |
 | 12 | Observability Foundation Release | Não iniciada | **0%** |
 
@@ -741,10 +741,10 @@ Descrição: validar desempenho, estabilidade e capacidade do Ixora sob carga re
 
 ## Phase 11 - Production Readiness Review
 
-**Status:** Não iniciada  
-**Progresso:** **0%**
+**Status:** Revisão concluída (30/08/2026) — decisão formal: **NO-GO** para produção  
+**Progresso:** **2/3 — revisão e decisão feitas; riscos críticos ainda abertos**
 
-Descrição: revisão formal da prontidão para produção.
+Descrição: revisão formal da prontidão para produção, cobrindo `back_vibes` e `ixora-infra` (segurança, confiabilidade, backups, migrations, secrets, rollback e riscos abertos). Achado principal: `ixora-infra/opentofu/` só tem um ambiente `staging/` — **não existe nenhuma infraestrutura de produção definida como código**. Outros achados: backups são só arquitetura, nunca implementados; nenhum rate limiting em nenhum endpoint da API do `back_vibes`; e um achado real não esperado — um workflow antigo de deploy via SSH (`back_vibes/.github/workflows/deploy-staging.yml`), superado pelo App Platform, continua ativo e falhando em toda execução há pelo menos 3 semanas (5 últimas execuções, todas falha), sem ninguém ter notado. Gestão de secrets, migrations e rollback passaram bem na revisão (documentados e corretos). Decisão e checklist completos em `ixora-infra/docs/specs/observability-foundation/mvp/production-readiness-review.md`. Como os riscos críticos ainda não foram fechados (parte do critério de conclusão do card), a fase fica registrada como revisão feita mas não plenamente concluída.
 
 ## Phase 11.5 - Final Documentation & Release Review
 
