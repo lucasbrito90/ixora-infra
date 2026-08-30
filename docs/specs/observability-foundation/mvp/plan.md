@@ -993,7 +993,7 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
-#### Phase 10 — Performance Validation & Load Testing — **Foundation delivered (2026-08-29); load-test execution and bottleneck resolution still pending**
+#### Phase 10 — Performance Validation & Load Testing — **Foundation + baseline run delivered (2026-08-29/30); write-flow coverage and results-vs-targets writeup still pending**
 
 > **Numbering note:** this file's own `## Phase 10 — Operational readiness` heading further below is historical (all tasks still Pending, predates the current renumbering). The current roadmap reassigns "Phase 10" to Performance Validation & Load Testing — this section — the same kind of collision already documented for Phase 9 and Phase 9.5.
 
@@ -1007,9 +1007,11 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 **Environment reality check:** staging's API runs on DigitalOcean App Platform `basic-xxs` (smallest tier) against a single-node `db-s-1vcpu-1gb` Postgres cluster (`ixora-infra/opentofu/staging/app-api.tf`, `variables.tf`) — a cost-minimum environment, not one sized to find a real capacity ceiling. This phase's "load" targets are deliberately conservative (single-digit VUs); a "bottleneck" found here says more about this tier's size than about production readiness, and should be read that way rather than over-indexed on.
 
-**Explicitly deferred in this slice:** write-flow load testing (would mutate shared staging data — needs a cleanup strategy first), sustained/ramping load profiles (needs explicit operator sign-off on acceptable staging impact), and full Prometheus/Grafana wiring (blocked on Prometheus's `127.0.0.1`-only binding on the observability host — needs k6 run from the host or an SSH tunnel, not a code change).
+**Operator baseline run (2026-08-30):** 3 VUs × 10 shared iterations against real staging, via an SSH tunnel to the observability host's Prometheus with `-o experimental-prometheus-rw`. 63/63 checks PASS, 0% errors, p(95)=645.19ms — no bottleneck observed, expected at this conservative volume. Confirmed 16 `k6_*` metrics landed in the real Prometheus (queryable now; no Grafana panel built yet). Real, unplanned finding: this volume didn't produce enough sustained rate to move any of the 7 Phase 9 HTTP-related alert rules out of `NoData` (5-minute evaluation windows) — useful input for future threshold tuning. Evidence: `qa/load-testing/evidence/baseline-2026-08-30.txt`.
 
-**Result:** Foundation is real and verified against actual staging, not just written. The card's own completion criterion ("resultados comparados às metas e gargalos críticos resolvidos ou formalmente aceitos") requires an actual load-test run and results write-up, which hasn't happened yet — tracked as P10-5–P10-7 in `tasks.md`.
+**Explicitly deferred in this slice:** write-flow load testing (would mutate shared staging data — needs a cleanup strategy first), sustained/ramping load profiles beyond ~5-10 VUs (needs explicit operator sign-off on acceptable staging impact each time), and a Grafana dashboard for the k6 metrics.
+
+**Result:** Foundation and a first real baseline are both verified against actual staging, not just written. The card's own completion criterion ("resultados comparados às metas e gargalos críticos resolvidos ou formalmente aceitos") still needs write-flow coverage and a formal results-vs-targets writeup — tracked as P10-6–P10-7 in `tasks.md`.
 
 **Branch:** `feature/load-testing-foundation`
 

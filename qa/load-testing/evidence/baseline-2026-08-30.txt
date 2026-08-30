@@ -1,0 +1,60 @@
+date: 2026-08-30T02:49:16Z
+scenario: baseline (3 VUs, 10 shared iterations, GET-only, default options)
+k6_version: v1.0.0-rc1
+target: https://staging-api.ixora-app.app
+environment: basic-xxs App Platform + db-s-1vcpu-1gb Postgres
+prometheus_output: enabled (experimental-prometheus-rw, via SSH tunnel to 127.0.0.1:9090 on the observability host)
+testrun_tag: phase10-baseline-2026-08-30
+
+checks_total: 63
+checks_succeeded: 63 (100.00%)
+checks_failed: 0 (0.00%)
+
+thresholds:
+  checks_rate_gt_95pct: PASS (100.00%)
+  http_req_duration_p95_lt_3000ms: PASS (p95=645.19ms)
+  http_req_failed_rate_lt_5pct: PASS (0.00%)
+
+http_req_duration:
+  avg: 438.13ms
+  min: 96.92ms
+  med: 437.59ms
+  max: 698.8ms
+  p90: 615.45ms
+  p95: 645.19ms
+
+http_reqs_total: 52
+http_reqs_failed: 0
+iterations_total: 10
+iteration_duration_avg: 3.92s
+duration_total: 15.9s
+data_received: 162 kB
+data_sent: 11 kB
+
+prometheus_verification:
+  16 k6_* metrics confirmed present in the real Prometheus via
+  GET /api/v1/label/__name__/values, tagged testrun="phase10-baseline-2026-08-30"
+  and per-endpoint `name` label (health, vibes_list, schedules_list,
+  sounds_list, preset_vibes_list). Queryable now for a Grafana panel/dashboard.
+
+staging_impact_check (post-run):
+  All 7 Phase 9 alert rules: health=nodata, state=inactive (unchanged from
+  pre-run baseline — 52 requests over 16s did not produce enough sustained
+  rate to move the 5m-window HTTP rules out of NoData; this itself is a
+  useful data point on the volume these thresholds actually need).
+  GET /api/health: HTTP 200 immediately after the run.
+
+comparison_to_smoke_2026-08-29:
+  p95 improved slightly (645ms vs 823ms) — within normal variance for a
+  basic-xxs instance, not a meaningful trend from n=1 runs each.
+
+conclusion:
+  No bottleneck observed at this load level (3 VUs / ~3.3 req/s sustained
+  for 16s). This is far below any level that would stress a basic-xxs
+  instance or a single-node db-s-1vcpu-1gb Postgres — consistent with the
+  README's own framing that this environment cannot answer a real capacity
+  question at conservative VU counts. A higher-VU run (operator-approved,
+  see README "Do NOT run with more than 5-10 VUs without explicit
+  operator sign-off") would be needed to find any real ceiling, and even
+  that ceiling would reflect this staging tier's sizing, not necessarily
+  a production-representative one.
