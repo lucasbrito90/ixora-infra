@@ -116,7 +116,7 @@ A Observability Foundation evoluiu de especificações e ADRs para infraestrutur
 | 8.9 | SLO / Error Budget | Concluída nas fontes mais recentes | **100%** |
 | 9 | Alerting Strategy | Nível 1 implementado e testado localmente; ativação em staging real pendente | **104/104 checks — Nível 1 completo** |
 | 9.5 | Incident Response & Runbooks | Concluída — documentação + exercício real de staging executado | **3/3 - 100%** |
-| 10 | Performance Validation & Load Testing | Não iniciada | **0%** |
+| 10 | Performance Validation & Load Testing | Fundação entregue (script k6 + smoke real); execução de carga e comparação de metas pendentes | **3/7 — parcial** |
 | 11 | Production Readiness Review | Não iniciada | **0%** |
 | 11.5 | Final Documentation & Release Review | Não iniciada | **0%** |
 | 12 | Observability Foundation Release | Não iniciada | **0%** |
@@ -734,10 +734,10 @@ Descrição: formalização de incident response e runbooks de operação para i
 
 ## Phase 10 - Performance Validation & Load Testing
 
-**Status:** Não iniciada  
-**Progresso:** **0%**
+**Status:** Fundação entregue (2026-08-29) — cenário k6 somente leitura autenticado via Firebase, testado com smoke real contra o staging de verdade (21/21 checks, 0% erro, p(95)=822.9ms). Execução de carga real, comparação com metas, e resolução/aceitação formal de gargalos ainda pendentes.  
+**Progresso:** **3/7 — parcial**
 
-Descrição: etapa futura de validação de performance e testes de carga.
+Descrição: validar desempenho, estabilidade e capacidade do Ixora sob carga realista antes da preparação para produção. Entregue nesta fatia: scripts k6 (`ixora-infra/qa/load-testing/`) cobrindo /api/health, /api/vibes, /api/schedules, /api/sounds, /api/preset-vibes, reaproveitando o fluxo de autenticação Firebase já usado em `qa/scheduler-e2e/`. Achado importante: o staging real roda em App Platform `basic-xxs` (menor tier) com Postgres `db-s-1vcpu-1gb` de nó único — não é um ambiente dimensionado para achar um teto real de capacidade, então as metas de carga desta fase são deliberadamente conservadoras. Pendente: rodar um teste de carga real (mais do que o smoke mínimo) com sign-off do operador, cobrir fluxos de escrita, e comparar resultados a metas formais.
 
 ## Phase 11 - Production Readiness Review
 
