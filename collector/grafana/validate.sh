@@ -2346,6 +2346,73 @@ else
   fail "annotation still templates a static rule label (always renders [no value]) in: ${TEMPLATED_ANNOTATIONS}"
 fi
 
+# ── 105. DatasourceNoData route appears BEFORE severity routes ────
+#
+# Regression guard for KL-IR-6 (incident-response-policy.md §9):
+# Alertmanager's `group_wait` only fires for a group's very first
+# notification; subsequent members of an existing group wait for the
+# next `group_interval` flush instead. DatasourceNoData synthetic
+# alerts share the same severity/category/environment labels as real
+# alert rules, keeping those groups permanently "warm" — so a real
+# alert joining the group can wait up to one full group_interval
+# (15m for warning, 5m for critical) beyond its configured group_wait.
+#
+# The fix routes every DatasourceNoData alert into its own group via
+# a dedicated route that MUST appear before any severity-based route.
+# This check enforces that ordering: the first non-comment "matchers:"
+# block in notification-policies.yaml must reference DatasourceNoData,
+# and a severity matcher must not appear before it.
+
+echo ""
+echo "105. DatasourceNoData isolation route is the first route in notification-policies.yaml"
+
+POLICIES_YAML="${ALERTING_DIR}/notification-policies.yaml"
+
+if [ -f "${POLICIES_YAML}" ]; then
+  CHECK_105=$(python3 -c "
+import yaml, sys
+
+with open('${POLICIES_YAML}') as f:
+    data = yaml.safe_load(f)
+
+policies = data.get('policies', [])
+if not policies:
+    print('FAIL: no policies found')
+    sys.exit()
+
+routes = policies[0].get('routes', [])
+if not routes:
+    print('FAIL: no routes found in root policy')
+    sys.exit()
+
+first = routes[0]
+matchers = first.get('matchers', [])
+has_nodata = any('DatasourceNoData' in str(m) for m in matchers)
+if not has_nodata:
+    print('FAIL: first route does not match DatasourceNoData — real alerts may share a group with NoData noise and miss group_wait')
+    sys.exit()
+
+# Also verify no severity matcher appears before DatasourceNoData
+for i, route in enumerate(routes):
+    ms = route.get('matchers', [])
+    if any('severity' in str(m) for m in ms):
+        if i == 0:
+            print('FAIL: a severity-based route appears before the DatasourceNoData route')
+            sys.exit()
+        break
+
+print('PASS: DatasourceNoData isolation route is first; severity routes follow')
+" 2>/dev/null || echo "FAIL: python3 check failed")
+
+  if echo "${CHECK_105}" | grep -q "^PASS:"; then
+    pass "${CHECK_105#PASS: }"
+  else
+    fail "${CHECK_105#FAIL: }"
+  fi
+else
+  fail "provisioning/alerting/notification-policies.yaml not found"
+fi
+
 # ── Summary ───────────────────────────────────────────────────
 
 echo ""
