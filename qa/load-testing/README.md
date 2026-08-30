@@ -1,7 +1,7 @@
 # Load Testing — Phase 10 Foundation
 
 **Phase:** 10 — Performance Validation & Load Testing (first slice, read-only)  
-**Status:** Foundation delivered — smoke tested 2026-08-29; operator baseline run + Prometheus output validated 2026-08-30  
+**Status:** Phase 10 formally closed 2026-08-30 — see "Formal conclusion" below. No bottleneck found at any tested load level; Smart Home/push flows and higher-VU/production-capacity testing are explicitly out of scope, not open items.  
 **Tooling:** [k6](https://k6.io/) v1.0.0-rc1  
 **Target:** `https://staging-api.ixora-app.app`
 
@@ -177,6 +177,52 @@ Prometheus remote-write is already enabled on the host: `--web.enable-remote-wri
 | 2026-08-30 | Baseline (3 VUs, 10 shared iters, default options), Prometheus output enabled | **PASS** — 63/63 checks, 0% errors, p(95)=645.19ms. No alert fired; staging unaffected post-run. | `evidence/baseline-2026-08-30.txt` |
 | 2026-08-29 | write-flows-crud smoke (1 VU, 2 iters) | **PASS** — 17/17 checks, 0% errors, p(95)=614.87ms. Zero `[k6-load]` orphans confirmed via GET /api/vibes + /api/schedules post-run. | `evidence/write-flows-smoke-2026-08-29.txt` |
 | 2026-08-30 | write-flows-crud baseline (2 VUs, 10 shared iters), Prometheus output enabled | **PASS** — 73/73 checks, 0% errors, p(95)=524.35ms. Zero orphans (independently re-verified). No alert fired; staging unaffected. | `evidence/write-flows-baseline-2026-08-30.txt` |
+
+---
+
+## Formal conclusion — targets vs. results (Phase 10 closure, 2026-08-30)
+
+The card's completion criterion requires "resultados comparados às metas e gargalos críticos resolvidos ou formalmente aceitos." This section is that comparison and formal acceptance.
+
+### Targets (from the scripts' own thresholds — the closest thing to a formal target defined for this phase)
+
+| Target | Threshold |
+| --- | --- |
+| p95 request duration | < 3000ms |
+| HTTP error rate | < 5% |
+| Check pass rate | > 95% |
+
+No stricter production-representative targets exist, because — as documented throughout this phase — the staging environment (`basic-xxs` App Platform + single-node `db-s-1vcpu-1gb` Postgres) is not sized to be production-representative. These thresholds were chosen as "clearly broken vs. clearly fine" gates for a cost-minimum shared environment, not as production SLOs.
+
+### Results across all 4 runs
+
+| Run | p95 | Error rate | Checks | vs. targets |
+| --- | --- | --- | --- | --- |
+| Read smoke (1 VU) | 822.9ms | 0% | 100% | Well within all three |
+| Read baseline (3 VUs) | 645.19ms | 0% | 100% | Well within all three |
+| Write smoke (1 VU) | 614.87ms | 0% | 100% | Well within all three |
+| Write baseline (2 VUs) | 524.35ms | 0% | 100% | Well within all three |
+
+### Bottlenecks found
+
+**None**, at any load level tested (up to 3 VUs read / 2 VUs write, sustained for 15-20 seconds each). Every run passed every threshold with wide margin — p95 never exceeded 27% of the 3000ms target.
+
+### Formal acceptance
+
+**Accepted by the operator (2026-08-30): "no bottleneck found at conservative, staging-safe load levels" is the formal conclusion for this phase.** No further scaling of VUs was pursued, for reasons documented throughout this phase:
+
+1. The environment (`basic-xxs`/`db-s-1vcpu-1gb`) cannot yield a production-representative capacity ceiling regardless of how hard it's pushed — finding "the point where this specific tiny tier falls over" was never the goal, and wasn't worth the added risk to shared staging (QA E2E, real Phase 9 alerting) that higher VUs would carry.
+2. Every tested load level — read and write — passed with large margin, giving no signal that back_vibes' own application code has a latent performance problem worth chasing further at this stage.
+3. If a real capacity question becomes necessary later (e.g., before a production launch), it should be answered with a **dedicated, production-sized environment** built for that purpose — not by pushing more load onto this cost-minimum staging tier. That is out of scope for Phase 10 as originally scoped.
+
+### Explicitly out of scope for this closure (not bottlenecks — deferred scope)
+
+| Item | Why deferred |
+| --- | --- |
+| Smart Home dispatch load testing | Triggers real Home Assistant commands (external side effects) |
+| Push notification load testing | Triggers real FCM delivery (external side effects) |
+| Grafana dashboard for k6 metrics | Data is in Prometheus and confirmed queryable; visualization is a nice-to-have, not a blocker for this closure |
+| Higher-VU / production-capacity testing | Needs a dedicated production-sized environment, not this staging tier — separate future initiative if needed |
 
 ---
 

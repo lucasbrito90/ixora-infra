@@ -993,7 +993,7 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
-#### Phase 10 — Performance Validation & Load Testing — **Read + write baselines delivered (2026-08-29/30); Smart Home/push coverage and results-vs-targets writeup still pending**
+#### Phase 10 — Performance Validation & Load Testing — **Complete (2026-08-30)**
 
 > **Numbering note:** this file's own `## Phase 10 — Operational readiness` heading further below is historical (all tasks still Pending, predates the current renumbering). The current roadmap reassigns "Phase 10" to Performance Validation & Load Testing — this section — the same kind of collision already documented for Phase 9 and Phase 9.5.
 
@@ -1013,7 +1013,9 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 **Explicitly deferred in this slice:** Smart Home dispatch and push notification write flows (real external side effects — Home Assistant commands, FCM delivery), sustained/ramping load profiles beyond ~5-10 VUs (needs explicit operator sign-off each time), and a Grafana dashboard for the k6 metrics.
 
-**Result:** Foundation, a read baseline, and a write baseline are all verified against actual staging, not just written — and with no bottleneck found at any load level tested. The card's own completion criterion ("resultados comparados às metas e gargalos críticos resolvidos ou formalmente aceitos") still needs Smart Home/push coverage and a formal results-vs-targets writeup — tracked as P10-7 in `tasks.md`.
+**Formal closure (2026-08-30):** `qa/load-testing/README.md` §"Formal conclusion" compares all 4 runs (read/write × smoke/baseline) against the scripts' own thresholds (p95<3000ms, error rate<5%, checks>95%) — every run passed with wide margin (p95 never exceeded 823ms). **The operator formally accepted "no bottleneck found at conservative, staging-safe load levels" as this phase's conclusion**, rather than pushing more VUs to find this specific cost-minimum tier's breaking point — that ceiling would not be production-representative, and the added risk to shared staging (QA E2E, real Phase 9 alerting) wasn't justified by what it would teach. Smart Home dispatch, push notification load testing, a Grafana dashboard for the k6 metrics, and any future production-capacity testing are recorded as explicitly out of scope for this closure, not unresolved bottlenecks.
+
+**Result:** Foundation, a read baseline, and a write baseline are all verified against actual staging, not just written, and the card's own completion criterion is satisfied — reproducible tests executed (4 runs, all documented with re-runnable scripts), results compared to targets, and no bottleneck found (formally accepted, per above).
 
 **Branch:** `feature/load-testing-foundation`
 
