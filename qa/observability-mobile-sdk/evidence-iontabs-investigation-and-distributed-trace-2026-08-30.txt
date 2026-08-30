@@ -1,0 +1,102 @@
+date: 2026-08-30T07:20:00Z
+scenario: Investigate the IonTabs bottom-tab-switch finding from
+  evidence-otel-sdk-realdevice-2026-08-30.txt, and demonstrate a real
+  distributed trace connecting front_vibes to back_vibes.
+device: Motorola Edge 2023, Android 15, connected via USB (adb + Chrome DevTools Protocol)
+trello_card: "Investigar: IonTabs pode não re-disparar guards do vue-router ao trocar de aba" — resolved, closed
+
+# ── Part 1: IonTabs finding — root cause and resolution ────────────────────────
+
+original_finding: |
+  Switching between IonTabs bottom-tab routes via `adb shell input tap` on the
+  tab bar icons produced no new trace or metric export, even with the OTel
+  sampler forced to 100%. A genuine vue-router push (tapping a card's edit
+  button) worked correctly.
+
+investigation_method: |
+  Patched history.pushState/replaceState via Chrome DevTools Protocol
+  (Runtime.evaluate, no app code changes) to log every call, independent of
+  OTel/sampling entirely — the lowest level at which a real SPA navigation
+  would leave a trace.
+
+result_with_synthetic_adb_taps:
+  - Tapped the "Presets" tab icon (input tap at its exact screen coordinates)
+    twice, from two different starting screens (Home, then My Vibes).
+  - history.pushState/replaceState log: EMPTY both times.
+  - Screenshot after each tap: UI unchanged, still on the previous screen,
+    previous tab still highlighted active.
+  - Control test: tapping a plain content-area button ("My Vibes" button on
+    the Home screen, a normal @click handler) DID fire pushState immediately
+    and DID navigate correctly.
+
+conclusion_part_1: |
+  The original finding was a TEST-TOOLING ARTIFACT, not an app bug.
+  `adb shell input tap` does not reliably register as a click/gesture on
+  Ionic's `ion-tab-button` web component (likely a gesture-recognition
+  detail specific to that component — a plain button responds fine to the
+  identical synthetic tap). vue-router, IonTabs, and the OTel navigation
+  instrumentation are all working correctly; the earlier device test simply
+  never actually navigated when it "tapped" the tab bar via adb.
+
+decisive_confirmation_with_real_human_touch: |
+  Asked the user to tap the tab bar with a real finger while the same CDP
+  history-patch and OTLP network capture were active. Result: pushState/
+  replaceState fired correctly for every real tap across a ~20-navigation
+  sequence (/vibes -> /presets -> /devices -> /settings -> /vibes -> ...).
+  4 real OTLP trace exports were captured in the same window, containing
+  genuine screen.* spans: screen.VibesPage, screen.DevicesPage,
+  screen.PresetVibesPage — plus real @opentelemetry/instrumentation-fetch
+  spans for the API calls each page makes on load. All confirmed via the
+  Grafana MCP / Tempo API, not just the raw network capture.
+
+# ── Part 2: Real distributed trace, front_vibes -> back_vibes ──────────────────
+
+context: |
+  The user asked to demonstrate a real trace spanning an app-to-backend call.
+  No code change was needed for this — front_vibes's FetchInstrumentation
+  already sets `propagateTraceHeaderCorsUrls: [/staging-api\.ixora-app\.app/, ...]`
+  (see src/telemetry/otel.ts), which injects a W3C traceparent header into
+  every request to staging-api.ixora-app.app. back_vibes already runs its own
+  OpenTelemetry PHP SDK (from this session's earlier backend telemetry work).
+  The two were never explicitly tested together end-to-end until now.
+
+trace_confirmed:
+  traceID (base64 in raw Tempo response): i81tyz6mh092oiP0ywyfgQ==
+  originating_call: GET https://staging-api.ixora-app.app/api/provider-connections
+    (a real API call front_vibes makes when the Devices tab loads)
+  spans_in_this_single_trace:
+    - service: front_vibes-android
+      span: GET (CLIENT, @opentelemetry/instrumentation-fetch)
+      attributes: { user.id: "2", http.response.status_code: 200 }
+    - service: back_vibes-api
+      span: "GET /api/provider-connections" (SERVER, Laravel Kernel::handle)
+      parentSpanId: matches the front_vibes client span's spanId — genuine
+        distributed-trace parent/child linkage, not a coincidental traceID match
+      attributes: { http.route, http.response.status_code: 200,
+        ixora.http.outcome: success, real client User-Agent showing the
+        actual Motorola Edge 2023 device }
+      child_spans (same trace):
+        - App\Models\User::get (Eloquent, INTERNAL)
+        - sql SELECT ... from "users" where "firebase_uid" = ? (PostgreSQL, CLIENT)
+        - App\Models\ProviderConnection::get (Eloquent, INTERNAL)
+        - sql SELECT ... from "provider_connections" ... (PostgreSQL, CLIENT)
+        - 3x GuzzleHttp GET spans to www.googleapis.com (Firebase ID token
+          verification: robot/v1/metadata, oauth2/v1/certs,
+          identitytoolkit/v3/relyingparty/publicKeys)
+        - Low-level PDO::prepare / PDOStatement::execute / fetchAll spans
+          for both queries
+  verification: fetched directly via
+    GET /api/datasources/proxy/uid/ixora-tempo/api/traces/{traceID}
+    through the Grafana MCP — not just a search-endpoint match, the full
+    trace tree was retrieved and inspected.
+
+conclusion_part_2: |
+  A single real user interaction (opening the Devices tab on a real device)
+  produces one correlated trace spanning: mobile client (front_vibes) ->
+  Laravel API (back_vibes) -> Eloquent ORM -> raw PostgreSQL queries -> and
+  even the API's own outbound calls to Google for Firebase token
+  verification. This is the Observability Foundation's distributed tracing
+  working exactly as designed, end-to-end, across two independent
+  repositories' SDKs, with zero additional app code required — the existing
+  `propagateTraceHeaderCorsUrls` config (front_vibes) and existing OTel PHP
+  auto-instrumentation (back_vibes) were sufficient.
