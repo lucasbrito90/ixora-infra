@@ -176,6 +176,7 @@ Prometheus remote-write is already enabled on the host: `--web.enable-remote-wri
 | 2026-08-29 | Smoke (1 VU, 3 iters) | **PASS** — 21/21 checks, 0% errors, p(95)=822.9ms | `evidence/smoke-2026-08-29.txt` |
 | 2026-08-30 | Baseline (3 VUs, 10 shared iters, default options), Prometheus output enabled | **PASS** — 63/63 checks, 0% errors, p(95)=645.19ms. No alert fired; staging unaffected post-run. | `evidence/baseline-2026-08-30.txt` |
 | 2026-08-29 | write-flows-crud smoke (1 VU, 2 iters) | **PASS** — 17/17 checks, 0% errors, p(95)=614.87ms. Zero `[k6-load]` orphans confirmed via GET /api/vibes + /api/schedules post-run. | `evidence/write-flows-smoke-2026-08-29.txt` |
+| 2026-08-30 | write-flows-crud baseline (2 VUs, 10 shared iters), Prometheus output enabled | **PASS** — 73/73 checks, 0% errors, p(95)=524.35ms. Zero orphans (independently re-verified). No alert fired; staging unaffected. | `evidence/write-flows-baseline-2026-08-30.txt` |
 
 ---
 

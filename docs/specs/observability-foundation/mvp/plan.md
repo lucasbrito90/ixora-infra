@@ -993,7 +993,7 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 ---
 
-#### Phase 10 — Performance Validation & Load Testing — **Foundation + baseline run delivered (2026-08-29/30); write-flow coverage and results-vs-targets writeup still pending**
+#### Phase 10 — Performance Validation & Load Testing — **Read + write baselines delivered (2026-08-29/30); Smart Home/push coverage and results-vs-targets writeup still pending**
 
 > **Numbering note:** this file's own `## Phase 10 — Operational readiness` heading further below is historical (all tasks still Pending, predates the current renumbering). The current roadmap reassigns "Phase 10" to Performance Validation & Load Testing — this section — the same kind of collision already documented for Phase 9 and Phase 9.5.
 
@@ -1009,9 +1009,11 @@ Architecture review found that `ixora.push.delivery.total` does not exist. `Push
 
 **Operator baseline run (2026-08-30):** 3 VUs × 10 shared iterations against real staging, via an SSH tunnel to the observability host's Prometheus with `-o experimental-prometheus-rw`. 63/63 checks PASS, 0% errors, p(95)=645.19ms — no bottleneck observed, expected at this conservative volume. Confirmed 16 `k6_*` metrics landed in the real Prometheus (queryable now; no Grafana panel built yet). Real, unplanned finding: this volume didn't produce enough sustained rate to move any of the 7 Phase 9 HTTP-related alert rules out of `NoData` (5-minute evaluation windows) — useful input for future threshold tuning. Evidence: `qa/load-testing/evidence/baseline-2026-08-30.txt`.
 
-**Explicitly deferred in this slice:** write-flow load testing (would mutate shared staging data — needs a cleanup strategy first), sustained/ramping load profiles beyond ~5-10 VUs (needs explicit operator sign-off on acceptable staging impact each time), and a Grafana dashboard for the k6 metrics.
+**Write-flow scenario (2026-08-30):** `write-flows-crud.js` exercises full create→update→delete for vibes and schedules, with cleanup guaranteed per-iteration (not deferred to `teardown()`, which never runs on interrupt) — every resource is tagged `[k6-load]` and deleted before its own iteration ends, in FK-safe order (schedule before vibe). Smoke (1 VU × 2 iters): 17/17 checks PASS. Baseline (2 VUs × 10 iters): 73/73 checks PASS, 0% errors, p(95)=524.35ms — slightly faster than the read baseline, both well within normal variance. **Cleanup independently re-verified twice** by the operator (real Firebase login + `GET /api/vibes`/`/api/schedules`, not just trusting the script's self-reported cleanup): zero orphaned `[k6-load]` resources both times. Evidence: `qa/load-testing/evidence/write-flows-{smoke,baseline}-2026-08-3{0,0}.txt`.
 
-**Result:** Foundation and a first real baseline are both verified against actual staging, not just written. The card's own completion criterion ("resultados comparados às metas e gargalos críticos resolvidos ou formalmente aceitos") still needs write-flow coverage and a formal results-vs-targets writeup — tracked as P10-6–P10-7 in `tasks.md`.
+**Explicitly deferred in this slice:** Smart Home dispatch and push notification write flows (real external side effects — Home Assistant commands, FCM delivery), sustained/ramping load profiles beyond ~5-10 VUs (needs explicit operator sign-off each time), and a Grafana dashboard for the k6 metrics.
+
+**Result:** Foundation, a read baseline, and a write baseline are all verified against actual staging, not just written — and with no bottleneck found at any load level tested. The card's own completion criterion ("resultados comparados às metas e gargalos críticos resolvidos ou formalmente aceitos") still needs Smart Home/push coverage and a formal results-vs-targets writeup — tracked as P10-7 in `tasks.md`.
 
 **Branch:** `feature/load-testing-foundation`
 
