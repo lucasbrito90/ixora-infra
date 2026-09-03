@@ -1,0 +1,59 @@
+# ============================================================
+# Ixora Observability Platform — Business Recording Rules
+# Phase 8.9 — Recording Rules & SLO Foundation (active)
+# ============================================================
+
+groups:
+
+  - name: ixora_business_smart_home
+    interval: 30s
+    rules:
+      # REC-005
+      - record: ixora:smart_home:success_rate:5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_smart_home_action_total{outcome="success"}[5m])
+          )
+          /
+          sum by (environment) (
+            rate(ixora_smart_home_action_total[5m])
+          )
+
+      # REC-013
+      - record: ixora:smart_home:failure_rate:5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_smart_home_action_total{outcome=~"failure|unknown|unsupported"}[5m])
+          )
+          /
+          sum by (environment) (
+            rate(ixora_smart_home_action_total[5m])
+          )
+
+      # REC-014
+      - record: ixora:smart_home:p95_latency:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, environment) (
+              rate(ixora_smart_home_action_duration_bucket[5m])
+            )
+          )
+
+      # SLI — SLO-005, target 95%
+      - record: ixora:sli:smart_home:good_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_smart_home_action_total{outcome="success"}[5m])
+          )
+
+      - record: ixora:sli:smart_home:total_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_smart_home_action_total[5m])
+          )
+
+      - record: ixora:sli:smart_home:ratio:rate5m
+        expr: |
+          ixora:sli:smart_home:good_events:rate5m
+          /
+          ixora:sli:smart_home:total_events:rate5m

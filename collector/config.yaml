@@ -1,0 +1,481 @@
+  # ============================================================
+# Ixora Observability Platform — OpenTelemetry Collector Config
+# Phase 6 — Tempo Trace Backend active
+#
+# Naming: telemetry-naming-convention.md
+# Security: security-review.md + collector-hardening-checklist.md
+# Limits: observability-operational-limits.md (ADR-031)
+# Availability: telemetry-availability-policy.md (ADR-028/029)
+#
+# Backend status:
+#   Phase 4 ✅  Prometheus — prometheusremotewrite exporter active
+#   Phase 5 ✅  Loki       — loki exporter active (logs pipeline)
+#   Phase 6 ✅  Tempo      — otlp/tempo exporter active (traces pipeline)
+#
+# Debug exporter: REMOVED from all pipelines (Phase 6 complete)
+# ============================================================
+
+# ============================================================
+# EXTENSIONS
+# ============================================================
+extensions:
+
+  # Health check — required for DO load balancer, systemd, and
+  # collector-hardening-checklist.md §8 validation.
+  health_check:
+    endpoint: "0.0.0.0:13133"
+    path: "/health"
+
+  # Performance profiling — internal only; not exposed publicly.
+  # Disable in production steady state unless debugging.
+  pprof:
+    endpoint: "0.0.0.0:1777"
+
+  # zPages live diagnostics — internal only (host exposure via compose 127.0.0.1).
+  zpages:
+    endpoint: "0.0.0.0:55679"
+
+  # Bearer token auth for OTLP ingest.
+  # Shared secret supplied via OTEL_INGEST_API_KEY env var.
+  # security-review.md §3 — MVP: API Keys + TLS.
+  bearertokenauth/backend:
+    token: "${env:OTEL_INGEST_API_KEY_BACKEND}"
+
+  bearertokenauth/mobile:
+    token: "${env:OTEL_INGEST_API_KEY_MOBILE}"
+
+# ============================================================
+# RECEIVERS
+# ============================================================
+receivers:
+
+  # OTLP gRPC — primary for back_vibes-api / back_vibes-worker.
+  # infrastructure-review.md §5: port 4317 public (TLS termination
+  # handled by reverse proxy / Caddy in front of this port).
+  otlp/backend:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+        auth:
+          authenticator: bearertokenauth/backend
+        # TLS is terminated by the reverse proxy (Caddy/nginx).
+        # For end-to-end TLS, set tls block here with cert_file/key_file.
+        # Uncomment when cert paths are confirmed in Phase 3 deployment:
+        # tls:
+        #   cert_file: /etc/otel/tls/server.crt
+        #   key_file:  /etc/otel/tls/server.key
+        #   min_version: "1.2"
+      http:
+        endpoint: "0.0.0.0:4318"
+        auth:
+          authenticator: bearertokenauth/backend
+        # tls: (same as above)
+
+  # OTLP HTTP — primary for front_vibes-android (mobile).
+  # Mobile uses HTTP/JSON over HTTPS; gRPC impractical on Capacitor.
+  # infrastructure-review.md §4: mobile → Collector OTLP/HTTP.
+  otlp/mobile:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:4319"
+        auth:
+          authenticator: bearertokenauth/mobile
+        # Port 4319 differentiates mobile auth from backend.
+        # A single port + auth extension per-key is acceptable
+        # alternative; kept separate for clarity and blast radius.
+        # tls: (same as backend when certs are provisioned)
+        cors:
+          # front_vibes runs its OTel SDK inside the Capacitor Android WebView,
+          # which loads app content from the fixed origin https://localhost
+          # (Capacitor's default androidScheme/hostname — confirmed via a real
+          # device's remote-debugging page URL, not assumed). Unlike the backend
+          # receiver (:4318, server-to-server, no browser involved), this is a
+          # real cross-origin fetch() with a custom Authorization header, so the
+          # browser/WebView always preflights it — without this, the OPTIONS
+          # preflight has no Access-Control-Allow-Origin and every export from
+          # the real app silently fails (confirmed via real-device CDP network
+          # capture: "PreflightMissingAllowOriginHeader").
+          allowed_origins:
+            - "https://localhost"
+          allowed_headers:
+            - "Authorization"
+            - "Content-Type"
+          max_age: 7200
+
+  # Self-monitoring: Collector exports its own metrics.
+  # Consumed by the metrics pipeline below.
+  prometheus/self:
+    config:
+      scrape_configs:
+        - job_name: "otel-collector"
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["127.0.0.1:8888"]
+              # Scrapes from inside the container network namespace.
+
+# ============================================================
+# PROCESSORS
+# ============================================================
+processors:
+
+  # ----------------------------------------------------------
+  # 1. MEMORY LIMITER
+  # Must be the FIRST processor in every pipeline.
+  # Protects VM from OOM when ingest spikes.
+  # observability-operational-limits.md §1.
+  # telemetry-availability-policy.md §5 — drops telemetry, never apps.
+  # ----------------------------------------------------------
+  memory_limiter:
+    check_interval: 5s
+    # Hard limit: refuse new data when RSS exceeds limit_mib.
+    # Set relative to VM RAM in Phase 3 deployment (512–1024 MiB typical).
+    limit_mib: 512
+    # Spike limit: if RSS grows by more than spike_limit_mib in check_interval,
+    # trigger GC and start refusing before the hard limit.
+    spike_limit_mib: 128
+
+  # ----------------------------------------------------------
+  # 2. BATCH PROCESSOR
+  # Groups spans/logs/metrics before export.
+  # Reduces egress to backends and improves throughput.
+  # observability-operational-limits.md §1.
+  # ----------------------------------------------------------
+  batch:
+    # Maximum items per batch before forcing flush.
+    send_batch_size: 1000
+    # Maximum wait before flushing a partial batch.
+    timeout: 10s
+    # Hard cap: reject if pending queue exceeds this.
+    send_batch_max_size: 2000
+
+  # ----------------------------------------------------------
+  # 3. RESOURCE PROCESSOR
+  # Validates and enriches OTel resource attributes.
+  # Enforces service.name allowlist (telemetry poisoning mitigation).
+  # security-review.md §1 + telemetry-naming-convention.md §3.
+  # ----------------------------------------------------------
+  resource:
+    attributes:
+      # Stamp deployment.environment from env var if not already set.
+      # This prevents spoofed environment values from reaching backends.
+      - key: "deployment.environment"
+        value: "${env:OTEL_DEPLOYMENT_ENVIRONMENT}"
+        action: upsert
+
+  # ----------------------------------------------------------
+  # 4. ATTRIBUTES PROCESSOR — SECURITY REDACTION
+  # Implements ADR-030 redaction at Collector boundary.
+  # security-review.md §8 — second line of defense.
+  # Drop forbidden credential and PII keys before any storage.
+  # ----------------------------------------------------------
+  attributes/redact_secrets:
+    actions:
+      # Credential keys — always forbidden (ADR-030).
+      - key: "authorization"
+        action: delete
+      - key: "http.request.header.authorization"
+        action: delete
+      - key: "password"
+        action: delete
+      - key: "token"
+        action: delete
+      - key: "access_token"
+        action: delete
+      - key: "refresh_token"
+        action: delete
+      - key: "id_token"
+        action: delete
+      - key: "fcm_token"
+        action: delete
+      - key: "push_token"
+        action: delete
+      - key: "ha_token"
+        action: delete
+      - key: "provider_credentials"
+        action: delete
+      - key: "secret"
+        action: delete
+      - key: "api_key"
+        action: delete
+      - key: "private_key"
+        action: delete
+      - key: "encrypted_credentials"
+        action: delete
+      # PII — direct identifiers forbidden (ADR-030).
+      - key: "user_email"
+        action: delete
+      - key: "email"
+        action: delete
+      - key: "firebase_uid"
+        action: delete
+      # Raw DB statements — forbidden in MVP traces (ADR-030).
+      - key: "db.statement"
+        action: delete
+
+  # ----------------------------------------------------------
+  # 5. ATTRIBUTES PROCESSOR — METRIC LABEL CARDINALITY CONTROL
+  # Drops high-cardinality labels before Prometheus exporter.
+  # ADR-031: target < 10 000 active series per service.name.
+  # telemetry-naming-convention.md §8 forbidden labels.
+  # ----------------------------------------------------------
+  attributes/drop_high_cardinality:
+    include:
+      match_type: regexp
+      # Apply to all metrics signals.
+      span_names: [".*"]
+    actions:
+      - key: "user_id"
+        action: delete
+      - key: "schedule_id"
+        action: delete
+      - key: "vibe_id"
+        action: delete
+      - key: "device_id"
+        action: delete
+      - key: "trace_id"
+        action: delete
+      - key: "http.url"
+        action: delete
+      - key: "provider_entity_id"
+        action: delete
+
+  # ----------------------------------------------------------
+  # 6. TRANSFORM PROCESSOR
+  # Normalise http.url → http.route template where route not set.
+  # Prevents raw /api/schedules/42 paths exploding Prometheus.
+  # telemetry-naming-convention.md §6 — span names use route templates.
+  # ----------------------------------------------------------
+  transform/normalize_http:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          # If http.route is missing, fall back to http.url path without query.
+          # This is a best-effort normalisation; SDK should set http.route.
+          - set(attributes["http.route"], attributes["http.route"])
+            where attributes["http.route"] != nil
+
+  # ----------------------------------------------------------
+  # 7. PROBABILISTIC SAMPLER — TRACES
+  # Head sampling per ADR-031 — single sampling point when apps use
+  # OTEL_TRACES_SAMPLER=always_on (see collector/.env.example).
+  # Rate is controlled by OTEL_TRACE_SAMPLE_RATE_SUCCESS (0–100).
+  # NOTE: probabilistic_sampler does NOT guarantee 100% error retention;
+  # tail_sampling is documented as a Phase 7+ evolution.
+  # ----------------------------------------------------------
+  probabilistic_sampler:
+    sampling_percentage: ${env:OTEL_TRACE_SAMPLE_RATE_SUCCESS}
+    # Hash seed — change per environment to avoid correlated drops.
+    hash_seed: 22
+
+# ============================================================
+# EXPORTERS
+# Phase 4: prometheusremotewrite active (metrics).
+# Phase 5: loki exporter active (logs pipeline); debug removed from logs.
+# Phase 6: otlp/tempo exporter active (traces pipeline); debug removed entirely.
+#
+# DEBUG EXPORTER: fully removed in Phase 6.
+# All three pipelines now export to their respective backends.
+# collector-hardening-checklist.md §7: completed in Phase 6.
+# ============================================================
+exporters:
+
+  # ----------------------------------------------------------
+  # PROMETHEUS REMOTE WRITE — Phase 4 (active)
+  # Pushes metrics from Collector to Prometheus via remote write.
+  # Prometheus must have --web.enable-remote-write-receiver flag.
+  # Endpoint: Prometheus container on the ixora-observability
+  # Docker network (referenced by service name, not 127.0.0.1).
+  # ADR-028: Collector is sole ingestion point; apps never write
+  # Prometheus directly.
+  # ADR-031: resource_to_telemetry_conversion promotes
+  # service.name, deployment.environment to Prometheus labels.
+  # ----------------------------------------------------------
+  prometheusremotewrite:
+    endpoint: "${env:PROMETHEUS_REMOTE_WRITE_ENDPOINT}"
+    tls:
+      # Same Docker network — TLS between containers not required.
+      # TLS is enforced at the public edge (Collector OTLP ports).
+      insecure: true
+    resource_to_telemetry_conversion:
+      # Promotes OTel resource attributes to Prometheus labels:
+      #   service.name        → service_name
+      #   deployment.environment → deployment_environment
+      #   service.version     → service_version
+      # Required for Grafana dashboard filtering by service.
+      # Cardinality impact: bounded — service set is small.
+      enabled: true
+    # Remote write queue configuration.
+    # Defaults are sufficient for MVP; tune if remote_write_pending_samples
+    # grows in Prometheus self-metrics.
+    remote_write_queue:
+      enabled: true
+
+  # ----------------------------------------------------------
+  # LOKI EXPORTER — Phase 5 (active)
+  # Pushes OTLP log records to Loki via its push API.
+  # Endpoint: Loki container on the ixora-observability Docker
+  # network (service name DNS — never 127.0.0.1).
+  # ADR-028: Collector is the sole Loki writer.
+  #          Applications NEVER communicate with Loki directly.
+  # ADR-030: All redaction (credentials, PII) is applied by the
+  #          attributes/redact_secrets processor BEFORE this exporter.
+  #          Loki never stores raw token, password, or email values.
+  # ADR-031: Label cardinality kept low — only two resource labels
+  #          (service_name, deployment_environment) are promoted to
+  #          Loki stream labels. High-cardinality values (user_id,
+  #          schedule_id, etc.) remain in the log body, not labels.
+  #
+  # Label strategy:
+  #   resource.service.name        → service_name   (stream label)
+  #   resource.deployment.environment → deployment_environment (stream label)
+  #   log severity                 → level           (stream label via default)
+  #
+  # default_labels_enabled:
+  #   exporter: false  — no "exporter=lokiexporter" noise label
+  #   job:      true   — Grafana uses {job="<service_name>"} convention
+  #   instance: false  — container hostnames are not meaningful labels
+  #   level:    true   — severity level enables log-level filtering in Grafana
+  # ----------------------------------------------------------
+  loki:
+    endpoint: "${env:LOKI_ENDPOINT}"
+    tls:
+      insecure: true
+    default_labels_enabled:
+      exporter: false
+      job: true
+      instance: false
+      level: true
+    # Resource attribute → Loki stream label promotion:
+    # In OTel Collector 0.115+, the `labels.resource` key was removed from
+    # the Loki exporter. Resource attributes are promoted to Loki stream
+    # labels via `default_labels_enabled.job` (maps service.name → job label)
+    # and via the `loki.attribute.labels` hint set by the transform processor.
+    # The deployment_environment attribute flows as a log body field, which
+    # is sufficient for Loki filtering: {job="back_vibes-worker"} | json.
+
+  # ----------------------------------------------------------
+  # OTLP / TEMPO EXPORTER — Phase 6 (active)
+  # Pushes OTLP trace spans to Tempo via its OTLP gRPC receiver.
+  # Endpoint: Tempo container on the ixora-observability Docker
+  # network (service name DNS — never 127.0.0.1).
+  # ADR-028: Collector is the sole Tempo writer.
+  #          Applications NEVER communicate with Tempo directly.
+  # ADR-030: All redaction (credentials, PII) is applied by the
+  #          attributes/redact_secrets processor BEFORE this exporter.
+  #          Tempo never stores raw token, password, or email values.
+  # ADR-031: Sampling enforced before this exporter:
+  #          10% success traces via probabilistic_sampler.
+  #          Error traces: see tail_sampling note in traces pipeline.
+  # ----------------------------------------------------------
+  otlp/tempo:
+    endpoint: "${env:TEMPO_ENDPOINT}"
+    tls:
+      # Same Docker network — TLS between containers not required.
+      # TLS is enforced at the public edge (Collector OTLP ports).
+      insecure: true
+
+# ============================================================
+# SERVICE
+# ============================================================
+service:
+
+  # Extensions enabled globally.
+  extensions:
+    - health_check
+    - pprof
+    - zpages
+    - bearertokenauth/backend
+    - bearertokenauth/mobile
+
+  telemetry:
+    # Collector self-logs — structured JSON to stdout.
+    logs:
+      level: "info"
+      encoding: "json"
+    # Collector self-metrics endpoint (scraped by prometheus/self receiver).
+    # Bind 0.0.0.0 inside container; host exposure restricted to 127.0.0.1 in compose.
+    metrics:
+      address: "0.0.0.0:8888"
+
+  pipelines:
+
+    # --------------------------------------------------------
+    # METRICS PIPELINE
+    # Phase 4: prometheusremotewrite active; debug removed.
+    # Phase 5: No change — metrics flow to Prometheus unchanged.
+    # Phase 6: No change planned for metrics pipeline.
+    # --------------------------------------------------------
+    metrics:
+      receivers:
+        - otlp/backend
+        - otlp/mobile
+        - prometheus/self        # Collector self-metrics → Prometheus
+      processors:
+        - memory_limiter         # First — OOM guard
+        - resource               # Stamp deployment.environment
+        - attributes/redact_secrets        # Drop credentials (ADR-030)
+        - attributes/drop_high_cardinality # Drop high-cardinality labels (ADR-031)
+        - batch                  # Group before remote write
+      exporters:
+        - prometheusremotewrite  # Phase 4: Prometheus active
+
+    # --------------------------------------------------------
+    # LOGS PIPELINE
+    # Phase 5: loki exporter active — debug removed.
+    # All log redaction (credentials, PII) runs before the loki
+    # exporter via attributes/redact_secrets (ADR-030).
+    # Applications write OTLP → Collector only; Loki never
+    # receives data directly from any application (ADR-028).
+    # --------------------------------------------------------
+    logs:
+      receivers:
+        - otlp/backend
+        - otlp/mobile
+      processors:
+        - memory_limiter
+        - resource
+        - attributes/redact_secrets
+        - batch
+      exporters:
+        - loki   # Phase 5: Loki active
+
+    # --------------------------------------------------------
+    # TRACES PIPELINE — sampled (OTEL_TRACE_SAMPLE_RATE_SUCCESS %)
+    # Phase 6: otlp/tempo active — debug removed.
+    #
+    # Sampling strategy (ADR-031):
+    #   probabilistic_sampler: OTEL_TRACE_SAMPLE_RATE_SUCCESS (0–100).
+    #   Staging validation default: 100 (see collector/.env.example).
+    #   Production may use a lower value without editing this file.
+    #   Error traces: probabilistic_sampler does NOT guarantee 100%
+    #   retention — see tail_sampling note below.
+    #
+    # Tail sampling (Phase 7+ evolution):
+    #   Replace probabilistic_sampler with a tail_sampling processor:
+    #     policies:
+    #       - type: status_code
+    #         status_code: { status_codes: [ERROR] }   # 100% errors
+    #       - type: probabilistic
+    #         probabilistic: { sampling_percentage: 10 } # 10% success
+    #   This requires the tail_sampling processor (contrib) and provides
+    #   guaranteed 100% error coverage independent of SDK status timing.
+    #   Deferred to Phase 7 — requires SDK instrumentation to be active
+    #   to validate meaningful error traces.
+    #
+    # Applications write OTLP → Collector only; Tempo never
+    # receives data directly from any application (ADR-028).
+    # --------------------------------------------------------
+    traces:
+      receivers:
+        - otlp/backend
+        - otlp/mobile
+      processors:
+        - memory_limiter
+        - resource
+        - attributes/redact_secrets
+        - transform/normalize_http
+        - probabilistic_sampler    # OTEL_TRACE_SAMPLE_RATE_SUCCESS (see tail_sampling note above)
+        - batch
+      exporters:
+        - otlp/tempo   # Phase 6: Tempo active

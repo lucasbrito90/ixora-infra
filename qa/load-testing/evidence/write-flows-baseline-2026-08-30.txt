@@ -1,0 +1,68 @@
+date: 2026-08-30T03:07:15Z
+scenario: write-flows-crud baseline (2 VUs, 10 shared iterations, CRUD vibes + schedules)
+k6_version: v1.0.0-rc1
+target: https://staging-api.ixora-app.app
+environment: basic-xxs App Platform + db-s-1vcpu-1gb Postgres
+prometheus_output: enabled (experimental-prometheus-rw, via SSH tunnel to 127.0.0.1:9090)
+testrun_tag: phase10-write-baseline-2026-08-30
+
+checks_total: 73
+checks_succeeded: 73 (100.00%)
+checks_failed: 0 (0.00%)
+
+thresholds:
+  checks_rate_gt_95pct: PASS (100.00%)
+  http_req_duration_p95_lt_3000ms: PASS (p95=524.35ms)
+  http_req_failed_rate_lt_5pct: PASS (0.00%)
+
+http_req_duration:
+  avg: 396.59ms
+  min: 100.58ms
+  med: 390.13ms
+  max: 707.83ms
+  p90: 460.14ms
+  p95: 524.35ms
+
+http_reqs_total: 52
+http_reqs_failed: 0
+iterations_total: 10
+iteration_duration_avg: 3.61s
+duration_total: 19.1s
+
+operations_total:
+  vibes_created: 10
+  schedules_created: 10
+  vibes_patched: 10
+  schedules_deleted: 10
+  vibes_deleted: 10
+
+cleanup_verification (independent, not just self-reported):
+  method: real Firebase login performed by the operator (not the k6 script),
+  then GET /api/vibes and GET /api/schedules with the resulting real token,
+  filtered for '[k6-load]' in the name field.
+  vibes_orphaned: 0 (3 real vibes remain, none from this test)
+  schedules_orphaned: 0 (25 real schedules remain, none from this test)
+  result: CONFIRMED — zero [k6-load] resources left in staging
+
+prometheus_verification:
+  7 k6_* series confirmed present for testrun="phase10-write-baseline-2026-08-30"
+
+staging_impact_check (post-run):
+  All 7 Phase 9 alert rules: health=nodata, state=inactive (unchanged).
+  GET /api/health: HTTP 200 immediately after the run.
+
+comparison_to_write_smoke_2026-08-29:
+  p95 improved (524ms vs 615ms) and to the read-flow baseline (645ms) —
+  within normal variance for a basic-xxs instance at this volume, not a
+  meaningful trend from single runs. No indication that writes are
+  measurably more expensive than reads at this (very low) concurrency.
+
+conclusion:
+  No bottleneck observed at 2 VUs / ~2.7 req/s sustained for 19s doing
+  full CRUD (create+patch+delete) on two resource types. Consistent with
+  the read-flow baseline's conclusion: this load level is far below
+  anything that would stress a basic-xxs instance or a single-node
+  db-s-1vcpu-1gb Postgres. A higher-VU run would be needed to find any
+  real ceiling for write throughput specifically, and would need fresh
+  operator sign-off given writes carry more real risk (data mutation,
+  even though fully cleaned up here) than the read-only scenario.

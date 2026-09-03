@@ -1,0 +1,2122 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "D-01 \u2014 Platform Overview. Default landing page for operators. Answers: Is the entire back_vibes platform healthy right now? Covers HTTP API, queue workers, scheduler, Smart Home business pipeline, and Collector infrastructure health in a single view. Use specialized dashboards (D-02 through D-07) for deep investigation.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-08 SLO & Error Budget",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-slo"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-02 Smart Home",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-smart-home"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-03 Push Notifications",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-push"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-04 Queue Workers",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-queue"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-05 HTTP API",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-http"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-06 Scheduler",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-scheduler"
+    },
+    {
+      "icon": "external link",
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "D-07 Infrastructure",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/ixora-collector"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Platform Health",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Fraction of HTTP requests that did NOT result in a server-side error (5xx, outcome=server_error). Healthy steady-state: > 99%. Below 95% is critical \u2014 navigate to D-05 HTTP API to identify the failing route, then Tempo for trace detail.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.95
+              },
+              {
+                "color": "green",
+                "value": 0.99
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "id": 100,
+      "links": [
+        {
+          "title": "D-05 HTTP API \u2014 detailed view",
+          "url": "/d/ixora-http",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "1 - (sum(rate(ixora_http_server_request_total{environment=~\"$environment\",outcome=\"server_error\"}[5m])) / sum(rate(ixora_http_server_request_total{environment=~\"$environment\"}[5m])))",
+          "instant": true,
+          "legendFormat": "HTTP Availability",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Availability",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Fraction of completed queue job attempts (excluding retried/released in-progress) that succeeded. Healthy steady-state: > 95%. Below 90% warrants investigation \u2014 navigate to D-04 Queue Workers to identify the failing job class.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "id": 101,
+      "links": [
+        {
+          "title": "D-04 Queue Workers \u2014 detailed view",
+          "url": "/d/ixora-queue",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_queue_job_total{environment=~\"$environment\",outcome=\"success\"}[5m])) / sum(rate(ixora_queue_job_total{environment=~\"$environment\",outcome!=\"retried\",outcome!=\"released\"}[5m]))",
+          "instant": true,
+          "legendFormat": "Queue Health",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Health",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Scheduled event execution rate (all outcomes). Healthy: matches the registered schedule count per minute (~1/min per event for a 1-minute schedule). Zero indicates the scheduler loop has stopped \u2014 navigate to D-06 Scheduler to investigate.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "STOPPED"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.001
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "id": 102,
+      "links": [
+        {
+          "title": "D-06 Scheduler \u2014 detailed view",
+          "url": "/d/ixora-scheduler",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_scheduler_event_total{environment=~\"$environment\"}[5m]))",
+          "instant": true,
+          "legendFormat": "Scheduler Rate",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Scheduler Running",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Fraction of Smart Home action executions that succeeded (outcome=success). Healthy steady-state: > 95%. A drop below 90% is critical \u2014 navigate to D-02 Smart Home to identify the failing provider or outcome class.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.8
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "id": 103,
+      "links": [
+        {
+          "title": "D-02 Smart Home \u2014 detailed view",
+          "url": "/d/ixora-smart-home",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_smart_home_action_total{environment=~\"$environment\",outcome=\"success\"}[5m])) / sum(rate(ixora_smart_home_action_total{environment=~\"$environment\"}[5m]))",
+          "instant": true,
+          "legendFormat": "Smart Home Health",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Smart Home Health",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "OpenTelemetry Collector process status. 1 = up, 0 = down. Healthy: always 1. If the Collector is down, all telemetry (metrics, traces, logs) will stop flowing \u2014 navigate to D-07 Infrastructure for detail. Note: this metric is Collector-scoped and does not filter by $environment.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "id": 104,
+      "links": [
+        {
+          "title": "D-07 Infrastructure \u2014 detailed view",
+          "url": "/d/ixora-collector",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"otel-collector\"}",
+          "instant": true,
+          "legendFormat": "Collector",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Collector Up",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Total application-side OTLP export failures in the last hour (ixora_telemetry_export_failed_total). Non-zero means back_vibes failed to deliver telemetry to the Collector. Healthy: 0. Any non-zero value requires investigation \u2014 navigate to D-07 Infrastructure to confirm Collector is healthy.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "OK"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "id": 105,
+      "links": [
+        {
+          "title": "D-07 Infrastructure \u2014 detailed view",
+          "url": "/d/ixora-collector",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(ixora_telemetry_export_failed_total{deployment_environment=~\"$environment\"}[1h])) or vector(0)",
+          "instant": true,
+          "legendFormat": "Export Failures (1h)",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Telemetry Export Failures",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 2,
+      "title": "Business Summary",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Total Smart Home dispatch calls (outcome=dispatched) in the selected time window. A dispatch call enqueues actions for execution. This is the top-of-funnel business metric. Low volume in expected automation windows may indicate the scheduler or HTTP trigger is not working \u2014 check D-06 or D-05.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 6
+      },
+      "id": 200,
+      "links": [
+        {
+          "title": "D-02 Smart Home \u2014 dispatch detail",
+          "url": "/d/ixora-smart-home",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(ixora_smart_home_dispatch_total{environment=~\"$environment\",outcome=\"dispatched\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "Dispatches",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Smart Home Dispatches",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Current Smart Home action success rate (outcome=success / total). Healthy: > 95%. This is the primary business health KPI \u2014 a drop here affects automation reliability directly. Navigate to D-02 Smart Home for full breakdown by provider and outcome.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.8
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 6
+      },
+      "id": 201,
+      "links": [
+        {
+          "title": "D-02 Smart Home \u2014 action detail",
+          "url": "/d/ixora-smart-home",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_smart_home_action_total{environment=~\"$environment\",outcome=\"success\"}[5m])) / sum(rate(ixora_smart_home_action_total{environment=~\"$environment\"}[5m]))",
+          "instant": true,
+          "legendFormat": "Success Rate",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Action Success Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Current Smart Home action failure rate (outcome=failure or unknown / total). Does NOT include unsupported \u2014 that is a distinct business outcome. Above 5% warrants investigation in D-02. Note: ixora_queue_job_total{outcome=success} does NOT measure this \u2014 Queue success and Action success are orthogonal signals (Phase 7B.4.5 \u00a78.3).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.05
+              },
+              {
+                "color": "red",
+                "value": 0.15
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 6
+      },
+      "id": 202,
+      "links": [
+        {
+          "title": "D-02 Smart Home \u2014 failure detail",
+          "url": "/d/ixora-smart-home",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_smart_home_action_total{environment=~\"$environment\",outcome=~\"failure|unknown\"}[5m])) / sum(rate(ixora_smart_home_action_total{environment=~\"$environment\"}[5m]))",
+          "instant": true,
+          "legendFormat": "Failure Rate",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Action Failure Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Smart Home action execution P95 latency in milliseconds. Healthy: P95 < 2000 ms. Measures the full execution segment including the HTTP call to the provider (e.g. Home Assistant). A rising P95 suggests provider degradation \u2014 navigate to D-02 Performance section for P50/P95/P99 breakdown.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 3000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "id": 203,
+      "links": [
+        {
+          "title": "D-02 Smart Home \u2014 performance detail",
+          "url": "/d/ixora-smart-home",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate(ixora_smart_home_action_duration_bucket{environment=~\"$environment\"}[5m])))",
+          "instant": true,
+          "legendFormat": "p95 Latency",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Action p95 Latency",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Smart Home action success and failure rates over time. The success rate should remain above 95% in steady state. Use this panel to correlate drops with deployments, provider incidents, or scheduler changes. For full breakdown by provider and outcome, navigate to D-02 Smart Home.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 0.8
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 204,
+      "links": [
+        {
+          "title": "D-02 Smart Home \u2014 full business detail",
+          "url": "/d/ixora-smart-home",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_smart_home_action_total{environment=~\"$environment\",outcome=\"success\"}[5m])) / sum(rate(ixora_smart_home_action_total{environment=~\"$environment\"}[5m]))",
+          "instant": false,
+          "legendFormat": "Success Rate",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_smart_home_action_total{environment=~\"$environment\",outcome=~\"failure|unknown\"}[5m])) / sum(rate(ixora_smart_home_action_total{environment=~\"$environment\"}[5m]))",
+          "instant": false,
+          "legendFormat": "Failure Rate",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Business Health Over Time",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 3,
+      "title": "Application Summary",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Total HTTP request rate over time (all outcomes, all routes). Healthy: matches expected traffic volume for the environment. A sudden sustained drop may indicate the API is not receiving traffic or the Collector is down. For per-route and error-rate breakdown, navigate to D-05 HTTP API.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "id": 300,
+      "links": [
+        {
+          "title": "D-05 HTTP API \u2014 detailed view",
+          "url": "/d/ixora-http",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_http_server_request_total{environment=~\"$environment\"}[5m]))",
+          "instant": false,
+          "legendFormat": "req/s",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Requests/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "HTTP 5xx server error rate over time (outcome=server_error). Healthy: near 0%. A spike above 1% is the primary alerting signal for the HTTP layer. For per-route breakdown and trace drill-down, navigate to D-05 HTTP API.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "id": 301,
+      "links": [
+        {
+          "title": "D-05 HTTP API \u2014 error detail",
+          "url": "/d/ixora-http",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ixora_http_server_request_total{environment=~\"$environment\",outcome=\"server_error\"}[5m])) / sum(rate(ixora_http_server_request_total{environment=~\"$environment\"}[5m]))",
+          "instant": false,
+          "legendFormat": "5xx Error Rate",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Error Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Queue job processing rate per second, split by queue. Queues: smart-home (Smart Home action jobs), push (push notification jobs), default (all other jobs). A drop on smart-home queue while dispatches continue indicates growing queue depth \u2014 workers may be down. Navigate to D-04 Queue Workers for full detail.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "id": 302,
+      "links": [
+        {
+          "title": "D-04 Queue Workers \u2014 detailed view",
+          "url": "/d/ixora-queue",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (queue) (rate(ixora_queue_job_total{environment=~\"$environment\"}[5m]))",
+          "instant": false,
+          "legendFormat": "{{queue}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Throughput (by Queue)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Number of queue jobs currently in-flight (active). Healthy: a small positive number matching worker concurrency. Sustained high values with no corresponding throughput increase may indicate stuck workers. Navigate to D-04 Queue Workers for duration and failure context.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 27
+      },
+      "id": 303,
+      "links": [
+        {
+          "title": "D-04 Queue Workers \u2014 detailed view",
+          "url": "/d/ixora-queue",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(ixora_queue_job_active{environment=~\"$environment\"})",
+          "instant": true,
+          "legendFormat": "Active Jobs",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Active Queue Jobs",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Scheduler event execution rate over time by outcome. Healthy: consistent rate matching registered schedule count. outcome=overlap_prevented is normal (idempotency guard). outcome=failed should remain at 0. For batch duration, skipped details, and Smart Home cross-domain view, navigate to D-06 Scheduler.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 27
+      },
+      "id": 304,
+      "links": [
+        {
+          "title": "D-06 Scheduler \u2014 detailed view",
+          "url": "/d/ixora-scheduler",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (outcome) (rate(ixora_scheduler_event_total{environment=~\"$environment\"}[5m]))",
+          "instant": false,
+          "legendFormat": "{{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Scheduler Executions (by Outcome)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "id": 4,
+      "title": "Infrastructure Summary",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "OpenTelemetry Collector process status. 1 = up, 0 = down. If the Collector is down, all telemetry ceases \u2014 every other panel in this dashboard will show stale data. Navigate to D-07 Infrastructure for process memory, CPU, and export pipeline detail. Note: Collector-scoped metric, not filtered by $environment.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 36
+      },
+      "id": 400,
+      "links": [
+        {
+          "title": "D-07 Infrastructure \u2014 detailed view",
+          "url": "/d/ixora-collector",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"otel-collector\"}",
+          "instant": true,
+          "legendFormat": "Collector",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Collector Process",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Prometheus process status (scraped as a Prometheus target). 1 = up, 0 = down. If Prometheus is down, all metric-based panels will show stale or no data. Note: Prometheus-scoped metric, not filtered by $environment.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 36
+      },
+      "id": 401,
+      "links": [
+        {
+          "title": "D-07 Infrastructure \u2014 detailed view",
+          "url": "/d/ixora-collector",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"prometheus\"}",
+          "instant": true,
+          "legendFormat": "Prometheus",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Prometheus Process",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "OpenTelemetry Collector resident memory (RSS) in bytes. A continuously growing RSS may indicate a memory leak in the Collector pipeline. Navigate to D-07 Infrastructure for full Collector health detail. Note: Collector-scoped metric, not filtered by $environment.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 200000000
+              },
+              {
+                "color": "red",
+                "value": 500000000
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 36
+      },
+      "id": 402,
+      "links": [
+        {
+          "title": "D-07 Infrastructure \u2014 memory detail",
+          "url": "/d/ixora-collector",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "otelcol_process_memory_rss{service_name=\"otelcol-contrib\"}",
+          "instant": true,
+          "legendFormat": "Memory RSS",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Collector Memory",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "OpenTelemetry Collector CPU usage rate (fraction of a CPU core). Healthy: low and stable. A sustained high value may indicate a processing bottleneck in the Collector pipeline. Navigate to D-07 Infrastructure for full resource detail. Note: Collector-scoped metric, not filtered by $environment.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 36
+      },
+      "id": 403,
+      "links": [
+        {
+          "title": "D-07 Infrastructure \u2014 CPU detail",
+          "url": "/d/ixora-collector",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(otelcol_process_cpu_seconds_total{service_name=\"otelcol-contrib\"}[5m])",
+          "instant": true,
+          "legendFormat": "CPU",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Collector CPU",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Collector export failure rates over time for spans (Tempo), log records (Loki), and metric points (Prometheus Remote Write). Any non-zero values indicate data loss in the telemetry pipeline. Healthy: all lines at 0. Navigate to D-07 Infrastructure for queue depth and detailed pipeline panels.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "id": 404,
+      "links": [
+        {
+          "title": "D-07 Infrastructure \u2014 pipeline detail",
+          "url": "/d/ixora-collector",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(otelcol_exporter_send_failed_spans_total{exporter=\"otlp/tempo\",service_name=\"otelcol-contrib\"}[5m])",
+          "instant": false,
+          "legendFormat": "spans failed (Tempo)",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(otelcol_exporter_send_failed_log_records_total{exporter=\"loki\",service_name=\"otelcol-contrib\"}[5m])",
+          "instant": false,
+          "legendFormat": "logs failed (Loki)",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(otelcol_exporter_send_failed_metric_points_total{exporter=\"prometheusremotewrite\",service_name=\"otelcol-contrib\"}[5m])",
+          "instant": false,
+          "legendFormat": "metrics failed (Prometheus RW)",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Collector Export Errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ixora-prometheus"
+      },
+      "description": "Prometheus Remote Write pipeline: metric points sent vs failed per second. Healthy: sent > 0, failed = 0. A non-zero failed rate means metrics are being dropped before reaching Prometheus storage \u2014 all application metric panels will show stale or incomplete data. Navigate to D-07 Infrastructure for queue depth detail.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "id": 405,
+      "links": [
+        {
+          "title": "D-07 Infrastructure \u2014 remote write detail",
+          "url": "/d/ixora-collector",
+          "targetBlank": false
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(otelcol_exporter_sent_metric_points_total{exporter=\"prometheusremotewrite\",service_name=\"otelcol-contrib\"}[5m])",
+          "instant": false,
+          "legendFormat": "sent",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ixora-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(otelcol_exporter_send_failed_metric_points_total{exporter=\"prometheusremotewrite\",service_name=\"otelcol-contrib\"}[5m])",
+          "instant": false,
+          "legendFormat": "failed",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Remote Write Status (Metrics)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 48
+      },
+      "id": 5,
+      "title": "Navigation",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "description": "Navigation panel for D-02 Smart Home Business dashboard. Business automation pipeline \u2014 dispatch throughput, action success/failure rates, provider performance, Queue/Business orthogonality. Audience: Product team, on-call engineer.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 49
+      },
+      "id": 500,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "## [D-02 Smart Home Business](/d/ixora-smart-home)\n\nBusiness automation pipeline: dispatch throughput, action outcomes, provider performance.\n\n**Folder:** Business &nbsp;|&nbsp; **Audience:** Product, on-call",
+        "mode": "markdown"
+      },
+      "title": "D-02 Smart Home Business",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "description": "Navigation panel for D-04 Queue Workers dashboard. Queue worker health \u2014 job throughput by queue, failure rates by job class, duration percentiles, retry and timeout tracking. Audience: On-call, SRE.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 49
+      },
+      "id": 501,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "## [D-04 Queue Workers](/d/ixora-queue)\n\nQueue worker health: job throughput per queue, failure rates, duration, retry and timeout tracking.\n\n**Folder:** Application &nbsp;|&nbsp; **Audience:** On-call, SRE",
+        "mode": "markdown"
+      },
+      "title": "D-04 Queue Workers",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "description": "Navigation panel for D-05 HTTP API dashboard. HTTP API health \u2014 request rate, error rates by status class, p95 latency, top slow and error routes. Audience: On-call, SRE.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 49
+      },
+      "id": 502,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "## [D-05 HTTP API](/d/ixora-http)\n\nHTTP API health: request rate, 5xx error rate, p95 latency, top slow and error routes.\n\n**Folder:** Application &nbsp;|&nbsp; **Audience:** On-call, SRE",
+        "mode": "markdown"
+      },
+      "title": "D-05 HTTP API",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "description": "Navigation panel for D-06 Scheduler dashboard. Laravel Scheduler execution health \u2014 event execution rate, overlap_prevented guard rate, failure rate, batch duration, and cross-domain Smart Home dispatch rate. Audience: On-call, product team.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 49
+      },
+      "id": 503,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "## [D-06 Scheduler](/d/ixora-scheduler)\n\nLaravel Scheduler health: event execution rate, overlap guard, failure rate, batch duration.\n\n**Folder:** Application &nbsp;|&nbsp; **Audience:** On-call, product",
+        "mode": "markdown"
+      },
+      "title": "D-06 Scheduler",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Dashboard --"
+      },
+      "description": "Navigation panel for D-07 Infrastructure dashboard. OTel Collector self-metrics \u2014 process health, memory, CPU, export pipeline rates, queue depth, drop rates, and Prometheus platform health. Audience: SRE, on-call (escalated from domain dashboards).",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "id": 504,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "## [D-07 Infrastructure](/d/ixora-collector)\n\nOTel Collector self-metrics: process health, memory, CPU, export pipeline rates, queue depth, drop rates, Prometheus platform health. Escalation target when telemetry data appears stale or missing.\n\n**Folder:** Infrastructure &nbsp;|&nbsp; **Audience:** SRE, on-call (escalated)",
+        "mode": "markdown"
+      },
+      "title": "D-07 Infrastructure",
+      "type": "text"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "overview",
+    "platform",
+    "d-01"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "staging",
+          "value": "staging"
+        },
+        "description": "Deployment environment \u2014 applied to all panel queries.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [
+          {
+            "selected": false,
+            "text": "development",
+            "value": "development"
+          },
+          {
+            "selected": true,
+            "text": "staging",
+            "value": "staging"
+          },
+          {
+            "selected": false,
+            "text": "production",
+            "value": "production"
+          }
+        ],
+        "query": "development,staging,production",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "D-01 \u2014 Platform Overview",
+  "uid": "ixora-platform",
+  "version": 1
+}

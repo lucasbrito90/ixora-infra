@@ -1,0 +1,124 @@
+# ============================================================
+# Ixora Observability Platform — Notification Policies
+# Phase 9 — Alerting Strategy
+# Phase 9 fix — KL-IR-6 notification grouping isolation
+#
+# This file provisions the Grafana alerting routing tree.
+# It controls which alerts go to which contact points,
+# and how they are grouped and deduplicated.
+#
+# STATUS: Severity-based routing active, with a dedicated
+#   DatasourceNoData isolation route (see first route, below).
+#   - DatasourceNoData     → ixora-default (own group, never
+#                            shares with real alerts)
+#   - critical/emergency   → ixora-email-critical (pages, short repeat)
+#   - info/warning         → ixora-default (Grafana UI email, long repeat)
+#
+# `for` durations per severity are set on each alert rule
+# (alerting-philosophy.md §14.3); group_wait/group_interval/
+# repeat_interval below control notification pacing, not firing.
+#
+# Inhibition rules (Collector-down suppressing downstream alerts) are
+# NOT expressible in Grafana OSS's provisioning policy schema — that is
+# an Alertmanager-native `inhibit_rules` concept the embedded Grafana
+# Alertmanager does not currently provision this way. Deferred; tracked
+# as a Phase 10 tuning item (alerting-philosophy.md §17.3, §Level 2).
+#
+# STRUCTURE REFERENCE: alerting-foundation.md §6
+# PHILOSOPHY REFERENCE: alerting-philosophy.md §13, §17, §18
+# ============================================================
+
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: ixora-default
+    group_by:
+      - alertname
+      - environment
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+
+    routes:
+      # DatasourceNoData isolation — MUST be the first route.
+      #
+      # Grafana synthesises a `DatasourceNoData` alert (alertname=
+      # "DatasourceNoData") for every alert rule whose datasource returns
+      # no data during evaluation. These synthetic alerts share the same
+      # `category`, `severity`, and `environment` labels as the real alert
+      # rules that generated them, so they would otherwise fall into the
+      # same Alertmanager notification group as a real, genuinely firing
+      # alert.
+      #
+      # Problem (incident-response-policy.md KL-IR-6, confirmed 2026-08-30
+      # on the real staging host with GF_LOG_LEVEL=debug): `group_wait`
+      # only applies to a group's very FIRST notification. Once a group
+      # exists, Alertmanager flushes it on the fixed `group_interval`
+      # cadence regardless of when a new member joins. The recurring
+      # DatasourceNoData alerts for `category=application` kept the
+      # `{severity="warning"}:{category="application",environment="staging"}`
+      # group "warm", so a real alert joining that group had to wait up to
+      # 8m45s for the group's next scheduled flush rather than its own
+      # `group_wait` (2m). The same mechanism applies to critical/emergency
+      # (group_interval: 5m there), adding up to 5 min of extra delay
+      # against §3 response-time targets.
+      #
+      # Fix: capture every DatasourceNoData alert here, before it can
+      # reach a severity-based route, and group it by [alertname, rulename]
+      # instead. `rulename` is the Grafana-generated label that identifies
+      # which alert rule produced the NoData — this groups per-rule NoData
+      # noise together without sharing any group key with real alerts.
+      # Routing to ixora-default (Grafana UI + email fallback) is correct:
+      # DatasourceNoData is never worth a critical/emergency page.
+      #
+      # Not restricted by grafana_folder so this stays correct if new
+      # alert folders are added later.
+      - receiver: ixora-default
+        matchers:
+          - alertname = DatasourceNoData
+        group_by:
+          - alertname
+          - rulename
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 4h
+        continue: false
+
+      # Critical + Emergency — page via email, fast repeat.
+      # alerting-philosophy.md §18: critical escalates to tech lead
+      # after 30 min unresolved; emergency after 15 min. Escalation
+      # itself is a manual/on-call-tool concern, not expressed here.
+      - receiver: ixora-email-critical
+        matchers:
+          - severity =~ "critical|emergency"
+        group_by:
+          - service
+          - environment
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 1h
+        continue: false
+
+      # Warning — Grafana UI email, slower repeat.
+      - receiver: ixora-default
+        matchers:
+          - severity = warning
+        group_by:
+          - category
+          - environment
+        group_wait: 2m
+        group_interval: 15m
+        repeat_interval: 4h
+        continue: false
+
+      # Info — Grafana UI email, daily digest cadence.
+      - receiver: ixora-default
+        matchers:
+          - severity = info
+        group_by:
+          - category
+        group_wait: 5m
+        group_interval: 15m
+        repeat_interval: 24h
+        continue: false

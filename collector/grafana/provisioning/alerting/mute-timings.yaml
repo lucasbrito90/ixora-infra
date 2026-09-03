@@ -1,0 +1,40 @@
+# ============================================================
+# Ixora Observability Platform — Mute Timings
+# Phase 9 — Alerting Strategy
+#
+# This file provisions planned maintenance windows.
+# Alerts matching a mute timing will be suppressed for the
+# duration of the defined interval.
+#
+# STATUS: weekly-maintenance-window is active but NOT YET applied to
+# any route in policies.yaml — Grafana's notification-policy YAML
+# schema (apiVersion 1) does not carry mute_time_intervals per route
+# in this repo's current policies.yaml structure. Attach it manually
+# via the Grafana UI (Alerting → Notification policies → edit route)
+# until the routing tree needs a second maintenance-specific branch.
+#
+# USAGE:
+#   - For ad-hoc maintenance: use Grafana UI silences instead.
+#   - For recurring maintenance: defined here.
+#
+# STRUCTURE REFERENCE: alerting-foundation.md §7
+# PHILOSOPHY REFERENCE: alerting-philosophy.md §16 (noise reduction)
+# ============================================================
+
+apiVersion: 1
+
+muteTimes:
+  # Weekly maintenance window — Sunday 02:00–04:00 UTC.
+  # Matches the deploy/backup cadence documented in backup-strategy.md.
+  - orgId: 1
+    name: weekly-maintenance-window
+    time_intervals:
+      - weekdays: ["sunday"]
+        times:
+          - start_time: "02:00"
+            end_time: "04:00"
+
+  # Deploy window — applied manually via Grafana UI silence during deploys.
+  # No recurring definition needed here; use Grafana silence API:
+  #   POST /api/alertmanager/grafana/api/v2/silences
+  # with matchers: environment=staging and duration matching deploy window.

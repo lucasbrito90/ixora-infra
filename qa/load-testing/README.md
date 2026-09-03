@@ -1,0 +1,237 @@
+# Load Testing — Phase 10 Foundation
+
+**Phase:** 10 — Performance Validation & Load Testing (first slice, read-only)  
+**Status:** Phase 10 formally closed 2026-08-30 — see "Formal conclusion" below. No bottleneck found at any tested load level; Smart Home/push flows and higher-VU/production-capacity testing are explicitly out of scope, not open items.  
+**Tooling:** [k6](https://k6.io/) v1.0.0-rc1  
+**Target:** `https://staging-api.ixora-app.app`
+
+---
+
+## Git home
+
+`qa/` at the workspace root is not a git repository. This load-testing folder lives inside `ixora-infra/qa/load-testing/` so it is tracked by the `ixora-infra` repo alongside Phase 10 docs and tracking files. Scripts are authored as plain JavaScript (same `.js` convention used across other k6 deployments) — not TypeScript, which is consistent with the existing `qa/` evidence scripts in this workspace.
+
+---
+
+## Staging environment — critical constraints
+
+| Component | Spec | Implication |
+| --- | --- | --- |
+| App Platform tier | `basic-xxs` (smallest available) | Shared compute; not sized for throughput ceiling tests |
+| Postgres | `db-s-1vcpu-1gb`, `node_count=1` | Single-node; connection exhaustion is a real risk at high VUs |
+| Shared usage | QA E2E, Phase 9 alerts, developer staging | Load tests run at the same time as other staging activity |
+
+**Do NOT run with more than 5-10 VUs without explicit operator sign-off.** The default options in `read-flows-smoke.js` (3 VUs × 10 iterations) are deliberately conservative. Raising these without reviewing staging health is the single most likely way to degrade the QA environment for other work.
+
+---
+
+## Directory structure
+
+```
+qa/load-testing/
+├── README.md               ← this file
+├── .env.example            ← credential template (copy to .env, never commit)
+├── scripts/
+│   ├── auth.js             ← reusable Firebase login + /api/auth/sync module
+│   ├── read-flows-smoke.js ← GET-only scenario (Phase 10.1 acceptance test)
+│   └── write-flows-crud.js ← CRUD write scenario — vibes + schedules (Phase 10.2)
+└── evidence/
+    └── smoke-YYYY-MM-DD.txt  ← one file per test run
+```
+
+---
+
+## Prerequisites
+
+1. **k6** — install the Grafana-distributed binary (no sudo required):
+
+   ```bash
+   curl -L https://github.com/grafana/k6/releases/latest/download/k6-linux-amd64.tar.gz \
+     | tar -xzf - --strip-components=1 -C ~/.local/bin k6-*/k6
+   chmod +x ~/.local/bin/k6
+   k6 version
+   ```
+
+   Tested with **k6 v1.0.0-rc1**. The `experimental-prometheus-rw` output is built-in from v0.42.0+; no extension build required.
+
+2. **Credentials** — copy `.env.example` to `.env` and fill in values:
+
+   ```bash
+   cp .env.example .env
+   # edit .env — FIREBASE_API_KEY, E2E_USER_EMAIL, E2E_USER_PASSWORD
+   ```
+
+   These are the same credentials used by `qa/scheduler-e2e/scripts/staging-api-qa.sh`. Read them from `front_vibes/.env`:
+   - `VITE_FIREBASE_API_KEY` → `FIREBASE_API_KEY`
+   - `E2E_USER_EMAIL` → `E2E_USER_EMAIL`
+   - `E2E_USER_PASSWORD` → `E2E_USER_PASSWORD`
+
+---
+
+## Running
+
+Source credentials, then run:
+
+```bash
+# Source env vars
+set -a && source .env && set +a
+
+# Smoke (acceptance — minimal, equivalent to a manual curl):
+K6_VUS=1 K6_ITERATIONS=3 k6 run scripts/read-flows-smoke.js
+
+# Conservative baseline (default options, ~40s at 3 VUs):
+k6 run scripts/read-flows-smoke.js
+```
+
+Expected output: all thresholds green, 0% `http_req_failed`, p(95) < 3s.
+
+### write-flows-crud.js — CRUD write scenario
+
+Full create → update → delete lifecycle for vibes and schedules. Per-iteration cleanup is guaranteed — no data is left in staging after the test.
+
+```bash
+# Smoke (acceptance — minimal):
+K6_VUS=1 K6_ITERATIONS=2 k6 run scripts/write-flows-crud.js
+
+# Conservative baseline (default options, 1 VU × 5 iters):
+k6 run scripts/write-flows-crud.js
+```
+
+Expected output: all thresholds green, every `POST` → 201, every `DELETE` → 204/200.
+
+**After any run**, confirm zero orphaned resources (search for `[k6-load]` prefix):
+
+```bash
+# Using the same token from your .env credentials:
+ID_TOKEN=$(curl -sS -X POST \
+  "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}" \
+  -H 'Content-Type: application/json' \
+  -d "{\"email\":\"${E2E_USER_EMAIL}\",\"password\":\"${E2E_USER_PASSWORD}\",\"returnSecureToken\":true}" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['idToken'])")
+
+curl -sS "https://staging-api.ixora-app.app/api/vibes" \
+  -H "Authorization: Bearer ${ID_TOKEN}" | python3 -c \
+  "import sys,json; d=json.load(sys.stdin)['data']; print([v['name'] for v in d if '[k6-load]' in v['name']])"
+
+curl -sS "https://staging-api.ixora-app.app/api/schedules" \
+  -H "Authorization: Bearer ${ID_TOKEN}" | python3 -c \
+  "import sys,json; d=json.load(sys.stdin)['data']; print([s['name'] for s in d if '[k6-load]' in s['name']])"
+```
+
+Both lists should be empty (`[]`).
+
+---
+
+## Firebase token limitation
+
+`setup()` logs in once and shares the token across all VUs. Firebase ID tokens expire after approximately **1 hour**. For this scenario's durations (seconds to a few minutes), expiry is not a concern. If you run a long-duration test (> 50 minutes), calls will start returning 401 as the token ages out. Token renewal (Firebase REST API `/token` endpoint) is **explicitly deferred** as unnecessary complexity for this Phase 10 foundation — add it if sustained multi-hour runs become a requirement.
+
+---
+
+## Prometheus remote-write output
+
+k6 can push metrics to Prometheus in real time using the built-in experimental output:
+
+```bash
+K6_PROMETHEUS_RW_SERVER_URL=http://127.0.0.1:9090/api/v1/write \
+k6 run -o experimental-prometheus-rw scripts/read-flows-smoke.js
+```
+
+**Known blocker:** the observability host (`137.184.163.187`) binds Prometheus to `127.0.0.1:9090` only — port 9090 is firewall-blocked from the internet (confirmed in `ixora-infra/collector/docker-compose.yml` and `prometheus.yml`). Remote-write output therefore requires one of:
+
+1. Running k6 **on the observability host** (SSH in, install k6 there, run tests from there)
+2. An **SSH tunnel**: `ssh -L 9090:127.0.0.1:9090 root@137.184.163.187` then run k6 locally pointing at `http://127.0.0.1:9090/api/v1/write`
+
+For the Phase 10 acceptance smoke test (2026-08-29), Prometheus output was **not used** — the volume (3 iterations) produces no meaningful time-series data.
+
+**Validated 2026-08-30 (operator baseline run):** used the SSH tunnel approach (option 2 above) and confirmed 16 `k6_*` metrics landed in the real Prometheus, tagged `testrun="phase10-baseline-2026-08-30"` with a per-endpoint `name` label. See `evidence/baseline-2026-08-30.txt`. No Grafana dashboard/panel has been built for these yet — the data is queryable but not yet visualized; that's a follow-up, not a blocker.
+
+Prometheus remote-write is already enabled on the host: `--web.enable-remote-write-receiver` is present in `docker-compose.yml` line 180.
+
+---
+
+## Scope — what this suite covers
+
+| Script | Coverage | Status |
+| --- | --- | --- |
+| `read-flows-smoke.js` | GET /api/health, /vibes, /schedules, /sounds, /preset-vibes | Done (Phase 10.1) |
+| `write-flows-crud.js` | POST + PATCH + DELETE for vibes and schedules; per-iteration cleanup | Done (Phase 10.2) |
+
+## Scope — what remains deferred
+
+| Deferred | Why |
+| --- | --- |
+| Sustained load / ramp-up curves, VUs beyond ~5-10 | Needs explicit operator sign-off on staging capacity before every increase — not something to automate |
+| Grafana dashboard/panel for the k6 metrics | Data is in Prometheus (validated 2026-08-30) but not yet visualized |
+| Token refresh for long runs | Not needed for short runs; implement when needed |
+| Smart Home dispatch flows | Triggers real Home Assistant commands — deferred to future slice |
+| Push notification flows | Triggers real FCM delivery — deferred to future slice |
+
+---
+
+## Evidence
+
+| Date | Scenario | Result | File |
+| --- | --- | --- | --- |
+| 2026-08-29 | Smoke (1 VU, 3 iters) | **PASS** — 21/21 checks, 0% errors, p(95)=822.9ms | `evidence/smoke-2026-08-29.txt` |
+| 2026-08-30 | Baseline (3 VUs, 10 shared iters, default options), Prometheus output enabled | **PASS** — 63/63 checks, 0% errors, p(95)=645.19ms. No alert fired; staging unaffected post-run. | `evidence/baseline-2026-08-30.txt` |
+| 2026-08-29 | write-flows-crud smoke (1 VU, 2 iters) | **PASS** — 17/17 checks, 0% errors, p(95)=614.87ms. Zero `[k6-load]` orphans confirmed via GET /api/vibes + /api/schedules post-run. | `evidence/write-flows-smoke-2026-08-29.txt` |
+| 2026-08-30 | write-flows-crud baseline (2 VUs, 10 shared iters), Prometheus output enabled | **PASS** — 73/73 checks, 0% errors, p(95)=524.35ms. Zero orphans (independently re-verified). No alert fired; staging unaffected. | `evidence/write-flows-baseline-2026-08-30.txt` |
+
+---
+
+## Formal conclusion — targets vs. results (Phase 10 closure, 2026-08-30)
+
+The card's completion criterion requires "resultados comparados às metas e gargalos críticos resolvidos ou formalmente aceitos." This section is that comparison and formal acceptance.
+
+### Targets (from the scripts' own thresholds — the closest thing to a formal target defined for this phase)
+
+| Target | Threshold |
+| --- | --- |
+| p95 request duration | < 3000ms |
+| HTTP error rate | < 5% |
+| Check pass rate | > 95% |
+
+No stricter production-representative targets exist, because — as documented throughout this phase — the staging environment (`basic-xxs` App Platform + single-node `db-s-1vcpu-1gb` Postgres) is not sized to be production-representative. These thresholds were chosen as "clearly broken vs. clearly fine" gates for a cost-minimum shared environment, not as production SLOs.
+
+### Results across all 4 runs
+
+| Run | p95 | Error rate | Checks | vs. targets |
+| --- | --- | --- | --- | --- |
+| Read smoke (1 VU) | 822.9ms | 0% | 100% | Well within all three |
+| Read baseline (3 VUs) | 645.19ms | 0% | 100% | Well within all three |
+| Write smoke (1 VU) | 614.87ms | 0% | 100% | Well within all three |
+| Write baseline (2 VUs) | 524.35ms | 0% | 100% | Well within all three |
+
+### Bottlenecks found
+
+**None**, at any load level tested (up to 3 VUs read / 2 VUs write, sustained for 15-20 seconds each). Every run passed every threshold with wide margin — p95 never exceeded 27% of the 3000ms target.
+
+### Formal acceptance
+
+**Accepted by the operator (2026-08-30): "no bottleneck found at conservative, staging-safe load levels" is the formal conclusion for this phase.** No further scaling of VUs was pursued, for reasons documented throughout this phase:
+
+1. The environment (`basic-xxs`/`db-s-1vcpu-1gb`) cannot yield a production-representative capacity ceiling regardless of how hard it's pushed — finding "the point where this specific tiny tier falls over" was never the goal, and wasn't worth the added risk to shared staging (QA E2E, real Phase 9 alerting) that higher VUs would carry.
+2. Every tested load level — read and write — passed with large margin, giving no signal that back_vibes' own application code has a latent performance problem worth chasing further at this stage.
+3. If a real capacity question becomes necessary later (e.g., before a production launch), it should be answered with a **dedicated, production-sized environment** built for that purpose — not by pushing more load onto this cost-minimum staging tier. That is out of scope for Phase 10 as originally scoped.
+
+### Explicitly out of scope for this closure (not bottlenecks — deferred scope)
+
+| Item | Why deferred |
+| --- | --- |
+| Smart Home dispatch load testing | Triggers real Home Assistant commands (external side effects) |
+| Push notification load testing | Triggers real FCM delivery (external side effects) |
+| Grafana dashboard for k6 metrics | Data is in Prometheus and confirmed queryable; visualization is a nice-to-have, not a blocker for this closure |
+| Higher-VU / production-capacity testing | Needs a dedicated production-sized environment, not this staging tier — separate future initiative if needed |
+
+---
+
+## Related documents
+
+| Document | Purpose |
+| --- | --- |
+| `ixora-infra/docs/roadmap/ixora-roadmap-2026-08-16.md` Phase 10 | Phase 10 tracking |
+| `ixora-infra/docs/specs/observability-foundation/mvp/tasks.md` Phase 10 | Task-level tracking |
+| `qa/scheduler-e2e/scripts/staging-api-qa.sh` | Auth pattern source (Firebase login + auth/sync) |
+| `ixora-infra/collector/prometheus/prometheus.yml` | Prometheus config (remote-write receiver enabled) |
+| `ixora-infra/docs/decisions/ADR-030-observability-security-and-privacy.md` | No PII in test output |

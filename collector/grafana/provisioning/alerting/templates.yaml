@@ -1,0 +1,90 @@
+# ============================================================
+# Ixora Observability Platform — Notification Templates
+# Phase 9 — Alerting Strategy
+#
+# This file provisions reusable Go template definitions for
+# Grafana alert notification messages.
+#
+# STATUS: ixora-alert-body is wired to the ixora-email-critical contact
+# point (contact-points.yaml `message` setting). ixora-alert-title and
+# ixora-alert-resolved remain available for a future Slack receiver.
+#
+# TEMPLATE LANGUAGE: Go templates, restricted to the function set Grafana's
+# notification template engine actually registers (see
+# https://grafana.com/docs/grafana/latest/alerting/alerting-rules/templates-examples/reference/
+# for the ground truth — do not assume Sprig/text-template stdlib functions
+# are available). Verified the hard way in Phase 9 local testing: `first`
+# (piping `.Alerts.Firing | first`) is NOT registered and makes Grafana's
+# provisioning validator reject the whole file with a generic
+# "invalid format of the submitted template" error — no line number, no
+# indication which function was the problem. An earlier draft of this file
+# used `.Alerts.Firing | first` + `formatDate` for a "Firing since" line;
+# it silently crash-looped the entire Grafana container on provisioning
+# (contact-points.yaml's `ixora-email-critical` receiver references
+# "ixora-alert-body" in its `message` field, so a broken body template
+# takes the receiver down too). Dropped rather than fixed — Grafana's own
+# email notification already carries a firing timestamp, so the line was
+# redundant. If you need per-alert timing in the body again, use
+# `{{ range .Alerts.Firing }}...{{ .StartsAt }}...{{ end }}` and test with
+# a real `docker compose up grafana` cycle before trusting it, since this
+# validator gives no useful diagnostic to iterate from on its own.
+#
+# ADR-030 COMPLIANCE:
+#   - Templates must never render PII from labels or annotations.
+#   - Template values come from alert labels (bounded, controlled).
+#   - No template may expose user_id, email, device_id, or trace_id.
+#
+# STRUCTURE REFERENCE: alerting-foundation.md §8
+# PHILOSOPHY REFERENCE: alerting-philosophy.md §24 (annotation conventions)
+# ============================================================
+
+apiVersion: 1
+
+templates:
+  # Alert title template
+  # Usage: '{{ template "ixora-alert-title" . }}'
+  - orgId: 1
+    name: ixora-alert-title
+    template: |
+      {{ define "ixora-alert-title" -}}
+      [{{ .CommonLabels.severity | toUpper }}] {{ .CommonLabels.service }}: {{ index .CommonLabels "alertname" }}
+      {{- end }}
+
+  # Alert body template — full notification message
+  # Usage: '{{ template "ixora-alert-body" . }}'
+  - orgId: 1
+    name: ixora-alert-body
+    template: |
+      {{ define "ixora-alert-body" -}}
+      *Alert:* {{ index .CommonLabels "alertname" }}
+      *Severity:* {{ .CommonLabels.severity }}
+      *Service:* {{ .CommonLabels.service }}
+      *Environment:* {{ .CommonLabels.environment }}
+      *Category:* {{ .CommonLabels.category }}
+
+      *Summary:* {{ .CommonAnnotations.summary }}
+      *Description:* {{ .CommonAnnotations.description }}
+
+      *Dashboard:* {{ .CommonAnnotations.dashboard }}
+      *Runbook:* {{ .CommonAnnotations.runbook }}
+
+      {{ if .CommonAnnotations.business_impact -}}
+      *Business Impact:* {{ .CommonAnnotations.business_impact }}
+      {{ end -}}
+      {{ if .CommonAnnotations.expected_action -}}
+      *Expected Action:* {{ .CommonAnnotations.expected_action }}
+      {{ end -}}
+      {{- end }}
+
+  # Resolved notification template
+  # Usage: '{{ template "ixora-alert-resolved" . }}'
+  - orgId: 1
+    name: ixora-alert-resolved
+    template: |
+      {{ define "ixora-alert-resolved" -}}
+      RESOLVED — {{ index .CommonLabels "alertname" }}
+      *Service:* {{ .CommonLabels.service }}
+      *Environment:* {{ .CommonLabels.environment }}
+      *Summary:* {{ .CommonAnnotations.summary }}
+      *Dashboard:* {{ .CommonAnnotations.dashboard }}
+      {{- end }}

@@ -1,0 +1,70 @@
+# ============================================================
+# Ixora Observability Platform — Alert Rules
+# Phase 9 — Alerting Strategy
+# Category: Application — Queue Workers
+#
+# ADR-030: No PII in labels or annotations.
+# alerting-philosophy.md: read before adding rules.
+# alerting-foundation.md §4.3, §11: category and severity reference.
+# ============================================================
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Application — Queue Workers
+    folder: Ixora Alerting
+    interval: 1m
+    rules:
+      - uid: ixora-alert-queue-failure-rate
+        title: "Application / Queue Workers — Failure Rate"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: ixora-prometheus
+            model:
+              expr: >-
+                sum(rate(ixora_queue_job_total{outcome="failed"}[5m]))
+                /
+                sum(rate(ixora_queue_job_total[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.05]
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        labels:
+          environment: staging
+          severity: warning
+          service: back_vibes-worker
+          team: backend
+          category: application
+          dashboard_uid: ixora-queue
+          runbook: /runbooks/application-queue-failure-rate.md
+        annotations:
+          summary: "[warning] back_vibes-worker: Queue job failure rate elevated"
+          description: "The share of queue jobs (smart-home, push, default) completing with outcome=failed has been above 5% for 5+ minutes."
+          dashboard: "/d/ixora-queue"
+          runbook: "/runbooks/application-queue-failure-rate.md"
+          business_impact: "Background work (smart home dispatch, push notifications) is failing at an elevated rate; user-visible effects depend on which queue is affected."
+          expected_action: "Open D-04 Queue Workers, break down failure rate by queue name, then check Loki for job exception logs in the same window."

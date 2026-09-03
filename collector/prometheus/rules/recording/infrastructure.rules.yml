@@ -1,0 +1,67 @@
+# ============================================================
+# Ixora Observability Platform — Infrastructure Recording Rules
+# Phase 8.9 — Recording Rules & SLO Foundation (active)
+# ============================================================
+
+groups:
+
+  - name: ixora_infrastructure_collector
+    interval: 30s
+    rules:
+      # REC-017 — combined OTLP export failure rate (metrics + logs + traces)
+      - record: ixora:collector:export_failure_rate:5m
+        expr: |
+          (
+            sum(rate(otelcol_exporter_send_failed_metric_points_total{service_name="otelcol-contrib"}[5m]))
+            + sum(rate(otelcol_exporter_send_failed_log_records_total{service_name="otelcol-contrib"}[5m]))
+            + sum(rate(otelcol_exporter_send_failed_spans_total{service_name="otelcol-contrib"}[5m]))
+          )
+          /
+          (
+            sum(rate(otelcol_exporter_sent_metric_points_total{service_name="otelcol-contrib"}[5m]))
+            + sum(rate(otelcol_exporter_sent_log_records_total{service_name="otelcol-contrib"}[5m]))
+            + sum(rate(otelcol_exporter_sent_spans_total{service_name="otelcol-contrib"}[5m]))
+            + sum(rate(otelcol_exporter_send_failed_metric_points_total{service_name="otelcol-contrib"}[5m]))
+            + sum(rate(otelcol_exporter_send_failed_log_records_total{service_name="otelcol-contrib"}[5m]))
+            + sum(rate(otelcol_exporter_send_failed_spans_total{service_name="otelcol-contrib"}[5m]))
+          )
+
+      # REC-003 — observability pipeline availability proxy
+      - record: ixora:collector:availability:5m
+        expr: |
+          1 - ixora:collector:export_failure_rate:5m
+
+      # REC-018 — application-side export failures (SDK → Collector)
+      - record: ixora:telemetry:export_failure_rate:1h
+        expr: |
+          sum by (deployment_environment) (
+            increase(ixora_telemetry_export_failed_total[1h])
+          )
+
+      # SLI — SLO-006 observability pipeline, target 99%
+      - record: ixora:sli:telemetry:good_exports:rate5m
+        expr: |
+          sum(rate(otelcol_exporter_sent_metric_points_total{service_name="otelcol-contrib"}[5m]))
+          + sum(rate(otelcol_exporter_sent_log_records_total{service_name="otelcol-contrib"}[5m]))
+          + sum(rate(otelcol_exporter_sent_spans_total{service_name="otelcol-contrib"}[5m]))
+
+      - record: ixora:sli:telemetry:total_exports:rate5m
+        expr: |
+          ixora:sli:telemetry:good_exports:rate5m
+          + sum(rate(otelcol_exporter_send_failed_metric_points_total{service_name="otelcol-contrib"}[5m]))
+          + sum(rate(otelcol_exporter_send_failed_log_records_total{service_name="otelcol-contrib"}[5m]))
+          + sum(rate(otelcol_exporter_send_failed_spans_total{service_name="otelcol-contrib"}[5m]))
+
+      - record: ixora:sli:telemetry:ratio:rate5m
+        expr: |
+          ixora:sli:telemetry:good_exports:rate5m
+          /
+          ixora:sli:telemetry:total_exports:rate5m
+
+  - name: ixora_infrastructure_prometheus
+    interval: 30s
+    rules:
+      # REC-019
+      - record: ixora:prometheus:availability
+        expr: |
+          up{job="prometheus"}

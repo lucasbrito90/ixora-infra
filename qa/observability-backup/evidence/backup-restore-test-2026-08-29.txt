@@ -1,0 +1,44 @@
+date: 2026-08-29T21:26:21-07:00
+scenario: local backup → corrupt prometheus volume → restore → health check
+environment: local docker compose (collector/ directory, project prefix: collector_)
+deploy_path: /home/lucas/Documentos/projeto_vibes/ixora-infra
+backup_dir: /tmp/ixora-backup-test-evidence
+
+volumes_covered:
+  - prometheus_data (collector_prometheus_data)
+  - loki_data (collector_loki_data)
+  - tempo_data (collector_tempo_data)
+  - grafana_data (collector_grafana_data)
+
+backup_run:
+  timestamp: 20260830-042528
+  result: PASS — all 4 volume backups succeeded
+  tarballs_created:
+    - prometheus_data-20260830-042528.tar.gz (1.9M)
+    - loki_data-20260830-042528.tar.gz (4.0K)
+    - tempo_data-20260830-042528.tar.gz (4.0K)
+    - grafana_data-20260830-042528.tar.gz (8.8M)
+
+corruption_test:
+  service: prometheus
+  action: stopped service, deleted all volume contents, wrote .ixora-corrupted marker
+  marker_before_backup: k6-backup-test-marker-20260830-042525
+  marker_after_corruption: absent (expected)
+
+restore_run:
+  service: prometheus
+  tarball: prometheus_data-20260830-042528.tar.gz (latest)
+  result: PASS
+  marker_after_restore: k6-backup-test-marker-20260830-042525 (CONFIRMED — data continuity)
+  health_checks:
+    GET_9090_ready: PASS ("Prometheus Server is Ready.")
+    GET_9090_healthy: PASS ("Prometheus Server is Healthy.")
+
+retention_test:
+  method: simulated 5 tarballs with RETENTION=4 prune logic
+  result: PASS — oldest removed, 4 newest kept
+
+notes:
+  - Test run locally only; staging host (137.184.163.187) not touched per prompt scope
+  - Cron installation on staging host is operator step (documented in observability-backup-restore.md)
+  - No tarballs committed to git (stored in /tmp/ixora-backup-test-evidence)

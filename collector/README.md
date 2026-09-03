@@ -1,0 +1,451 @@
+# Ixora Observability — Collector + Prometheus + Loki + Tempo + Grafana
+
+**Phase:** 8.8.6 — Observability Infrastructure Hardening (ops); 8.8.5 (host); Phases 3–8.9 (stack)  
+**Stack:** OpenTelemetry Collector (contrib) + Prometheus + Loki + Tempo + Grafana via Docker Compose  
+**Host:** DigitalOcean Droplet `ixora-observability-staging` — provisioned by OpenTofu (`opentofu/staging/observability.tf`); runtime source of truth is **`docker-compose.yml` in this directory**
+
+> **OpenTofu provisions the host. Docker Compose runs the stack.** Service definitions are not duplicated in OpenTofu.  
+> **Collector is the only ingestion point for all signals.** Applications export OTLP to the Collector only. Prometheus, Loki, and Tempo never receive data from applications directly.  
+> **Grafana is active** (Phase 8.1+) with provisioning, 7 dashboards, alerting scaffold, and **90/90 validate.sh checks**.  
+> **Deployments use immutable release tags** — see [deployment-strategy.md](../docs/specs/observability-foundation/mvp/deployment-strategy.md).  
+> **Internal backends** (Prometheus, Loki, Tempo, Grafana direct) bind to `127.0.0.1`. Public access is via **Caddy HTTPS** on the host (`grafana-staging.ixora-app.app`, `otel-staging.ixora-app.app`).  
+> **Secrets** live in `collector/.env` (chmod 600) — created by `scripts/bootstrap-collector-env.sh`, never committed.
+
+---
+
+## Directory structure
+
+```
+collector/
+├── config.yaml                  ← OpenTelemetry Collector configuration
+├── docker-compose.yml           ← Runtime source of truth (5 services)
+├── .env.example                 ← Environment variable template (NEVER commit .env)
+├── prometheus/
+│   ├── prometheus.yml           ← Prometheus configuration
+│   └── rules/                   ← Recording rules scaffold (Phase 8.9)
+├── loki/
+│   └── loki.yaml
+├── tempo/
+│   └── tempo.yaml
+├── grafana/
+│   ├── provisioning/            ← Datasources, dashboards, alerting scaffold
+│   └── validate.sh              ← 78 validation checks
+└── README.md                    ← This file
+
+../scripts/
+├── bootstrap-collector-env.sh   ← Secure .env creation (secrets from env vars)
+└── deploy-observability.sh      ← Idempotent docker compose deploy + health checks
+```
+
+---
+
+## Prerequisites
+
+| Requirement | Version | Notes |
+| --- | --- | --- |
+| Docker | 24+ | `docker --version` |
+| Docker Compose v2 | 2.20+ | `docker compose version` |
+| VM disk | 128 GB recommended | [infrastructure-review.md §10](../docs/specs/observability-foundation/mvp/infrastructure-review.md) |
+| Valid `.env` file | — | Copy from `.env.example` |
+
+---
+
+## Quick start (observability host)
+
+Infrastructure is provisioned by OpenTofu. See [observability-infrastructure-provisioning.md](../docs/specs/observability-foundation/mvp/observability-infrastructure-provisioning.md).
+
+```bash
+# 1. Clone ixora-infra on the observability host (after tofu apply + DNS)
+git clone git@github.com:lucasbrito90/ixora-infra.git /opt/ixora-observability
+cd /opt/ixora-observability
+
+# 2. Bootstrap secrets (export in shell — never commit)
+export OTEL_INGEST_API_KEY_BACKEND="$(openssl rand -hex 32)"
+export OTEL_INGEST_API_KEY_MOBILE="$(openssl rand -hex 32)"
+export GF_ADMIN_PASSWORD="$(openssl rand -base64 24)"
+export GF_SERVER_ROOT_URL="https://grafana-staging.ixora-app.app"
+./scripts/bootstrap-collector-env.sh
+
+# 3. Deploy full stack (collector, prometheus, loki, tempo, grafana)
+git checkout release-2026.07.20   # immutable release — see deployment-strategy.md
+./scripts/deploy-observability.sh
+
+# 4. Verify (internal — from host)
+cd collector && docker compose ps
+curl http://127.0.0.1:13133/health
+curl http://127.0.0.1:9090/-/healthy
+curl http://127.0.0.1:3100/ready
+curl http://127.0.0.1:3200/ready
+curl http://127.0.0.1:3000/api/health
+
+# 5. Verify external (after DNS + Caddy TLS)
+curl https://grafana-staging.ixora-app.app/api/health
+```
+
+**Operational runbook:** [docs/runbooks/observability-host.md](../docs/runbooks/observability-host.md)
+
+Expected health responses:
+
+```
+# Collector
+{"status":"Server available","upSince":"...","uptime":"..."}
+
+# Prometheus
+Prometheus Server is Healthy.
+Prometheus Server is Ready.
+
+# Loki
+ready
+
+# Tempo
+ready
+```
+
+---
+
+## Validation checklist (Phase 6)
+
+Run after every deployment or config change. Mirrors [tempo-deployment.md](../docs/specs/observability-foundation/mvp/tempo-deployment.md) §9, [loki-deployment.md](../docs/specs/observability-foundation/mvp/loki-deployment.md) §9, and [prometheus-deployment.md](../docs/specs/observability-foundation/mvp/prometheus-deployment.md) §9.
+
+```bash
+# ---- Collector ----
+
+# 1. Collector running
+docker compose ps collector
+# Expected: running (healthy via host curl)
+
+# 2. Collector health endpoint
+curl -s http://127.0.0.1:13133/health | jq .
+# Expected: {"status":"Server available",...}
+
+# 3. Collector self-metrics available
+curl -s http://127.0.0.1:8888/metrics | grep otelcol_
+# Expected: otelcol_* metric lines
+
+# 4. Unauthenticated OTLP — expect 401
+curl -v http://127.0.0.1:4318/v1/traces
+# Expected: 401 Unauthorized
+
+# ---- Prometheus ----
+
+# 5. Prometheus running
+docker compose ps prometheus
+# Expected: running (healthy)
+
+# 6. Prometheus health endpoints
+curl http://127.0.0.1:9090/-/healthy
+curl http://127.0.0.1:9090/-/ready
+# Expected: "Prometheus Server is Healthy." / "Ready."
+
+# 7. TSDB healthy (no data yet — metrics arrive after app SDK Phase 7)
+curl -s http://127.0.0.1:9090/api/v1/status/tsdb | jq .data.headStats
+# Expected: JSON with numSeries, numSamples fields
+
+# 8. Collector self-metrics visible in Prometheus
+# (otelcol_* series arrive via prometheusremotewrite from prometheus/self receiver)
+curl -s 'http://127.0.0.1:9090/api/v1/query?query=otelcol_process_uptime_seconds' \
+  | jq .data.result
+# Expected: non-empty result array after first scrape interval (~30s)
+
+# 9. Prometheus self-metrics visible
+curl -s 'http://127.0.0.1:9090/api/v1/query?query=prometheus_tsdb_head_series' \
+  | jq .data.result
+# Expected: non-empty result array
+
+# 10. Remote write queue healthy (no errors)
+curl -s 'http://127.0.0.1:9090/api/v1/query?query=prometheus_remote_storage_failed_samples_total' \
+  | jq .data.result
+# Expected: 0 or no result (no failures)
+
+# 11. Retention flag confirmed
+curl -s http://127.0.0.1:9090/api/v1/status/flags | jq '."storage.tsdb.retention.time"'
+# Expected: "30d"
+
+# 12. Persistence: restart and verify data survives
+docker compose restart prometheus
+sleep 10
+curl -s 'http://127.0.0.1:9090/api/v1/query?query=prometheus_tsdb_head_series' \
+  | jq .data.result
+# Expected: same result as before restart (data from named volume)
+
+# ---- Loki ----
+
+# 13. Loki running
+docker compose ps loki
+# Expected: running (healthy)
+
+# 14. Loki ready endpoint
+curl http://127.0.0.1:3100/ready
+# Expected: "ready"
+
+# 15. Loki ring healthy (ingester member)
+curl -s http://127.0.0.1:3100/ring | grep -i ingester
+# Expected: ACTIVE state for ingester entry
+
+# 16. Loki metrics exposed
+curl -s http://127.0.0.1:3100/metrics | grep loki_ingester_streams_created_total
+# Expected: metric line present (value may be 0 before first log push)
+
+# 17. Manual push test — verify Collector → Loki path
+# Send a test log payload via Collector (OTLP HTTP); check Loki received it:
+curl -s 'http://127.0.0.1:3100/loki/api/v1/query_range' \
+  --data-urlencode 'query={service_name="otel-collector"}' \
+  --data-urlencode "start=$(date -d '1 minute ago' +%s)000000000" \
+  --data-urlencode "end=$(date +%s)000000000" \
+  | jq .data.result
+# Expected: non-empty after Collector emits its first self-log (may take ~30s)
+
+# 18. Loki retention confirmed in config
+grep retention_period collector/loki/loki.yaml
+# Expected: retention_period: 336h
+
+# 19. Persistence: restart and verify log data survives
+docker compose restart loki
+sleep 15
+curl http://127.0.0.1:3100/ready
+# Expected: "ready"
+
+# ---- Tempo ----
+
+# 20. Tempo running
+docker compose ps tempo
+# Expected: running (healthy)
+
+# 21. Tempo ready endpoint
+curl http://127.0.0.1:3200/ready
+# Expected: "ready"
+
+# 22. Tempo metrics exposed
+curl -s http://127.0.0.1:3200/metrics | grep tempo_ingester_traces_created_total
+# Expected: metric line present (value may be 0 before first trace push)
+
+# 23. End-to-end trace test via Collector OTLP
+# Send a test span via the Collector OTLP HTTP endpoint with a valid API key,
+# then verify Tempo received it:
+curl -X POST http://127.0.0.1:4318/v1/traces \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <OTEL_INGEST_API_KEY_BACKEND>" \
+  -d '{
+    "resourceSpans": [{
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "test-service"}},
+          {"key": "deployment.environment", "value": {"stringValue": "staging"}}
+        ]
+      },
+      "scopeSpans": [{
+        "spans": [{
+          "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "spanId": "00f067aa0ba902b7",
+          "name": "phase-6-tempo-validation",
+          "startTimeUnixNano": "'$(date +%s%N)'",
+          "endTimeUnixNano": "'$(( $(date +%s%N) + 1000000 ))'",
+          "status": {}
+        }]
+      }]
+    }]
+  }'
+sleep 12
+curl -s "http://127.0.0.1:3200/api/traces/4bf92f3577b34da6a3ce929d0e0e4736" | jq .
+# Expected: trace JSON with phase-6-tempo-validation span name
+
+# 24. Tempo retention configured
+grep block_retention collector/tempo/tempo.yaml
+# Expected: block_retention: 168h
+
+# 25. Persistence: restart and verify trace data survives
+docker compose restart tempo
+sleep 20
+curl http://127.0.0.1:3200/ready
+# Expected: "ready"
+
+# 26. Debug exporter fully removed from all pipelines
+grep 'debug' collector/config.yaml | grep -v '#'
+# Expected: no active debug exporter references (only comments)
+
+# ---- Security ----
+
+# 27. Tempo not publicly reachable (from outside VM)
+# This test runs from a different machine:
+# curl http://<VM_PUBLIC_IP>:3200/ready
+# Expected: Connection refused or firewall drop
+
+# 28. Loki not publicly reachable (from outside VM)
+# curl http://<VM_PUBLIC_IP>:3100/ready
+# Expected: Connection refused or firewall drop
+
+# 29. Prometheus not publicly reachable (from outside VM)
+# curl http://<VM_PUBLIC_IP>:9090/-/healthy
+# Expected: Connection refused or firewall drop
+
+# 30. Network isolation — only observability containers on internal network
+docker network inspect ixora-observability | jq '.[].Containers | to_entries[] | .value.Name'
+# Expected: ixora-otel-collector, ixora-prometheus, ixora-loki, ixora-tempo
+```
+
+---
+
+## Upgrade strategy
+
+```bash
+# --- Collector upgrade ---
+# 1. Update version in .env
+OTEL_COLLECTOR_VERSION=0.116.0
+
+# 2. Pull and restart without touching Prometheus or Loki
+docker compose pull collector
+docker compose up -d --no-deps collector
+
+# 3. Validate
+curl http://127.0.0.1:13133/health
+docker compose logs collector --since=2m
+
+# --- Prometheus upgrade ---
+# 1. Update version in .env
+PROMETHEUS_VERSION=v2.55.0
+
+# 2. Pull and restart without touching Collector or Loki
+docker compose pull prometheus
+docker compose up -d --no-deps prometheus
+
+# 3. Validate
+curl http://127.0.0.1:9090/-/healthy
+docker compose logs prometheus --since=2m
+
+# 4. Confirm TSDB data survived (named volume persists across upgrade)
+curl -s 'http://127.0.0.1:9090/api/v1/query?query=prometheus_tsdb_head_series' \
+  | jq .data.result
+
+# --- Loki upgrade ---
+# 1. Update version in .env
+LOKI_VERSION=3.3.0
+
+# 2. Review Loki release notes for schema migration requirements
+#    before upgrading between minor versions.
+#    https://grafana.com/docs/loki/latest/setup/upgrade/
+
+# 3. Pull and restart without touching Collector or Prometheus
+docker compose pull loki
+docker compose up -d --no-deps loki
+
+# 4. Validate
+curl http://127.0.0.1:3100/ready
+docker compose logs loki --since=2m
+
+# 5. Confirm log data survived (loki_data named volume persists)
+curl -s 'http://127.0.0.1:3100/loki/api/v1/query_range' \
+  --data-urlencode 'query={service_name=~".+"}' \
+  --data-urlencode "start=$(date -d '10 minutes ago' +%s)000000000" \
+  --data-urlencode "end=$(date +%s)000000000" \
+  | jq '.data.result | length'
+# Expected: > 0 if logs were ingested before restart
+
+# --- Tempo upgrade ---
+# 1. Update version in .env
+TEMPO_VERSION=2.7.0
+
+# 2. Review Tempo release notes for breaking changes before upgrading.
+#    https://grafana.com/docs/tempo/latest/setup/upgrade/
+
+# 3. Pull and restart without touching Collector, Prometheus, or Loki
+docker compose pull tempo
+docker compose up -d --no-deps tempo
+
+# 4. Validate
+curl http://127.0.0.1:3200/ready
+docker compose logs tempo --since=2m
+
+# 5. Confirm trace data survived (tempo_data named volume persists)
+curl -s http://127.0.0.1:3200/api/search \
+  --data-urlencode "minDuration=0ms" \
+  | jq '.traces | length'
+# Expected: > 0 if traces were ingested before restart
+```
+
+Pin all services to specific versions — **never use `:latest`**.
+
+---
+
+## Environment variables
+
+See [`.env.example`](.env.example) for full reference.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `OTEL_DEPLOYMENT_ENVIRONMENT` | ✅ | `staging` or `production` |
+| `OTEL_INGEST_API_KEY_BACKEND` | ✅ | Bearer token for `back_vibes-*` clients |
+| `OTEL_INGEST_API_KEY_MOBILE` | ✅ | Bearer token for `front_vibes-android` |
+| `OTEL_COLLECTOR_VERSION` | ✅ | Collector image tag to pin |
+| `PROMETHEUS_VERSION` | ✅ | Prometheus image tag to pin (default `v2.54.1`) |
+| `PROMETHEUS_REMOTE_WRITE_ENDPOINT` | ✅ | `http://prometheus:9090/api/v1/write` |
+| `PROMETHEUS_PORT` | Optional | Host port for Prometheus UI — defaults to `9090` |
+| `LOKI_VERSION` | ✅ | Loki image tag to pin (default `3.2.0`) |
+| `LOKI_ENDPOINT` | ✅ | `http://loki:3100/loki/api/v1/push` |
+| `LOKI_PORT` | Optional | Host port for Loki API — defaults to `3100` |
+| `TEMPO_VERSION` | ✅ | Tempo image tag to pin (default `2.6.0`) |
+| `TEMPO_ENDPOINT` | ✅ | `http://tempo:4317` (OTLP gRPC) |
+| `TEMPO_PORT` | Optional | Host port for Tempo HTTP query — defaults to `3200` |
+| `TEMPO_OTLP_GRPC_PORT` | Optional | Host port for Tempo OTLP gRPC — defaults to `4317` |
+| `OTEL_MEMORY_LIMIT_MIB` | Optional | Defaults to `512` |
+| `OTEL_MEMORY_SPIKE_LIMIT_MIB` | Optional | Defaults to `128` |
+
+---
+
+## Ports reference
+
+| Port | Service | Exposure | Purpose |
+| --- | --- | --- | --- |
+| `4317` | Collector | Public (TLS via proxy) | OTLP gRPC — backend |
+| `4318` | Collector | Public (TLS via proxy) | OTLP HTTP — backend + mobile |
+| `4319` | Collector | Public (TLS via proxy) | OTLP HTTP — mobile-dedicated |
+| `8888` | Collector | Internal (`127.0.0.1`) | Collector self-metrics |
+| `13133` | Collector | Internal (`127.0.0.1`) | Health check |
+| `1777` | Collector | Internal (`127.0.0.1`) | pprof |
+| `55679` | Collector | Internal (`127.0.0.1`) | zPages |
+| `9090` | Prometheus | Internal (`127.0.0.1`) | Prometheus API + UI (Grafana Phase 9) |
+| `3100` | Loki | Internal (`127.0.0.1`) | Loki push API + LogQL queries (Grafana Phase 9) |
+| `3200` | Tempo | Internal (`127.0.0.1`) | Tempo HTTP query API + TraceQL (Grafana Phase 9) |
+| `4317` | Tempo | Internal (`127.0.0.1`) | Tempo OTLP gRPC receiver (Collector writes here via Docker network) |
+
+Full firewall policy: [infrastructure-review.md §5](../docs/specs/observability-foundation/mvp/infrastructure-review.md).
+
+---
+
+## Security
+
+- **Never commit `.env`** — git-ignored; store secrets in DO env or `chmod 600` file.
+- **API keys** — rotate via `.env` rebuild; keep separate backend/mobile keys.
+- **TLS** — terminate with Caddy or nginx in front of ports 4317/4318. For direct Collector TLS, uncomment `tls:` blocks in `config.yaml`.
+- **Redaction** — `attributes/redact_secrets` processor drops all credential + PII keys per [ADR-030](../docs/decisions/ADR-030-observability-security-and-privacy.md).
+- See [security-review.md](../docs/specs/observability-foundation/mvp/security-review.md) and [collector-hardening-checklist.md](../docs/operations/collector-hardening-checklist.md).
+
+---
+
+## Adding Phase 9 backend (Grafana)
+
+Phases 4 (Prometheus), 5 (Loki), and 6 (Tempo) are now active. To enable Grafana:
+
+1. Uncomment the `grafana` service stub in `docker-compose.yml`.
+2. Create `collector/grafana/provisioning/` with datasource and dashboard configs.
+3. Run `docker compose up -d grafana`.
+4. Follow the phase-specific spec in `docs/specs/observability-foundation/mvp/`.
+
+---
+
+## Related documents
+
+| Document | Role |
+| --- | --- |
+| [infrastructure-review.md](../docs/specs/observability-foundation/mvp/infrastructure-review.md) | VM topology and ports |
+| [security-review.md](../docs/specs/observability-foundation/mvp/security-review.md) | Auth, TLS, redaction |
+| [collector-hardening-checklist.md](../docs/operations/collector-hardening-checklist.md) | Deploy verification |
+| [tempo-deployment.md](../docs/specs/observability-foundation/mvp/tempo-deployment.md) | Phase 6 — full Tempo deployment spec |
+| [loki-deployment.md](../docs/specs/observability-foundation/mvp/loki-deployment.md) | Phase 5 — full Loki deployment spec |
+| [prometheus-deployment.md](../docs/specs/observability-foundation/mvp/prometheus-deployment.md) | Phase 4 — full Prometheus deployment spec |
+| [collector-deployment.md](../docs/specs/observability-foundation/mvp/collector-deployment.md) | Phase 3 — Collector deployment spec |
+| [telemetry-naming-convention.md](../docs/architecture/telemetry-naming-convention.md) | Naming in config |
+| [observability-operational-limits.md](../docs/architecture/observability-operational-limits.md) | Memory/batch limits |
+| [metrics-philosophy.md](../docs/architecture/metrics-philosophy.md) | Metrics instrumentation philosophy |
+| [logs-philosophy.md](../docs/architecture/logs-philosophy.md) | Logs instrumentation philosophy |
+| [telemetry-decision-guide.md](../docs/architecture/telemetry-decision-guide.md) | When to use logs vs metrics vs traces |
+| [observability-playbook.md](../docs/operations/observability-playbook.md) | Operational runbook |

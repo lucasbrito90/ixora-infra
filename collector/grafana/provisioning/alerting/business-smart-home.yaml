@@ -1,0 +1,70 @@
+# ============================================================
+# Ixora Observability Platform — Alert Rules
+# Phase 9 — Alerting Strategy
+# Category: Business — Smart Home
+#
+# ADR-030: No PII in labels or annotations.
+# alerting-philosophy.md: read before adding rules.
+# alerting-foundation.md §4.6, §11: category and severity reference.
+# ============================================================
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Business — Smart Home
+    folder: Ixora Alerting
+    interval: 1m
+    rules:
+      - uid: ixora-alert-smart-home-failure
+        title: "Business / Smart Home — Elevated Failure Rate"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: ixora-prometheus
+            model:
+              expr: >-
+                sum(rate(ixora_smart_home_action_total{outcome="failure"}[5m]))
+                /
+                sum(rate(ixora_smart_home_action_total[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.2]
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        labels:
+          environment: staging
+          severity: critical
+          service: back_vibes-worker
+          team: product
+          category: business
+          dashboard_uid: ixora-smart-home
+          runbook: /runbooks/business-smart-home-failure.md
+        annotations:
+          summary: "[critical] back_vibes-worker: Smart Home action failure rate elevated"
+          description: "The Smart Home automation action failure rate has been above 20% for 5+ minutes. This is a product-facing failure — vibes are supposed to trigger real devices and are not."
+          dashboard: "/d/ixora-smart-home"
+          runbook: "/runbooks/business-smart-home-failure.md"
+          business_impact: "Users' smart home devices are not responding to their scheduled/manual vibes at an elevated rate — the core automation promise is broken for affected users."
+          expected_action: "Open D-02 Smart Home, break down failures by provider (Home Assistant), then check whether it is a provider-wide outage or isolated to specific devices/users."

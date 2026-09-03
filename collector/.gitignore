@@ -1,0 +1,11 @@
+# Collector secrets — never commit
+.env
+
+# TLS certificates and keys
+*.crt
+*.key
+*.pem
+tls/
+
+# Local override files
+docker-compose.override.yml

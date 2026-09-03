@@ -1,0 +1,548 @@
+# ============================================================
+# Ixora Observability Platform — Docker Compose
+# Phase 8.1 — Grafana Foundation
+#
+# Active services:
+#   collector   — OpenTelemetry Collector (Phase 3)
+#   prometheus  — Prometheus TSDB, 30-day retention (Phase 4)
+#   loki        — Loki log aggregation, 14-day retention (Phase 5)
+#   tempo       — Tempo distributed tracing, 7-day retention (Phase 6)
+#   grafana     — Grafana visualization platform (Phase 8.1)
+#
+# Usage:
+#   cp .env.example .env  && fill secrets
+#   docker compose up -d
+#   curl http://localhost:13133/health        # Collector
+#   curl http://localhost:9090/-/healthy      # Prometheus
+#   curl http://localhost:3100/ready          # Loki
+#   curl http://localhost:3200/ready          # Tempo
+#   curl http://localhost:3000/api/health     # Grafana
+#   ./grafana/validate.sh                     # Phase 8.1 validation
+# ============================================================
+
+# ============================================================
+# NETWORKS
+# Internal-only bridge for Collector → backends (localhost equiv).
+# All backend containers share this network in later phases.
+# ============================================================
+networks:
+  observability:
+    driver: bridge
+    internal: false   # Collector needs outbound for health checks
+    name: ixora-observability
+
+# ============================================================
+# VOLUMES
+# Named volumes for persistent backend data.
+# Only declared here so Phase 4–9 containers can reference them
+# without recreating this file.
+# ============================================================
+volumes:
+  prometheus_data:
+    driver: local
+  loki_data:
+    driver: local
+  tempo_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# ============================================================
+# SERVICES
+# ============================================================
+services:
+
+  # ----------------------------------------------------------
+  # OpenTelemetry Collector
+  # Phase 3 — the ONLY active service.
+  # ----------------------------------------------------------
+  collector:
+    # Pin to a specific release — never use :latest in infra.
+    # Update OTEL_COLLECTOR_VERSION in .env to upgrade.
+    image: "otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_VERSION:-0.115.1}"
+    container_name: ixora-otel-collector
+    restart: unless-stopped
+
+    command:
+      - "--config=/etc/otelcol/config.yaml"
+
+    # Environment variables injected from .env
+    environment:
+      # Deployment identity.
+      OTEL_DEPLOYMENT_ENVIRONMENT: "${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}"
+      # API keys for ingest auth — never hardcoded.
+      OTEL_INGEST_API_KEY_BACKEND: "${OTEL_INGEST_API_KEY_BACKEND}"
+      OTEL_INGEST_API_KEY_MOBILE: "${OTEL_INGEST_API_KEY_MOBILE}"
+      # Resource limits for memory_limiter processor.
+      OTEL_MEMORY_LIMIT_MIB: "${OTEL_MEMORY_LIMIT_MIB:-512}"
+      OTEL_MEMORY_SPIKE_LIMIT_MIB: "${OTEL_MEMORY_SPIKE_LIMIT_MIB:-128}"
+      # Trace head sampling — Collector-side only (ADR-031).
+      # Staging validation default: 100. Reduce to 90 or 10 via collector/.env.
+      OTEL_TRACE_SAMPLE_RATE_SUCCESS: "${OTEL_TRACE_SAMPLE_RATE_SUCCESS:-100}"
+      # Backend exporter endpoints — Docker service DNS names (ADR-028).
+      PROMETHEUS_REMOTE_WRITE_ENDPOINT: "${PROMETHEUS_REMOTE_WRITE_ENDPOINT:-http://prometheus:9090/api/v1/write}"
+      LOKI_ENDPOINT: "${LOKI_ENDPOINT:-http://loki:3100/loki/api/v1/push}"
+      TEMPO_ENDPOINT: "${TEMPO_ENDPOINT:-http://tempo:4317}"
+
+    volumes:
+      # Collector configuration — read-only bind mount.
+      - type: bind
+        source: ./config.yaml
+        target: /etc/otelcol/config.yaml
+        read_only: true
+      # TLS certificates (optional — only needed when Collector
+      # terminates TLS directly rather than via reverse proxy).
+      # Mount only when OTEL_TLS_CERT_FILE / OTEL_TLS_KEY_FILE are set.
+      # - type: bind
+      #   source: /etc/otel/tls
+      #   target: /etc/otel/tls
+      #   read_only: true
+
+    ports:
+      # ---- Host-local only (Caddy proxies 4318 externally; 4317/4319 internal only) ----
+      # OTLP gRPC — backend clients via internal network; not publicly exposed.
+      # Bound to 127.0.0.1: Caddy does not proxy gRPC; firewall blocks 4317 externally.
+      - "127.0.0.1:${OTEL_GRPC_PORT:-4317}:4317"
+      # OTLP HTTP — Caddy proxies otel-staging.ixora-app.app -> 127.0.0.1:4318.
+      # Bound to 127.0.0.1 for defense-in-depth; firewall blocks direct port access.
+      - "127.0.0.1:${OTEL_HTTP_PORT:-4318}:4318"
+      # OTLP HTTP mobile-dedicated port — internal only; not exposed via Caddy.
+      - "127.0.0.1:${OTEL_HTTP_MOBILE_PORT:-4319}:4319"
+
+      # ---- Internal / ops only (bind to 127.0.0.1) ----
+      # Collector self-metrics scrape endpoint.
+      - "127.0.0.1:${OTEL_SELF_METRICS_PORT:-8888}:8888"
+      # Health check extension.
+      - "127.0.0.1:${OTEL_HEALTH_PORT:-13133}:13133"
+      # pprof profiling (ops only).
+      - "127.0.0.1:${OTEL_PPROF_PORT:-1777}:1777"
+      # zPages diagnostics (ops only).
+      - "127.0.0.1:${OTEL_ZPAGES_PORT:-55679}:55679"
+
+    networks:
+      - observability
+
+    # Resource limits — Phase 3 baseline (4 vCPU / 8 GB VM).
+    # Tune per infrastructure-review.md §10 after load testing.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"    # Max 1 vCPU for Collector; leaves headroom for backends
+          memory: "768M" # memory_limiter hard limit (512 MiB) + headroom
+        reservations:
+          cpus: "0.25"
+          memory: "256M"
+
+    # Distroless image has no shell/wget — health is verified from the host
+    # (curl http://127.0.0.1:13133/health). See collector/README.md §Validation.
+    healthcheck:
+      disable: true
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ============================================================
+  # PHASE 4 — Prometheus Metrics Backend
+  # ADR-028: internal only; never publicly reachable.
+  # ADR-031: 30-day TSDB retention.
+  # Security: bound to 127.0.0.1 on the host; accessible to
+  #           Collector via Docker network (service name: prometheus).
+  # ============================================================
+  prometheus:
+    # Pin to a specific release — never use :latest.
+    # Update PROMETHEUS_VERSION in .env to upgrade.
+    image: "prom/prometheus:${PROMETHEUS_VERSION:-v2.54.1}"
+    container_name: ixora-prometheus
+    restart: unless-stopped
+
+    command:
+      # Configuration file (read-only bind mount below).
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+      # TSDB storage path (named volume — persists across restarts).
+      - "--storage.tsdb.path=/prometheus"
+
+      # Retention: 30 days per ADR-031 §MVP retention.
+      # Prometheus enforces this by deleting blocks older than the limit.
+      - "--storage.tsdb.retention.time=30d"
+
+      # Bind inside container to all interfaces so Docker network
+      # allows Collector (on same bridge) to reach :9090.
+      # Host-side exposure restricted to 127.0.0.1 via ports mapping.
+      - "--web.listen-address=0.0.0.0:9090"
+
+      # Enable the remote write receiver so the Collector can push
+      # metrics via prometheusremotewrite exporter.
+      # Endpoint: POST /api/v1/write
+      - "--web.enable-remote-write-receiver"
+
+      # Enable lifecycle API (POST /-/reload) for hot config reload.
+      # Used after rule file changes (Phase 10+).
+      # Bound to internal network only — no public exposure.
+      - "--web.enable-lifecycle"
+
+      # WAL compression reduces disk I/O on spinning-disk VMs.
+      # Enabled by default in Prometheus 2.54+; explicit for clarity.
+      - "--storage.tsdb.wal-compression"
+
+      # TSDB block duration — default 2h, sufficient for MVP.
+      # Increasing reduces compaction CPU at cost of query granularity.
+      # Leave default unless Phase 10 profiling reveals compaction pressure.
+      # - "--storage.tsdb.min-block-duration=2h"
+
+    volumes:
+      # TSDB data — named volume; persists across container restarts
+      # and upgrades (docker compose up --no-deps prometheus).
+      - prometheus_data:/prometheus
+
+      # Prometheus configuration — read-only bind mount.
+      # Edit prometheus/prometheus.yml and reload: POST /-/reload
+      - type: bind
+        source: ./prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+
+      # Recording + alerting rules (Phase 8.9 SLO foundation).
+      - type: bind
+        source: ./prometheus/rules
+        target: /etc/prometheus/rules
+        read_only: true
+
+    ports:
+      # Internal only — accessible from host for Grafana (Phase 9)
+      # and ops debugging. Firewall MUST block port 9090 from internet.
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+
+    networks:
+      # Same bridge as Collector — enables service-name DNS resolution.
+      # Collector reaches Prometheus at http://prometheus:9090
+      - observability
+
+    # Resource limits — tuned for single VM alongside Collector.
+    # infrastructure-review.md §10: Prometheus ~1 GB steady state
+    # with ≤10 000 series and 30d retention.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+        reservations:
+          cpus: "0.25"
+          memory: "256M"
+
+    # Healthcheck using Prometheus built-in ready endpoint.
+    # /-/healthy returns 200 when Prometheus is ready to serve.
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ============================================================
+  # PHASE 5 — Loki Log Aggregation Backend
+  # ADR-028: internal only; never publicly reachable.
+  # ADR-030: Collector redacts all PII/credentials before write.
+  # ADR-031: 14-day log retention enforced by compactor.
+  # Security: bound to 127.0.0.1 on the host; accessible to
+  #           Collector via Docker network (service name: loki).
+  #           No application writes to Loki directly.
+  # ============================================================
+  loki:
+    # Pin to a specific release — never use :latest in infra.
+    # Update LOKI_VERSION in .env to upgrade.
+    image: "grafana/loki:${LOKI_VERSION:-3.2.0}"
+    container_name: ixora-loki
+    restart: unless-stopped
+
+    command:
+      - "-config.file=/etc/loki/loki.yaml"
+
+    volumes:
+      # Persistent log chunk storage — named volume survives restarts.
+      - loki_data:/loki
+
+      # Loki configuration — read-only bind mount.
+      # Edit loki/loki.yaml and restart: docker compose restart loki
+      - type: bind
+        source: ./loki/loki.yaml
+        target: /etc/loki/loki.yaml
+        read_only: true
+
+    ports:
+      # Internal only — 127.0.0.1 prevents direct external access.
+      # Grafana (Phase 9) reaches Loki via the Docker network (no port
+      # binding needed for inter-container communication).
+      # Ops debugging and LogQL queries from the host use this binding.
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
+
+    networks:
+      # Same bridge as Collector — enables service-name DNS resolution.
+      # Collector reaches Loki at http://loki:3100/loki/api/v1/push
+      - observability
+
+    # Resource limits — tuned for single VM alongside Collector + Prometheus.
+    # Loki in all-in-one mode has modest CPU needs; memory scales with
+    # active streams and chunk cache size.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+
+    # Healthcheck using Loki built-in /ready endpoint.
+    # Returns 200 when Loki has finished initialising and is ready to serve.
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ============================================================
+  # PHASE 6 — Tempo Distributed Tracing Backend
+  # ADR-028: internal only; never publicly reachable.
+  # ADR-030: Collector redacts all PII/credentials before write.
+  # ADR-031: 7-day trace retention enforced by compactor.
+  # Security: bound to 127.0.0.1 on the host; accessible to
+  #           Collector via Docker network (service name: tempo).
+  #           No application writes to Tempo directly.
+  # ============================================================
+  tempo:
+    # Pin to a specific release — never use :latest in infra.
+    # Update TEMPO_VERSION in .env to upgrade.
+    image: "grafana/tempo:${TEMPO_VERSION:-2.6.0}"
+    container_name: ixora-tempo
+    restart: unless-stopped
+
+    command:
+      - "-config.file=/etc/tempo/tempo.yaml"
+
+    volumes:
+      # Persistent trace block storage — named volume survives restarts.
+      - tempo_data:/var/tempo
+
+      # Tempo configuration — read-only bind mount.
+      # Edit tempo/tempo.yaml and restart: docker compose restart tempo
+      - type: bind
+        source: ./tempo/tempo.yaml
+        target: /etc/tempo/tempo.yaml
+        read_only: true
+
+    ports:
+      # HTTP query / UI — 127.0.0.1 only; Grafana (Phase 9) queries this.
+      # TraceQL and trace-by-ID lookups use this port.
+      - "127.0.0.1:${TEMPO_PORT:-3200}:3200"
+
+      # OTLP gRPC receiver — Collector writes traces to this port.
+      # Bound to 127.0.0.1 only; not accessible from the internet.
+      # The Collector reaches Tempo via Docker network DNS (tempo:4317).
+      # Note: this port binding is for host-level ops debugging only;
+      # container-to-container communication uses the Docker network.
+      - "127.0.0.1:${TEMPO_OTLP_GRPC_PORT:-4317}:4317"
+
+    networks:
+      # Same bridge as Collector — enables service-name DNS resolution.
+      # Collector reaches Tempo at http://tempo:4317 (OTLP gRPC)
+      # Grafana reaches Tempo at http://tempo:3200 (HTTP query)
+      - observability
+
+    # Resource limits — tuned for single VM alongside Collector + Prometheus + Loki.
+    # Tempo in all-in-one mode; memory scales with ingester buffer and block cache.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+
+    # Healthcheck using Tempo built-in /ready endpoint.
+    # Returns 200 when Tempo has finished initialising and is ready to serve.
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://localhost:3200/ready || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ============================================================
+  # PHASE 8.1 — Grafana Foundation
+  # ADR-028: internal only; never publicly reachable.
+  # ADR-030: anonymous access disabled; admin credentials from .env.
+  # Security: bound to 127.0.0.1 on the host; accessible via
+  #           reverse proxy (Caddy/nginx) for remote access.
+  #           All datasources are accessed via proxy mode — the
+  #           browser never connects to Prometheus/Loki/Tempo.
+  # Provisioning: datasources + dashboard providers loaded from
+  #               ./grafana/provisioning (read-only bind mount).
+  #               Grafana is fully reproducible from this directory.
+  # ============================================================
+  grafana:
+    # Pin to a specific release — never use :latest in infra.
+    # Update GRAFANA_VERSION in .env to upgrade.
+    image: "grafana/grafana-oss:${GRAFANA_VERSION:-11.3.0}"
+    container_name: ixora-grafana
+    restart: unless-stopped
+
+    environment:
+      # ---- Admin credentials (from .env — never hardcode) ----
+      GF_SECURITY_ADMIN_USER: "${GF_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GF_ADMIN_PASSWORD}"
+
+      # ---- Server ----
+      # Root URL must match the public address so redirect links work.
+      # Development: http://localhost:3000
+      # Staging: https://grafana-staging.ixora-app.app
+      GF_SERVER_ROOT_URL: "${GF_SERVER_ROOT_URL:-http://localhost:3000}"
+      GF_SERVER_HTTP_PORT: "3000"
+
+      # ---- Authentication ----
+      # Anonymous access disabled — every user must authenticate.
+      # Basic auth enabled for API access (validation scripts, CI).
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_AUTH_BASIC_ENABLED: "true"
+      # Disable the login form in future if OAuth/SSO is configured.
+      # GF_AUTH_DISABLE_LOGIN_FORM: "false"
+
+      # ---- Analytics / external calls ----
+      # Disable all Grafana telemetry and update checks.
+      # Prevents unexpected outbound connections from the VM.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_ANALYTICS_FEEDBACK_LINKS_ENABLED: "false"
+
+      # ---- Security ----
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      # Set to true when Grafana is served over HTTPS (staging/prod).
+      GF_SECURITY_COOKIE_SECURE: "${GF_SECURITY_COOKIE_SECURE:-false}"
+      # SameSite cookie policy — strict for production.
+      GF_SECURITY_COOKIE_SAMESITE: "${GF_SECURITY_COOKIE_SAMESITE:-lax}"
+
+      # ---- Logging ----
+      # warn in production to reduce log volume; info for debugging.
+      GF_LOG_LEVEL: "${GF_LOG_LEVEL:-warn}"
+      GF_LOG_MODE: "console"
+
+      # ---- Provisioning ----
+      GF_PATHS_PROVISIONING: "/etc/grafana/provisioning"
+
+      # ---- Users ----
+      # Disable self-registration — all accounts are admin-managed.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_AUTO_ASSIGN_ORG: "true"
+      GF_USERS_AUTO_ASSIGN_ORG_ROLE: "Viewer"
+
+      # ---- Deployment environment (informational) ----
+      GF_ENVIRONMENT: "${OTEL_DEPLOYMENT_ENVIRONMENT:-staging}"
+
+      # ---- SMTP / Alerting email (Phase 9 — Alerting Strategy) ----
+      # Enables Grafana's built-in Alertmanager to deliver the
+      # ixora-email-critical contact point (contact-points.yaml).
+      # Credentials come from .env — never hardcoded (ADR-030).
+      GF_SMTP_ENABLED: "${GF_SMTP_ENABLED:-false}"
+      GF_SMTP_HOST: "${GF_SMTP_HOST:-}"
+      GF_SMTP_USER: "${GF_SMTP_USER:-}"
+      GF_SMTP_PASSWORD: "${GF_SMTP_PASSWORD:-}"
+      GF_SMTP_FROM_ADDRESS: "${GF_SMTP_FROM_ADDRESS:-alerts@ixora-app.app}"
+      GF_SMTP_FROM_NAME: "${GF_SMTP_FROM_NAME:-Ixora Alerting}"
+      GF_SMTP_SKIP_VERIFY: "${GF_SMTP_SKIP_VERIFY:-false}"
+      # Email receiver address for the ixora-email-critical contact point
+      # (collector/grafana/provisioning/alerting/contact-points.yaml).
+      # Consumed via $__env{} provisioning-file expansion, not by Grafana core.
+      # MUST NOT be empty: Grafana's alerting provisioning rejects an empty
+      # `addresses` field and fails to start (crash-loops the whole
+      # container, not just alerting — verified in Phase 9 testing). The
+      # placeholder default keeps Grafana up when the operator has not yet
+      # set a real address; email delivery itself stays inert until they do.
+      ALERT_EMAIL_ADDRESS: "${ALERT_EMAIL_ADDRESS:-alerts-not-configured@ixora-app.app}"
+
+    volumes:
+      # Persistent Grafana data (SQLite DB, sessions, alert state).
+      # Survives container recreation — datasources & dashboards are
+      # provisioned, so only user preferences are truly stateful here.
+      - grafana_data:/var/lib/grafana
+
+      # Provisioning directory — read-only bind mount.
+      # datasources.yaml and dashboard providers are loaded from here.
+      # Changes require a Grafana restart to take effect.
+      - type: bind
+        source: ./grafana/provisioning
+        target: /etc/grafana/provisioning
+        read_only: true
+
+    ports:
+      # Internal only — accessible from host for ops debugging and
+      # reverse proxy forwarding. Firewall MUST block port 3000 from
+      # the internet; expose only via Caddy/nginx HTTPS termination.
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+
+    networks:
+      # Same bridge as all other backends — Grafana reaches
+      # Prometheus at http://prometheus:9090, Loki at http://loki:3100,
+      # Tempo at http://tempo:3200 via service-name DNS resolution.
+      - observability
+
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "256M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"

@@ -1,0 +1,185 @@
+# ============================================================
+# Ixora Observability Platform — Application Recording Rules
+# Phase 8.9 — Recording Rules & SLO Foundation (active)
+#
+# SCOPE: HTTP API, Queue Workers, Scheduler
+# NAMING: ixora:<domain>:<metric>:<window>
+# LABELS: environment only (ADR-031 cardinality control)
+# ============================================================
+
+groups:
+
+  - name: ixora_application_http
+    interval: 30s
+    rules:
+      # REC-001 — server-side error rate (5xx / outcome=server_error)
+      - record: ixora:http:error_rate:5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_http_server_request_total{outcome="server_error",http_route!="/up"}[5m])
+          )
+          /
+          sum by (environment) (
+            rate(ixora_http_server_request_total{http_route!="/up"}[5m])
+          )
+
+      # REC-002 — HTTP availability SLI (excludes /up probe; 4xx remain eligible)
+      - record: ixora:http:availability:5m
+        expr: |
+          1 - ixora:http:error_rate:5m
+
+      # REC-004 — HTTP p95 latency (operational; not the latency SLO ratio)
+      - record: ixora:http:p95_latency:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, environment) (
+              rate(ixora_http_server_duration_bucket{http_route!="/up"}[5m])
+            )
+          )
+
+      # REC-009 — request throughput
+      - record: ixora:http:request_rate:5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_http_server_request_total{http_route!="/up"}[5m])
+          )
+
+      # SLI components — HTTP availability (SLO-001, target 99.5%)
+      - record: ixora:sli:http:good_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_http_server_request_total{outcome!="server_error",http_route!="/up"}[5m])
+          )
+
+      - record: ixora:sli:http:total_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_http_server_request_total{http_route!="/up"}[5m])
+          )
+
+      - record: ixora:sli:http:ratio:rate5m
+        expr: |
+          ixora:sli:http:good_events:rate5m
+          /
+          ixora:sli:http:total_events:rate5m
+
+      # SLI components — HTTP latency (SLO-002, target 95% under 500 ms)
+      - record: ixora:sli:http_latency:good_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_http_server_duration_bucket{le="500",http_route!="/up"}[5m])
+          )
+
+      - record: ixora:sli:http_latency:total_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_http_server_duration_count{http_route!="/up"}[5m])
+          )
+
+      - record: ixora:sli:http_latency:ratio:rate5m
+        expr: |
+          ixora:sli:http_latency:good_events:rate5m
+          /
+          ixora:sli:http_latency:total_events:rate5m
+
+  - name: ixora_application_queue
+    interval: 30s
+    rules:
+      # REC-006 — terminal job success rate (excludes retried/released)
+      - record: ixora:queue:success_rate:5m
+        expr: |
+          sum by (environment, queue) (
+            rate(ixora_queue_job_total{outcome="success"}[5m])
+          )
+          /
+          sum by (environment, queue) (
+            rate(ixora_queue_job_total{outcome!="retried",outcome!="released"}[5m])
+          )
+
+      # REC-008
+      - record: ixora:queue:failure_rate:5m
+        expr: |
+          sum by (environment, queue) (
+            rate(ixora_queue_job_total{outcome="failed"}[5m])
+          )
+          /
+          sum by (environment, queue) (
+            rate(ixora_queue_job_total{outcome!="retried",outcome!="released"}[5m])
+          )
+
+      # REC-007
+      - record: ixora:queue:p95_latency:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, environment, queue) (
+              rate(ixora_queue_job_duration_bucket[5m])
+            )
+          )
+
+      # SLI — aggregate all queues (SLO-003, target 99%)
+      - record: ixora:sli:queue:good_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_queue_job_total{outcome="success"}[5m])
+          )
+
+      - record: ixora:sli:queue:total_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_queue_job_total{outcome!="retried",outcome!="released"}[5m])
+          )
+
+      - record: ixora:sli:queue:ratio:rate5m
+        expr: |
+          ixora:sli:queue:good_events:rate5m
+          /
+          ixora:sli:queue:total_events:rate5m
+
+  - name: ixora_application_scheduler
+    interval: 30s
+    rules:
+      # REC-010
+      - record: ixora:scheduler:dispatch_rate:5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_scheduler_event_total[5m])
+          )
+
+      # REC-011 — excludes overlap_prevented and skipped
+      - record: ixora:scheduler:success_rate:5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_scheduler_event_total{outcome="success"}[5m])
+          )
+          /
+          sum by (environment) (
+            rate(ixora_scheduler_event_total{outcome!="overlap_prevented",outcome!="skipped"}[5m])
+          )
+
+      # REC-012
+      - record: ixora:scheduler:p95_latency:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, environment) (
+              rate(ixora_scheduler_event_duration_bucket[5m])
+            )
+          )
+
+      # SLI — SLO-004, target 99%
+      - record: ixora:sli:scheduler:good_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_scheduler_event_total{outcome="success"}[5m])
+          )
+
+      - record: ixora:sli:scheduler:total_events:rate5m
+        expr: |
+          sum by (environment) (
+            rate(ixora_scheduler_event_total{outcome!="overlap_prevented",outcome!="skipped"}[5m])
+          )
+
+      - record: ixora:sli:scheduler:ratio:rate5m
+        expr: |
+          ixora:sli:scheduler:good_events:rate5m
+          /
+          ixora:sli:scheduler:total_events:rate5m

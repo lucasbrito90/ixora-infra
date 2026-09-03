@@ -1,0 +1,223 @@
+# ============================================================
+# Ixora Observability Platform — Loki Configuration
+# Phase 5 — Centralized Log Backend
+#
+# Loki version: 3.2.0
+# Storage: filesystem (single-VM MVP — see object-storage note below)
+# Retention: 14 days (ADR-031 §MVP retention)
+# Security: ADR-028, ADR-029, ADR-030
+#   - Loki is NEVER exposed publicly
+#   - Collector is the ONLY writer (via loki exporter)
+#   - No application writes to Loki directly
+#   - All redaction occurs inside the Collector before storage
+#
+# Object-storage migration note (Phase 10+):
+#   Replace "filesystem" with "s3" / "gcs" / "azure" under
+#   common.storage and schema_config.configs[].object_store.
+#   No schema change is required when migrating; only the
+#   storage backend and credentials change.
+# ============================================================
+
+# ============================================================
+# AUTH
+# Single-tenant deployment for MVP.
+# Multi-tenant (X-Scope-OrgID header) would require auth_enabled: true
+# and an authenticating proxy in front of Loki.
+# ADR-028: single-tenant is sufficient for Phase 5.
+# ============================================================
+auth_enabled: false
+
+# ============================================================
+# SERVER
+# Binds inside the container; Docker network provides isolation.
+# Host-side exposure is restricted to 127.0.0.1 via compose ports.
+# gRPC port used internally by Loki components (all-in-one mode).
+# ============================================================
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: info
+  # Structured JSON logs so the Collector can ingest Loki's own logs
+  # via the Docker logging driver in a future phase.
+  log_format: json
+  # Graceful shutdown: allow in-flight requests to complete.
+  graceful_shutdown_timeout: 30s
+  http_server_read_timeout: 30s
+  http_server_write_timeout: 30s
+
+# ============================================================
+# COMMON
+# Shared settings for storage and ring membership (all-in-one).
+# ============================================================
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+
+  storage:
+    filesystem:
+      # Named Docker volume mapped here: loki_data:/loki
+      chunks_directory: /loki/chunks
+      rules_directory:  /loki/rules
+
+  # Single replica — no ring-based HA in MVP (single VM).
+  replication_factor: 1
+
+  ring:
+    kvstore:
+      # In-memory ring is sufficient for the all-in-one monolithic mode.
+      # Replace with memberlist or etcd if Loki is scaled horizontally.
+      store: inmemory
+
+# ============================================================
+# SCHEMA CONFIG
+# TSDB v13 — recommended for Loki 3.x; supports native histograms.
+# index.period: 24h — one index file per day, aligned with retention.
+# ============================================================
+schema_config:
+  configs:
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: "index_"
+        period: 24h
+
+# ============================================================
+# STORAGE CONFIG
+# Explicit filesystem paths mirroring common.storage.
+# Required when common.storage alone does not propagate to
+# all internal storage subsystems in Loki 3.2.
+# ============================================================
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+    cache_ttl: 24h
+
+  filesystem:
+    directory: /loki/chunks
+
+# ============================================================
+# COMPACTOR
+# Runs compaction and retention enforcement on TSDB index files.
+# ADR-031: retention_period = 14 days (336 h).
+#
+# delete_request_store: filesystem — stores pending delete
+# requests alongside the chunk data. Must match object_store.
+#
+# retention_delete_delay: grace period after retention expiry
+# before chunks are physically deleted (allows slow queries
+# to complete before their data disappears).
+# ============================================================
+compactor:
+  working_directory: /loki/compactor
+  delete_request_store: filesystem
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+
+# ============================================================
+# LIMITS CONFIG
+# Per-tenant ingestion limits and query guards.
+# ADR-031: cardinality and ingestion rate limits.
+# ============================================================
+limits_config:
+  # ---- Retention ----
+  # 14 days per ADR-031 §MVP retention.
+  # compactor enforces this by deleting chunks older than this window.
+  retention_period: 336h
+
+  # ---- Ingestion ----
+  # Max ingestion rate per tenant (MiB/s). MVP services generate
+  # well below 4 MiB/s; this cap prevents runaway log floods.
+  ingestion_rate_mb: 16
+  # Max burst above the sustained rate — allows short-lived spikes
+  # (e.g. batch job startup) without triggering rate errors.
+  ingestion_burst_size_mb: 32
+
+  # ---- Label cardinality ----
+  # Limits the number of distinct label names on a single stream.
+  # Loki's performance degrades significantly above ~20 label names.
+  # ADR-031: cardinality discipline applies equally to logs.
+  max_label_names_per_series: 20
+  # Max length of a single label value string.
+  max_label_value_length: 2048
+
+  # ---- Chunk / stream limits ----
+  # Max number of active streams per tenant.
+  max_streams_per_user: 10000
+  # Max number of chunks that can be queried in a single request.
+  max_chunks_per_query: 2000000
+
+  # ---- Query limits ----
+  # Max time range that a single query can span.
+  max_query_length: 0h     # 0 = unlimited; set to 720h (30d) if queries
+                            # over full retention are too slow.
+  # Max number of log entries returned per query.
+  max_entries_limit_per_query: 5000
+  # Max parallelism per query (shards).
+  max_query_parallelism: 16
+
+  # ---- Sample age ----
+  # Reject logs older than this threshold to prevent out-of-order
+  # ingestion from filling retention-tracked windows unexpectedly.
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h   # 7 days — allow delayed exporters
+
+  # ---- Volume ----
+  # Max number of labels returned by /loki/api/v1/labels.
+  # Note: max_label_names was removed in Loki 3.x; use max_label_names_per_series above.
+
+# ============================================================
+# QUERY RANGE
+# Response caching for repeat queries — reduces Loki CPU on
+# repeated Grafana dashboard refreshes.
+# ============================================================
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+        ttl: 1h
+
+# ============================================================
+# QUERIER
+# Controls query execution behaviour.
+# ============================================================
+querier:
+  # query_timeout was moved to limits_config in Loki 3.x.
+  # Set max query time via limits_config.query_timeout if needed.
+  # Number of concurrent queries per querier instance.
+  max_concurrent: 4
+
+# ============================================================
+# INGESTER
+# In-memory chunk settings before flushing to storage.
+# ============================================================
+ingester:
+  # Chunk idle period — flush a chunk after this idle time.
+  chunk_idle_period: 5m
+  # Max time a chunk can remain open before being flushed.
+  max_chunk_age: 1h
+  # Target size of uncompressed chunk data before flushing.
+  chunk_target_size: 1572864   # 1.5 MiB
+  # Chunk block size — compression block granularity (snappy).
+  chunk_block_size: 262144     # 256 KiB
+  # Compression algorithm for chunks.
+  chunk_encoding: snappy
+  # WAL (write-ahead log) for durability before flush.
+  wal:
+    enabled: true
+    dir: /loki/wal
+    flush_on_shutdown: true
+    # recover_from_wal was removed in Loki 3.x; WAL recovery is automatic.
+
+# ============================================================
+# ANALYTICS
+# Disable Grafana usage reporting — privacy (ADR-030).
+# ============================================================
+analytics:
+  reporting_enabled: false

@@ -1,4 +1,4 @@
-# OpenTofu / Terraform — never commit working state or secrets
+# OpenTofu / Terraform - never commit working state or secrets
 **/.terraform/
 *.tfstate
 *.tfstate.*
@@ -12,5 +12,11 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Plan output files - contain resolved variable values; never commit
+*.tfplan
+tfplan
+plan.json
+plan*.json
 
 # Keep `.terraform.lock.hcl` committed for reproducible provider versions (see README).
