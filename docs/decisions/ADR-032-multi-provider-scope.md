@@ -251,6 +251,8 @@ These paths **must** contain the provider-add diff (or new files under listed di
 - `src/services/__tests__/provider-connection.service.test.ts`
 - `src/utils/__tests__/device-status.test.ts`
 
+> **Post-T25 update (2026-09):** The three `front_vibes` connection UX paths above (`provider-connection.service.ts`, `device-status.ts`, `ProviderConnectionFormPage.vue`) and their unit tests are **no longer expected diffs** when adding a provider. T25 made provider selection, form fields, and labels entirely schema-driven via `GET /api/provider-types`. Those paths belong in §D.1 (intocável). See [`standards/adding-a-smart-home-provider.md`](../standards/adding-a-smart-home-provider.md) for the corrected checklist.
+
 #### D.3 — Schema migrations when adding a provider
 
 **Default: no migration** for a new provider if credentials fit the existing shape:
