@@ -4,6 +4,8 @@
 
 **Accepted** — governs how **Google Home** is represented in the Smart Home architecture for release v1.6.0. Extends [ADR-012](ADR-012-smart-home-provider-strategy.md) (provider platform strategy) and [ADR-032](ADR-032-multi-provider-scope.md) (multi-provider infrastructure). Reads in conjunction with [ADR-016](ADR-016-smart-home-async-execution.md), [ADR-033](ADR-033-device-capabilities.md), [ADR-034](ADR-034-partial-execution-outcome.md) and [ADR-035](ADR-035-cross-provider-deduplication.md).
 
+**Post-acceptance addendum:** §11 records evidence gathered by GH03a *after* acceptance. It corrects two external constraints stated in §3 and **does not change the decision** — Option C stands, and this ADR remains Accepted.
+
 **Approved by the PO on 2026-09-06**, resolving the three open questions recorded in §10: the scheduling degradation (Decision 5), the release version (**v1.6.0** — v1.5.0 remains reserved for Analytics and its planning is unchanged), and the initial platform scope (Android-only, Decision 11).
 
 ## Date
@@ -57,6 +59,8 @@ This is a **provider-neutrality guard, not a change-freeze**. The decision it pr
 ## 3. Constraints — Google Home APIs
 
 Verified against official documentation, 2026-09-06.
+
+> ⚠ Two rows of this table were later corrected by GH03a — see **§11**. The table is deliberately left exactly as written at acceptance time; corrections are recorded as post-acceptance evidence rather than by rewriting history.
 
 | Constraint | Consequence for IXORA | Source |
 | --- | --- | --- |
@@ -289,6 +293,49 @@ The three questions this ADR opened are closed. They are recorded here rather th
 1. **Scheduling degradation — APPROVED.** A scheduled Vibe will not actuate Google Home devices in this release. Non-schedulable actions are skipped with an explicit outcome, consume no retry, raise no false failure alert, and do not prevent compatible actions (e.g. Home Assistant) from executing. The user is informed before confirming the schedule. This is a known and accepted limitation of the release, not a bug.
 2. **Version numbering — RESOLVED as v1.6.0.** Google Home Integration ships as **v1.6.0**. v1.5.0 stays reserved for Analytics as recorded in v1.3.0 and v1.4.0-T06, and the Analytics plan is **not** altered to accommodate Google Home. Tuya remains **Deferred / Backlog** — not removed, not archived.
 3. **Initial platform scope — CONFIRMED Android-only.** See Decision 11 for the constraint that keeps a future iOS implementation open.
+
+---
+
+## 11. Post-acceptance evidence — GH03a (2026-09-06)
+
+Recorded after this ADR was accepted, from the GH03a investigation ([`specs/smart-home/google-home/access-gate.md`](../specs/smart-home/google-home/access-gate.md)). **The architectural decision is unchanged.** Option C stands; §5's decisions stand; this section corrects external constraints that were stated incorrectly or incompletely in §3, and records one favourable correction.
+
+### A — Production registration is unavailable; development access is not
+
+§3 implied that certification and OAuth verification are processes IXORA can begin. **That premise was wrong.** Per official documentation consulted in GH03a:
+
+- **Developer Console registration is *not* required for development or testing** — verbatim: *"Google Home Developer Console registration is not required to test and use the Home APIs."*
+- **Production registration/verification is not available.** Confirmed verbatim on two independent official pages: *"The Google Home Developer Console is not yet available for registration."* Parts of the official get-started flow remain marked **"Coming soon"** (device-type approval; Play Store launch).
+- Consequently there is an **external blocker on release**, outside IXORA's control, with no published date. This ADR does not estimate one.
+- **This does not block GH02.** The development spike is unaffected.
+
+The distinction this section establishes, and which all derived work must respect:
+
+| | Status |
+| --- | --- |
+| **Development access** | 🟢 Available today. No Console registration, no certification. Ceiling of 100 test users while unverified. |
+| **Production verification** | 🔴 Unavailable. External dependency, no published date. |
+
+Release posture that follows: *validate now, build reusable foundations, defer release-specific investment, and monitor the external gate separately.* Work whose only value appears once production access exists — certification submission, verification workflow, store/publishing work, Google-specific production hardening — is deferred rather than cancelled.
+
+### B — SDK distribution is outside the standard channel
+
+The Android Home APIs SDK is **not** part of Google's standard Maven distribution: *"The Home APIs in this open beta are not yet part of the standard libraries provided by Google for development."* The libraries must be downloaded and hosted locally (artifact `home.android.sdk_GHP_1_10_1`, in a GCS bucket of the `home-api-public-beta` project). GA-quality SDK, non-standard distribution channel.
+
+Recorded as a **dependency-management, supply-chain and build-reproducibility concern, and a GH02 setup requirement** — deliberately **not** characterised as a blocker. GH02 determines the real impact and reports it.
+
+### C — Device-type approval does not gate development (favourable correction)
+
+§3 implied device-type certification could constrain the spike. It does not. An unverified app receives **all supported device types and all devices in the granted structure**; verification *restricts* that set to what was approved in the Console, rather than granting access. Certification is a production concern only.
+
+**Four distinct processes must never be conflated** — §3 and derived cards must name which one they mean:
+
+1. **Home APIs app verification** (OAuth brand verification for the app);
+2. **Google Home device-type approval** (in the Developer Console, for Home APIs);
+3. **Matter hardware certification** (Google states it "only certifies hardware devices and not, for example, apps, software, or IoT systems");
+4. **Cloud-to-cloud integration certification** (for device manufacturers exposing devices *to* Google).
+
+Only 1 and 2 apply to IXORA, and only for production.
 
 ---
 
