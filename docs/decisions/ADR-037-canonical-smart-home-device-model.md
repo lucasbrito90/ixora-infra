@@ -4,6 +4,8 @@
 
 **Proposed** — governs the canonical shape of Device, Capability, Operation, Constraint, and DeviceState across all Smart Home providers. Structurally supersedes [ADR-033](ADR-033-device-capabilities.md)'s capability vocabulary and constraint format; does **not** touch [ADR-032](ADR-032-multi-provider-scope.md)'s extensibility boundary, [ADR-014](ADR-014-device-abstraction-and-deduplication.md)/[ADR-015](ADR-015-vibe-device-action-architecture.md)'s device-type and Vibe-action architecture, or [ADR-036](ADR-036-google-home-execution-model.md)'s execution model. Consumed by the CSDM-01–CSDM-07 implementation track.
 
+**Companion living spec:** [`docs/specs/smart-home/canonical-device-model.md`](../specs/smart-home/canonical-device-model.md) carries the detailed contract (exact field types, the closed capability/operation catalog, full worked device payloads, the Schema-driven Frontend principle, and versioning/evolution rules) this ADR decides but does not itself spell out at implementation detail. This ADR is the record of *why*; the spec is the reference implementers code against.
+
 **This ADR does not block v1.6.0 (Google Home) tasks P01–P14**, which continue to ship under ADR-033's existing capability shape. It becomes the required gate for any capability family added *after* it is Accepted — see §9.
 
 ## Date
