@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Ixora — Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #ffffff;
+    color: #1a1a1a;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 64px 24px 96px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 40px 0 8px; }
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 4px 10px;
+    margin: 12px 0 24px;
+  }
+  p, li { color: #374151; }
+  ul { padding-left: 20px; }
+  a { color: #4f46e5; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .updated { font-size: 13px; color: #9ca3af; margin-top: 4px; }
+  footer { margin-top: 56px; font-size: 13px; color: #9ca3af; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Ixora — Privacy Policy</h1>
+    <p class="updated">Last updated: 2026-09-06</p>
+    <div class="badge">Development environment</div>
+
+    <p>
+      This policy describes what the Ixora app collects and how it is used.
+      It reflects the app's current, actual behavior — it does not describe
+      planned or hypothetical features. Ixora is currently in active
+      development; this document will be revised as functionality changes.
+    </p>
+
+    <h2>Who we are</h2>
+    <p>
+      Ixora is a mobile application for creating and running ambient
+      &quot;Vibes&quot; — combinations of audio and, optionally, smart home
+      device actions — started manually or on a schedule.
+    </p>
+
+    <h2>Account information</h2>
+    <p>
+      Ixora uses Firebase Authentication to sign you in. We store your name,
+      email address, a Firebase-issued identifier, your timezone, and
+      optionally an avatar image URL, in order to operate your account.
+    </p>
+
+    <h2>Push notifications</h2>
+    <p>
+      If you enable notifications, we store a device push token (issued by
+      Firebase Cloud Messaging), your device platform and model, and app
+      version, so we can deliver notifications about your schedules and
+      smart home actions to your device. Notification content is limited to
+      what is needed to identify what happened and route you to the right
+      screen when tapped — it does not include credentials or sensitive
+      device data.
+    </p>
+
+    <h2>Smart home connections</h2>
+    <p>
+      If you connect a smart home provider (for example, Home Assistant),
+      we store the connection credentials you provide, encrypted, and use
+      them only to read your devices' status and execute the actions you
+      configure. We store basic device information (name, type, and status)
+      needed to let you build Vibes and automations around your devices.
+    </p>
+
+    <h2>Google Home</h2>
+    <p>
+      Ixora is developing support for connecting your Google Home. This
+      feature is not yet publicly available. When you authorize it, account
+      selection, structure selection, and permission consent all happen
+      within Google's own consent screens — Ixora only receives access to
+      what you explicitly grant, and only for the device types and
+      structures you approve.
+    </p>
+    <p>
+      We do not sell, share, or use Google Home data for advertising, and we
+      do not use it to train AI or machine learning models. Device
+      identifiers and state obtained through Google Home are retained only
+      for as long as necessary to provide the feature you configured, in
+      line with Google's Developer Policies for the Home APIs. You can
+      revoke Ixora's access to your Google Home at any time from your
+      Google Account settings.
+    </p>
+
+    <h2>What we do not do</h2>
+    <ul>
+      <li>We do not sell your data.</li>
+      <li>We do not share your data with third parties for advertising.</li>
+      <li>We do not use your smart home or Google Home data to train AI models.</li>
+    </ul>
+
+    <h2>Third-party services we use to operate the app</h2>
+    <p>
+      Firebase (authentication and push notification delivery), and, when
+      applicable, the smart home providers you explicitly connect (for
+      example Home Assistant, or Google Home once available). Their own
+      privacy terms apply to their part of the data flow.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      For privacy questions about this development environment, contact the
+      Ixora team through the project's GitHub repositories.
+    </p>
+
+    <footer>
+      <a href="/">Ixora</a> — app-vibes-dev
+    </footer>
+  </div>
+</body>
+</html>
