@@ -5,7 +5,7 @@
 **Type:** Technical spike, physically verified. Not production code.
 **Governing decision:** [ADR-036](../../../decisions/ADR-036-google-home-execution-model.md).
 **Precondition:** [GH03a](access-gate.md) gate — GREEN.
-**Code:** `front_vibes`, branch `feature/gh02-google-home-android-spike`.
+**Code:** `front_vibes`, branch `feature/gh02-google-home-android-spike`, commits `fcb1c4c` (scaffold: Kotlin enabled, plugin registered, bridge round-trip proven with no SDK dependency) and `3ae9f1b` (real SDK wiring, device discovery, state read, on/off execution). **`3ae9f1b` is the exact implementation that passed the physical test recorded in §5** — every JSON result and the confirmed physical lamp behavior below came from that commit, unmodified, running on the device described in §2. The branch is kept as a historical reference and is not merged into `develop` — see §9.
 
 ---
 
@@ -90,11 +90,37 @@ One implementation bug was found and fixed mid-spike: `listDevices()`/`readDevic
 - **No iOS.** Per ADR-036 Decision 11, out of scope, and nothing here was written to make an iOS port harder — no Android-specific concept reached the plugin's public contract (its method names and JSON shapes are platform-neutral).
 - **No Matter, no hub.** The devices reached here were cloud-to-cloud (Surplife/Tuya). Matter-specific behavior (hub-mediated local/remote control) was not exercised.
 
-## 8. Recommended next steps (not started here)
+## 8. Reuse classification — what carries forward, what is spike-only
+
+The branch mixes code proven against real hardware with code that only exists to make the spike operable without production infrastructure. They must not be treated as one unit when a real implementation is scoped.
+
+| Part | Classification | Why |
+| --- | --- | --- |
+| **Debug page and route** (`src/views/dev/GoogleHomeDebugPage.vue`, `/dev/google-home` route, the Settings entry point) | ❌ **Temporary only — do not carry forward** | Built solely to drive the plugin without a CDP/Appium setup (§3). Not gated, not styled as product UI, prints raw JSON. Has no place in `develop` under any circumstance. |
+| **Local SDK/AAR wiring** (`android/google-home-sdk-repo/` local Maven repo, the hardcoded relative `url = uri('../google-home-sdk-repo')`, gitignored) | ❌ **Temporary shape — do not carry forward as-is** | Works only because each developer manually downloads and places the SDK per GH03a finding B. Not reproducible in CI or for a second developer without the same manual step. A real implementation needs a documented, reproducible dependency-provisioning story (private repository mirror, documented manual step with checksum verification, or whatever the team decides) — this spike deliberately did not solve that, it only proved the API shape works. |
+| **Permission code** (`load()`'s `Home.getClient()`/`HomeConfig`/`FactoryRegistry` construction, `registerActivityResultCallerForPermissions()` before `super.onCreate()`, `requestGoogleHomePermissions()`) | ✅ **Reusable** | Physically verified: real consent screen, real `SUCCESS` status, no `BridgeActivity` fork needed. This is the answer to GH02's first stop condition and should not be re-derived. |
+| **Device discovery** (`listDevices()`, the combined `StandardTraitRegistry + GoogleTraitRegistry` / `StandardDeviceTypeRegistry + GoogleDeviceTypeRegistry` factory registry) | ✅ **Reusable** | Physically verified against real cloud-to-cloud devices (the target case). The registry-combination choice is the confirmed reason Surplife/Tuya lamps were reachable at all — a real implementation should not narrow this without a deliberate reason. |
+| **State read** (`readDeviceState()`, the `device.type(X).standardTraits.onOff.onOff` access pattern) | ✅ **Reusable** | Physically verified to return the device's real state. The attribute-vs-command naming trap (§4) is exactly the kind of thing worth preserving as working code rather than rediscovering. |
+| **On/Off execution** (`executeAction()`, `onOff.on()` / `onOff.off()`) | ✅ **Reusable** | The one result verified beyond the API response — physical lamp behavior confirmed visually (§5). |
+| **`deviceId` serialization/reconstruction** (`device.id.id` on the way out, `Id.of(deviceId)` on the way back in) | ✅ **Reusable, with the bug fix included** | The `toString()` bug (§5) is already fixed in `3ae9f1b`. The corrected round-trip (`id.id` → JSON string → `Id.of()`) is verified working, including being pasted back in through the debug page and resolving to the same device. Carry the fix, not the original mistake. |
+
+**Net effect:** everything that touches the real Google Home SDK surface (permissions, discovery, state, execution, id handling) is reusable and verified. Everything that exists only to route around missing production infrastructure (debug UI, ad hoc local dependency wiring) is not, and must be replaced with a production-appropriate equivalent, not deleted-and-forgotten — the debug page in particular is the fastest way to re-verify a future change against real hardware and is worth keeping *as a local, uncommitted tool* even though it must never reach `develop`.
+
+## 9. This branch does not merge into `develop` as-is
+
+`feature/gh02-google-home-android-spike` is preserved on the remote as a **historical reference**, not as a pending contribution. No code from it — reusable or not — is to be integrated directly into `develop`. A real Google Home implementation starts as a **new branch off `develop`**, selectively reusing the code identified in §8, with:
+
+- a reproducible dependency story for the SDK (not the gitignored local-repo hack);
+- no debug UI;
+- the architecture, persistence, privacy, and certification decisions still pending from ADR-036, GH03a, and GH03b actually resolved first — most importantly GH03b §10.1 (the legal question about referencing a Google device identifier past the 10-day retention window), since that can change how device identity is represented on both sides of the mobile/backend boundary this spike deliberately left unaddressed.
+
+The spike branch itself receives no further commits beyond indispensable documentation fixes — it is frozen as evidence of what was verified on 2026-09-06, not as a base to build on directly.
+
+## 10. Recommended next steps (not started here)
 
 Deliberately not carded yet, consistent with the original GH02 instruction to let the spike's real constraints shape the implementation plan rather than pre-committing to one:
 
-- Remove the temporary debug page and route before any code from this branch is considered for `develop`.
 - Design the real mobile-side storage for the id-mapping and reporting contract described in ADR-036 Decision 7, informed by this spike's confirmed API shape.
 - Extend device-type/trait coverage in `GH04` using the trait names now confirmed real (`OnOffTrait`, `SimplifiedOnOffTrait`, `LevelControlTrait`, etc.) instead of the provisional list GH04 was scoped with.
 - Decide, with GH03b's legal question resolved, how the confirmed `device.id.id` value is represented (or deliberately not stored) on the backend side.
+- Solve the SDK dependency-provisioning story before any CI pipeline needs to build against it.
