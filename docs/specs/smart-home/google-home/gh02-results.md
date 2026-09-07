@@ -85,7 +85,7 @@ One implementation bug was found and fixed mid-spike: `listDevices()`/`readDevic
 ## 7. What this spike deliberately does not establish
 
 - **No production shape.** `GoogleHomePlugin` does not implement `ProviderAdapter` (correct, per ADR-036 Decision 3 — Google Home isn't meant to) and is not wired to `Scene`, `Vibe`, or the scheduler in any way.
-- **No persistence.** Nothing here writes a Google identifier to `back_vibes` or to any durable device-side store. Every call re-queries the SDK's in-memory flow. [GH03b](data-retention.md)'s open retention question (§10.1: how a saved automation can reference a Google device past the 10-day policy window) is **not** answered by this spike and still needs the recommended legal review before real persistence is designed.
+- **No persistence.** Nothing here writes a Google identifier to `back_vibes` or to any durable device-side store. Every call re-queries the SDK's in-memory flow. [GH03b](data-retention.md)'s open retention question (§10.1: how a saved automation can reference a Google device past the 10-day policy window) is **not** answered by this spike. It is now tracked as its own task, **GH03c — Google Home Data Retention Compliance Review** ([Trello](https://trello.com/c/tNXiUfNM)) — a legal/risk decision, not further engineering investigation, since GH03b already exhausted the available public policy text.
 - **No production certification.** This ran entirely under GH03a's "development access" gate (unverified OAuth client, 100 test-user ceiling). The production gate (§3 of GH03a) remains externally blocked by Google, independent of this result.
 - **No iOS.** Per ADR-036 Decision 11, out of scope, and nothing here was written to make an iOS port harder — no Android-specific concept reached the plugin's public contract (its method names and JSON shapes are platform-neutral).
 - **No Matter, no hub.** The devices reached here were cloud-to-cloud (Surplife/Tuya). Matter-specific behavior (hub-mediated local/remote control) was not exercised.
@@ -112,7 +112,7 @@ The branch mixes code proven against real hardware with code that only exists to
 
 - a reproducible dependency story for the SDK (not the gitignored local-repo hack);
 - no debug UI;
-- the architecture, persistence, privacy, and certification decisions still pending from ADR-036, GH03a, and GH03b actually resolved first — most importantly GH03b §10.1 (the legal question about referencing a Google device identifier past the 10-day retention window), since that can change how device identity is represented on both sides of the mobile/backend boundary this spike deliberately left unaddressed.
+- the architecture, persistence, privacy, and certification decisions still pending from ADR-036, GH03a, and GH03b actually resolved first — most importantly **GH03c** (the legal question about referencing a Google device identifier past the 10-day retention window, formalized 2026-09-07 as its own task rather than an open question inside GH03b), since that can change how device identity is represented on both sides of the mobile/backend boundary this spike deliberately left unaddressed. A production-implementation task should not be scoped until GH03c resolves; GH04 does not depend on it and may proceed in parallel.
 
 The spike branch itself receives no further commits beyond indispensable documentation fixes — it is frozen as evidence of what was verified on 2026-09-06, not as a base to build on directly.
 
