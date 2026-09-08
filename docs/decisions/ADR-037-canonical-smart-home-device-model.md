@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed** — governs the canonical shape of Device, Capability, Operation, Constraint, and DeviceState across all Smart Home providers. Structurally supersedes [ADR-033](ADR-033-device-capabilities.md)'s capability vocabulary and constraint format; does **not** touch [ADR-032](ADR-032-multi-provider-scope.md)'s extensibility boundary, [ADR-014](ADR-014-device-abstraction-and-deduplication.md)/[ADR-015](ADR-015-vibe-device-action-architecture.md)'s device-type and Vibe-action architecture, or [ADR-036](ADR-036-google-home-execution-model.md)'s execution model. Consumed by the CSDM-01–CSDM-07 implementation track.
+**Accepted** (2026-09-08, following three pre-acceptance corrections — see §14) — governs the canonical shape of Device, Capability, Operation, Constraint, and DeviceState across all Smart Home providers. Structurally supersedes [ADR-033](ADR-033-device-capabilities.md)'s capability vocabulary and constraint format; does **not** touch [ADR-032](ADR-032-multi-provider-scope.md)'s extensibility boundary, [ADR-014](ADR-014-device-abstraction-and-deduplication.md)/[ADR-015](ADR-015-vibe-device-action-architecture.md)'s device-type and Vibe-action architecture, or [ADR-036](ADR-036-google-home-execution-model.md)'s execution model. Consumed by the CSDM-01–CSDM-07 implementation track — CSDM-01 may now begin once explicitly authorized (not authorized by this status change alone).
 
 **Companion living spec:** [`docs/specs/smart-home/canonical-device-model.md`](../specs/smart-home/canonical-device-model.md) carries the detailed contract (exact field types, the closed capability/operation catalog, full worked device payloads, the Schema-driven Frontend principle, and versioning/evolution rules) this ADR decides but does not itself spell out at implementation detail. This ADR is the record of *why*; the spec is the reference implementers code against.
 
@@ -52,7 +52,7 @@ Device
   id                    — Ixora surrogate key (unchanged; already correct — see Context §7)
   type                  — DeviceType (unchanged; ADR-033/T15's enum is orthogonal to this ADR)
   capabilities: Map<CapabilityId, Capability>
-  state: DeviceState     — see §4
+  state: DeviceState     — see §6
   connectivity: online | offline | unknown   (unchanged DeviceStatus enum — connectivity only)
   metadata               — provider-raw passthrough, boundary-only (unchanged role)
 ```
@@ -100,12 +100,18 @@ The operations catalog is closed per capability, following the same governance d
 
 ```
 Constraint =
-  | { type: "number", min: number, max: number, step: number, unit: string }
+  | { type: "number", min: number | null, max: number | null, step: number | null, unit: string }
   | { type: "enum", allowed_values: string[] }
   | { type: "boolean" }
 ```
 
-This directly closes audit gap §4/§10: today only one untyped shape (`{min, max, step}`, no `unit`, no precedent for enum) exists, discovered by having exactly one implementation (`can_set_brightness`) ever populate it. A closed, tagged union is enough to represent every device family named in this ADR's brief — numeric ranges with units (brightness, temperature), enums (HVAC mode), and boolean toggles that need no constraint object at all (`power`'s `on`/`off`/`toggle` need none; a `Constraint` is omitted, not an empty object, when the operation takes no parameter).
+This directly closes audit gap §4/§10: today only one untyped shape (`{min, max, step}`, no `unit`, no precedent for enum) exists, discovered by having exactly one implementation (`can_set_brightness`) ever populate it. A closed, tagged union is enough to represent every device family named in this ADR's brief — numeric ranges with units (brightness, temperature), enums (HVAC mode), and booleans (`power`'s readable value — see below).
+
+**`min`/`max`/`step` are individually nullable; `unit` is not.** A provider mapper frequently knows a numeric capability's unit without knowing its bounds or resolution (a thermostat may report `current_temperature` in Celsius with no documented sensor range; a plug may report `energy` in kWh with no known step size). Forcing an invented `min`/`max`/`step` in that case would smuggle a fabricated provider-side guess into a field this ADR requires to be domain-true — worse than declaring it unknown. `null` on any of the three means "not known," never "unbounded" (unbounded is `max: null` specifically, already the case for `energy` in §12) and never "zero." `unit` stays mandatory unconditionally — a numeric value with a genuinely unknown unit is not representable by this model and is evidence the capability itself needs a different shape, not evidence `unit` should be optional.
+
+**Trade-off, stated explicitly:** when `min`/`max`/`step` are `null` on a `read_write` capability, the validation pipeline (§7) cannot enforce a range for that dimension — the check is skipped, not defaulted. This is accepted deliberately for the read-only capabilities this ADR's brief names (`energy`, `current_temperature`, neither ever reaches a write-validation path since their `access` is `read`), and is expected to be rare for `write`/`read_write` capabilities, whose provider is normally expected to report real operational bounds (as `target_temperature` does in every worked example below). If a provider mapper cannot supply bounds for a *writable* numeric capability, validation for that capability degrades to type-checking only, and that is a known, visible gap — not a silent one — the moment it happens.
+
+`power`'s constraint is `{ type: "boolean" }` (§ below) — not omitted. A `Constraint` is omitted entirely only when a capability has genuinely no associated value at all, which no capability in this ADR's ratified catalog does; `power`'s readable state (`true`/`false`) needs a typed shape exactly as `brightness`'s does, even though its *operations* (`on`/`off`/`toggle`) take no parameters. Operations and constraints are independent — an operation can be parameterless while the capability's state value is still typed (see §12's revised `power` example).
 
 Future constraint types (e.g. a structured color constraint) are explicitly deferred — this ADR defines the mechanism (a tagged union, extensible by adding a case) without pre-designing every future shape, consistent with the instruction not to invent capabilities not yet needed.
 
@@ -120,12 +126,15 @@ Future constraint types (e.g. a structured color constraint) are explicitly defe
 
 ### 6 — DeviceState — connectivity vs. functional state, formally separated
 
+Connectivity lives on `Device` (§1) and **only** there — `DeviceState` does not repeat it:
+
 ```
 DeviceState
-  connectivity: online | offline | unknown      — unchanged DeviceStatus enum (§1)
-  values: Map<CapabilityId, value>              — e.g. { power: "on", brightness: 65 }
+  values: Map<CapabilityId, value>              — e.g. { power: true, brightness: 65 }
   read_at: timestamp
 ```
+
+An earlier draft of this ADR duplicated `connectivity` onto `DeviceState` itself. That was a genuine redundancy, not a second source of truth deliberately intended — `Device.connectivity` is authoritative, full stop, and `DeviceState` carries only what §1 calls "functional state." A consumer that needs both simply reads `Device.connectivity` and `Device.state.values` from the same `Device` object; no endpoint or type needs to answer "is this device online" twice.
 
 This directly closes audit gap §5: today "state" is `DeviceStatusResult.raw_state: ?string` plus `attributes: array`, both explicitly provider-raw and never normalized — confirmed by their own naming. `DeviceState.values` is keyed by the same canonical `CapabilityId` vocabulary as `Capability` itself, so a client reading state and a client sending a command share one vocabulary, not two.
 
@@ -143,6 +152,8 @@ Ixora Command (device_id, capability_id, operation, parameters)
 ```
 
 Validation happens **before** the Provider Mapper, against the canonical constraint — not against any provider format. This is the fix for the confirmed, already-existing bug in Context §5 (`brightness: 9999` reaching Home Assistant unvalidated today, independent of Google Home). The Provider Mapper remains a second line of defense (a provider may reject a technically-in-range value for its own reasons), but is no longer the *only* line, which it effectively is today.
+
+For a `number` constraint whose `min`/`max`/`step` are `null` (§4), the corresponding check is skipped rather than defaulted — validation degrades to type-checking for that dimension, not to silent pass-through of the whole value; a non-numeric value is still rejected.
 
 ### 8 — Compatibility with ADR-033
 
@@ -213,37 +224,42 @@ Versioning follows semver against the schema itself: additive changes (a new cap
 Canonical device (post-CSDM-03 mapper):
 ```
 capabilities:
-  power:      { access: read_write, operations: [on, off, toggle] }
+  power:      { access: read_write, operations: [on, off, toggle],
+                constraints: { type: boolean } }
   brightness: { access: read_write, operations: [set],
                 constraints: { type: number, min: 0, max: 100, step: 1, unit: percent } }
+state:
+  values: { power: true, brightness: 65 }
 ```
-Mapper (HA side, CSDM-03): `power.on/off` → HA services `light.turn_on`/`light.turn_off`; `power.toggle` → native `light.toggle`; `brightness.set(65)` → HA payload `{"brightness": round(65/100*255)}` = `{"brightness": 166}`. Read path: HA's `attributes.brightness` (0–255) → canonical `brightness: round(raw/255*100)`.
+Mapper (HA side, CSDM-03): `power.on/off` → HA services `light.turn_on`/`light.turn_off`; `power.toggle` → native `light.toggle`; `brightness.set(65)` → HA payload `{"brightness": round(65/100*255)}` = `{"brightness": 166}`. Read path: HA's `state` string (`"on"`/`"off"`) → canonical `power: true`/`false`; `attributes.brightness` (0–255) → canonical `brightness: round(raw/255*100)`.
 
 ### Google Home equivalent (same canonical capability, different mapper)
 
-Canonical device is **identical in shape** — same two capabilities, same constraint. Mapper (Google side, CSDM-04, building on GH04/P09): `power.on/off` → `OnOffTrait.on()`/`off()`; `power.toggle` → **no native command** — composed as: read `standardTraits.onOff.onOff`, invert, call `on()` or `off()` accordingly (exactly GH04's already-documented finding, now expressed as the canonical mapper's job rather than an ad hoc workaround). `brightness.set(65)` → `moveToLevel(round(65/100*254))` = `moveToLevel(165)`. Read path: `LevelControl.currentLevel` (0–254) → canonical `brightness: round(raw/254*100)`.
+Canonical device is **identical in shape** — same two capabilities, same constraints, same `state.values` keys. Mapper (Google side, CSDM-04, building on GH04/P09): `power.on/off` → `OnOffTrait.on()`/`off()`; `power.toggle` → **no native command** — composed as: read `standardTraits.onOff.onOff`, invert, call `on()` or `off()` accordingly (exactly GH04's already-documented finding, now expressed as the canonical mapper's job rather than an ad hoc workaround). Read path for `power`: `standardTraits.onOff.onOff` is already a Kotlin `Boolean` — this mapper direction needs **no** true/false↔"on"/"off" string conversion at all, unlike the HA mapper, which is a small but real point in favor of a boolean canonical state (§4) over a string one. `brightness.set(65)` → `moveToLevel(round(65/100*254))` = `moveToLevel(165)`. Read path: `LevelControl.currentLevel` (0–254) → canonical `brightness: round(raw/254*100)`.
 
 ### Plug with read-only energy
 
 ```
 capabilities:
-  power:  { access: read_write, operations: [on, off, toggle] }
+  power:  { access: read_write, operations: [on, off, toggle],
+            constraints: { type: boolean } }
   energy: { access: read, operations: [],
             constraints: { type: number, min: 0, max: null, step: 0.01, unit: kWh } }
 ```
-`energy` has no `operations` — it is never commanded, only read into `DeviceState.values.energy`. No `ActionType`-equivalent exists for it, by design (§2).
+`energy` has no `operations` — it is never commanded, only read into `state.values.energy`. No `ActionType`-equivalent exists for it, by design (§2).
 
 ### Thermostat
 
 ```
 capabilities:
   current_temperature: { access: read,       operations: [],
-                          constraints: { type: number, min: -20, max: 60, step: 0.1, unit: celsius } }
+                          constraints: { type: number, min: null, max: null, step: null, unit: celsius } }
   target_temperature:  { access: read_write, operations: [set],
                           constraints: { type: number, min: 5,   max: 35, step: 0.5, unit: celsius } }
   hvac_mode:            { access: read_write, operations: [set],
                           constraints: { type: enum, allowed_values: [off, heat, cool, auto] } }
 ```
+`current_temperature` shows the nullable-bounds case (§4): a thermostat's sensor typically has no documented range, so `min`/`max`/`step` are honestly `null` rather than invented — `unit` (`celsius`) is still mandatory and known. `target_temperature` is the contrasting case: a real, operator-set range the device enforces, so it is populated. This is the exact distinction the PO's third correction (§4) exists to make representable.
 Three capabilities, three different constraint shapes (read-only number, read-write number, read-write enum) — exactly the case that had no schema slot before this ADR.
 
 ### Command validation (the `brightness: 9999` fix)
@@ -266,7 +282,21 @@ Reviewed against the decisions above. **All seven cards are already substantiall
 
 No card is found wrong, redundant, missing, or mis-sized for its assigned model.
 
+**Re-checked after the PO's three pre-acceptance corrections (§4, §6, and power's boolean constraint):** none require a structural change to any of the seven cards. `power` becoming `{type: boolean}` and numeric bounds becoming individually nullable are refinements *within* what CSDM-01 (schema), CSDM-02 (validation), and CSDM-03 (HA mapper) were already scoped to build — none of the three had committed to the pre-correction shapes in a way this invalidates. **CSDM-04 (Google mapper) is mildly easier, not harder**: Google's `OnOffTrait.onOff` is natively a Kotlin `Boolean`, so the boolean canonical state requires no string conversion on that side (§7.0/§7.2), unlike the HA mapper. CSDM-05's own description already frames the distinction as "online/offline/unknown" vs. "power/brightness/temperature," which is precisely the corrected, non-duplicated shape — no rewording needed there either.
+
 ---
+
+## 14 — Pre-acceptance corrections (PO, 2026-09-08)
+
+The PO approved this ADR's direction but required three corrections before moving it from Proposed to Accepted. All three are applied throughout the document above (§1, §4, §6, §7, §12); this section is the record of what changed and why, not a duplicate of the reasoning already inline.
+
+1. **`DeviceState` duplicated `connectivity`, which already lives on `Device`.** Corrected: `DeviceState` (§6) now carries only `values` and `read_at`. `Device.connectivity` is the sole source of truth. No architectural impediment was found — the duplication was a genuine oversight, not a deliberate second source of truth.
+
+2. **`power`'s constraint was `null`, with the state value "on"/"off" held together only "by convention."** This partially contradicted this ADR's own point that constraints should be typed, not ad hoc. Corrected: `power`'s constraint is `{type: boolean}`, and its state value is `true`/`false`. No strong reason was found to keep string values — if anything, §12's Google Home example shows the Google mapper needs *no* conversion at all for this field (`OnOffTrait.onOff` is already a Kotlin `Boolean`), while the Home Assistant mapper needs exactly one (HA's `state` string ↔ boolean) either way. Boolean is at least as good a canonical choice as string, and closes the "by convention" gap. `on`/`off`/`toggle` remain the canonical *operations* — this change affects only the *value* representation, not the verbs.
+
+3. **`number` constraints required non-null `min`/`max`/`step`.** This would have forced a provider mapper to invent bounds it does not actually know (e.g. a thermostat's undocumented sensor range) — precisely the kind of fabrication this ADR exists to prevent elsewhere. Corrected: `min`/`max`/`step` are each independently nullable; `unit` remains mandatory (§4). **Trade-off, disclosed rather than hidden:** a `null` bound on a `read_write` numeric capability means the validation pipeline (§7) cannot enforce that dimension for that capability — degrading to type-checking only. This is expected to be rare for genuinely writable capabilities (a device's real operational bounds, like `target_temperature`'s, are normally known) and harmless for `read`-only ones (`energy`, `current_temperature`), which never reach write validation regardless.
+
+No further inconsistency was found while applying these corrections. §13 confirms none of the seven CSDM implementation cards need a structural change as a result.
 
 ## Sources
 

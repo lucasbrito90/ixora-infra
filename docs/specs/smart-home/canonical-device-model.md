@@ -1,7 +1,7 @@
 # Canonical Smart Home Device Model — Specification
 
-**Status:** Draft — living document, tracks [ADR-037](../../decisions/ADR-037-canonical-smart-home-device-model.md) (currently Proposed). This spec becomes normative once ADR-037 is Accepted; until then it documents the contract the ADR decides, in implementation-ready detail the ADR itself does not carry.
-**Contract version:** `csdm/v1` (unreleased — see [Versioning and evolution](#versioning-and-evolution))
+**Status:** Normative — living document, implements [ADR-037](../../decisions/ADR-037-canonical-smart-home-device-model.md) (**Accepted** 2026-09-08). This is the reference contract implementers code against; it evolves under the versioning rules in §9, not by silent edit.
+**Contract version:** `csdm/v1` (not yet released as a standalone schema artifact — CSDM-01 produces it; see [Versioning and evolution](#versioning-and-evolution))
 **Governing decision:** [ADR-037](../../decisions/ADR-037-canonical-smart-home-device-model.md), superseding [ADR-033](../../decisions/ADR-033-device-capabilities.md)'s capability shape.
 **Audience:** `back_vibes` (capability derivation, validation, persistence), `front_vibes` (schema-driven UI, TypeScript types), the Google Home Android/Kotlin integration ([GH04](google-home/trait-capability-mapping.md)), and any future provider mapper (Tuya or otherwise).
 
@@ -47,7 +47,7 @@ interface Capability {
 }
 ```
 
-`operations` and `constraints` are **independent axes**. A capability may have operations with no constraint (`power.toggle` takes no parameter), a constraint with no operations (`energy`, read-only, still needs `{type: number, unit: kWh}` to describe the *readable* value's shape), or both (`brightness.set` needs the constraint to know what values `set` accepts).
+`operations` and `constraints` are **independent axes**, and neither implies the other. `power` has operations (`on`/`off`/`toggle`) that take **no parameter**, yet still has a constraint (`{type: boolean}`) — the constraint describes the *shape of the capability's value* (what `state.values.power` and any future read return), not the shape of a command argument. `energy` has a constraint with **no operations at all** (`read`-only — nothing to command, but `{type: number, unit: kWh}` still describes what a read returns). `brightness.set` is the case where both align: the constraint describes both the readable value and the one parameter `set` accepts. `constraints: null` is reserved for a capability with no typed value in either direction — no ratified capability in §3 is actually null; it appears only in §8.3's illustrative `color` example, as an explicit placeholder for a constraint type this spec does not yet define (see §2.4).
 
 ### 2.3 Operation
 
@@ -57,26 +57,27 @@ An operation is a canonical verb scoped to a capability — `brightness.set`, `p
 
 ```ts
 type Constraint =
-  | { type: "number"; min: number; max: number | null; step: number; unit: string }
+  | { type: "number"; min: number | null; max: number | null; step: number | null; unit: string }
   | { type: "enum"; allowed_values: string[] }
   | { type: "boolean" };
 ```
 
-- `max: null` is valid and means "no known upper bound" (e.g. cumulative energy — see §8.5).
-- `unit` is required on every `number` constraint. There is no "unitless number" — if a value has no natural unit, that itself is a modeling decision to make explicit (e.g. `unit: "count"`), not an empty string.
-- The union is **closed but extensible**: a new case (e.g. a structured color type) is a contract version bump, not a free-form addition by any single mapper — see §9 and §10.5.
+- **`min`/`max`/`step` are each independently nullable; `unit` is not.** `null` means "not known by the provider" and must never be filled with an invented value — a provider mapper that doesn't know a sensor's real range reports `null`, not a guess. `max: null` specifically also covers "no known upper bound" (e.g. cumulative energy — see §8.5), which is a form of "not known." `unit` stays mandatory unconditionally: a numeric value with no meaningful unit is evidence the capability needs a different shape, not evidence `unit` should be optional.
+- **Trade-off:** when `min`/`max`/`step` are `null` on a capability whose `access` includes `write`, the validation pipeline (§4.1) cannot enforce that dimension — the corresponding check is skipped, not defaulted, and the value is still type-checked. This is expected and harmless for the `read`-only capabilities in this spec's catalog (`energy`, `current_temperature` — see §3), which never reach write validation at all. It is expected to be rare for `read_write` numeric capabilities (`target_temperature` normally has real, provider-reported bounds — §8.6), and is a disclosed, visible gap if it ever occurs, not a silent one.
+- The union is **closed but extensible**: a new case (e.g. a structured color type) is a contract version bump, not a free-form addition by any single mapper — see §9.
 
 ### 2.5 DeviceState
 
+Connectivity lives only on `Device` (§2.1) — `DeviceState` does not repeat it. An earlier draft of this spec duplicated `connectivity` here as well; that was a genuine redundancy, corrected so `Device.connectivity` is the single source of truth.
+
 ```ts
 interface DeviceState {
-  connectivity: "online" | "offline" | "unknown";
-  values: Partial<Record<CapabilityId, unknown>>;   // e.g. { power: "on", brightness: 65 }
+  values: Partial<Record<CapabilityId, unknown>>;   // e.g. { power: true, brightness: 65 }
   read_at: string;                                   // ISO 8601 timestamp
 }
 ```
 
-`values` is keyed by the same `CapabilityId` vocabulary as `Capability` — a client that already knows a device's capabilities knows exactly which keys `values` can contain, with no separate state vocabulary to learn. A capability absent from `values` means "not read this cycle," not "unsupported" — support is determined by `capabilities`, never by presence in `values`.
+`values` is keyed by the same `CapabilityId` vocabulary as `Capability` — a client that already knows a device's capabilities knows exactly which keys `values` can contain, with no separate state vocabulary to learn. A capability absent from `values` means "not read this cycle," not "unsupported" — support is determined by `capabilities`, never by presence in `values`. A consumer that needs both connectivity and functional state reads them from the same parent `Device` object — `Device.connectivity` and `Device.state.values` — never from two competing fields.
 
 This spec does not mandate where or whether `DeviceState` is persisted. It only fixes its shape wherever it is produced (a provider mapper's read path) or consumed (a client displaying current state).
 
@@ -88,11 +89,11 @@ Closed vocabulary. Adding an entry is a deliberate contract amendment (§9), nev
 
 | Capability id | Access | Operations | Constraint shape | Status |
 | --- | --- | --- | --- | --- |
-| `power` | `read_write` | `on`, `off`, `toggle` | none (boolean-shaped by convention; state value is `"on"`/`"off"`) | **Ratified** |
+| `power` | `read_write` | `on`, `off`, `toggle` | `{type: boolean}` — state value is `true`/`false` | **Ratified** |
 | `brightness` | `read_write` | `set` | `{type: number, min: 0, max: 100, step: 1, unit: "percent"}` | **Ratified** |
-| `energy` | `read` | — | `{type: number, min: 0, max: null, step: 0.01, unit: "kWh"}` | **Ratified** |
-| `current_temperature` | `read` | — | `{type: number, min, max, step, unit: "celsius"}` (device-reported bounds) | **Ratified** |
-| `target_temperature` | `read_write` | `set` | `{type: number, min, max, step, unit: "celsius"}` | **Ratified** |
+| `energy` | `read` | — | `{type: number, min: 0, max: null, step: null, unit: "kWh"}` (step typically unknown — see §2.4) | **Ratified** |
+| `current_temperature` | `read` | — | `{type: number, min: null, max: null, step: null, unit: "celsius"}` (bounds typically unknown — see §2.4) | **Ratified** |
+| `target_temperature` | `read_write` | `set` | `{type: number, min, max, step, unit: "celsius"}` (device-reported bounds — real operational constraint) | **Ratified** |
 | `hvac_mode` | `read_write` | `set` | `{type: enum, allowed_values: ["off","heat","cool","auto"]}` | **Ratified** |
 | `color` | `read_write` | `set` | *not yet defined* — needs a struct constraint type beyond §2.4's union | **Provisional — see §8.3** |
 | `color_temperature` | `read_write` | `set` | `{type: number, min, max, step, unit: "mired"}` (illustrative) | **Provisional — see §8.3** |
@@ -122,7 +123,8 @@ interface IxoraCommand {
 3. Check operation is declared for the capability
      → operation not in capability.operations           → REJECT (unsupported)
 4. If the operation takes a parameter, validate parameters.value against capability.constraints
-     → number:  min <= value <= max (if max non-null), value aligns to step
+     → number:  type-check as numeric; min <= value (skip if min is null); value <= max (skip if max is null);
+                value aligns to step (skip if step is null)
      → enum:    value ∈ allowed_values
      → boolean: value ∈ {true, false}
      → fails   → REJECT (invalid_parameter)
@@ -130,6 +132,8 @@ interface IxoraCommand {
 ```
 
 Step 4 is the fix for the confirmed pre-existing bug (ADR-037 Context §5): `{"brightness": 9999}` is rejected at step 4, before any provider mapper is invoked, regardless of which provider owns the device.
+
+**Null constraint fields degrade, they never default.** A `null` `min`/`max`/`step` means that specific check is skipped — the value is still required to be the right primitive type (a number stays a number). This mostly affects `read`-only capabilities, which never reach step 4 for a write at all since no operation is ever requested against them; it is a real, disclosed reduction in enforcement only in the rare case a `read_write` numeric capability has no reported bounds (§2.4).
 
 ### 4.2 Worked validation example
 
@@ -212,6 +216,10 @@ If a new `front_vibes` component needs to know the name "Home Assistant," "Googl
 
 ## 7. Worked provider mapper examples
 
+### 7.0 Home Assistant — power
+
+Read: HA's entity `state` string (`"on"` / `"off"`) → canonical `power: true` / `false`. Write: canonical `power.on`/`power.off` → HA services `light.turn_on`/`light.turn_off`; `power.toggle` → native `light.toggle`. This is the one conversion the HA mapper must perform that the Google mapper (§7.2) does not need — HA's native representation is a string, Google's is already a boolean.
+
 ### 7.1 Home Assistant — brightness
 
 Read: HA attribute `brightness` (0–255, integer) → `brightness: round(raw / 255 * 100)`.
@@ -220,7 +228,7 @@ Write: canonical `brightness.set(65)` → HA service call payload `{"brightness"
 ### 7.2 Google Home — power.toggle (no native command)
 
 Canonical command: `{capability_id: "power", operation: "toggle"}`.
-Mapper composition (Kotlin, per GH04's confirmed finding): read `standardTraits.onOff.onOff` (current boolean) → invert → call `standardTraits.onOff.on()` or `.off()` accordingly. The canonical command is satisfied; the provider primitive used to satisfy it is an implementation detail invisible above the mapper.
+Mapper composition (Kotlin, per GH04's confirmed finding): read `standardTraits.onOff.onOff` (already a Kotlin `Boolean` — no string conversion needed) → invert → call `standardTraits.onOff.on()` or `.off()` accordingly. The canonical command is satisfied; the provider primitive used to satisfy it is an implementation detail invisible above the mapper.
 
 ### 7.3 Google Home — brightness
 
@@ -239,10 +247,11 @@ Illustrative `GET /api/devices/{id}`-shaped payloads — field names for the API
 {
   "id": 101,
   "type": "lighting",
+  "connectivity": "online",
   "capabilities": {
-    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": null }
+    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": { "type": "boolean" } }
   },
-  "state": { "connectivity": "online", "values": { "power": "on" }, "read_at": "2026-09-08T12:00:00Z" }
+  "state": { "values": { "power": true }, "read_at": "2026-09-08T12:00:00Z" }
 }
 ```
 
@@ -252,15 +261,16 @@ Illustrative `GET /api/devices/{id}`-shaped payloads — field names for the API
 {
   "id": 102,
   "type": "lighting",
+  "connectivity": "online",
   "capabilities": {
-    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": null },
+    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": { "type": "boolean" } },
     "brightness": {
       "access": "read_write",
       "operations": ["set"],
       "constraints": { "type": "number", "min": 0, "max": 100, "step": 1, "unit": "percent" }
     }
   },
-  "state": { "connectivity": "online", "values": { "power": "on", "brightness": 65 }, "read_at": "2026-09-08T12:00:00Z" }
+  "state": { "values": { "power": true, "brightness": 65 }, "read_at": "2026-09-08T12:00:00Z" }
 }
 ```
 
@@ -270,8 +280,9 @@ Illustrative `GET /api/devices/{id}`-shaped payloads — field names for the API
 {
   "id": 103,
   "type": "lighting",
+  "connectivity": "online",
   "capabilities": {
-    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": null },
+    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": { "type": "boolean" } },
     "brightness": {
       "access": "read_write", "operations": ["set"],
       "constraints": { "type": "number", "min": 0, "max": 100, "step": 1, "unit": "percent" }
@@ -286,8 +297,7 @@ Illustrative `GET /api/devices/{id}`-shaped payloads — field names for the API
     }
   },
   "state": {
-    "connectivity": "online",
-    "values": { "power": "on", "brightness": 80, "color_temperature": 300 },
+    "values": { "power": true, "brightness": 80, "color_temperature": 300 },
     "read_at": "2026-09-08T12:00:00Z"
   }
 }
@@ -300,10 +310,11 @@ Illustrative `GET /api/devices/{id}`-shaped payloads — field names for the API
 {
   "id": 104,
   "type": "switchable",
+  "connectivity": "online",
   "capabilities": {
-    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": null }
+    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": { "type": "boolean" } }
   },
-  "state": { "connectivity": "online", "values": { "power": "off" }, "read_at": "2026-09-08T12:00:00Z" }
+  "state": { "values": { "power": false }, "read_at": "2026-09-08T12:00:00Z" }
 }
 ```
 
@@ -313,17 +324,19 @@ Illustrative `GET /api/devices/{id}`-shaped payloads — field names for the API
 {
   "id": 105,
   "type": "switchable",
+  "connectivity": "online",
   "capabilities": {
-    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": null },
+    "power": { "access": "read_write", "operations": ["on", "off", "toggle"], "constraints": { "type": "boolean" } },
     "energy": {
       "access": "read",
       "operations": [],
-      "constraints": { "type": "number", "min": 0, "max": null, "step": 0.01, "unit": "kWh" }
+      "constraints": { "type": "number", "min": 0, "max": null, "step": null, "unit": "kWh" }
     }
   },
-  "state": { "connectivity": "online", "values": { "power": "on", "energy": 12.34 }, "read_at": "2026-09-08T12:00:00Z" }
+  "state": { "values": { "power": true, "energy": 12.34 }, "read_at": "2026-09-08T12:00:00Z" }
 }
 ```
+`energy.constraints.step` is `null` — the plug reports cumulative energy in kWh with no known resolution; `min: 0`/`unit: "kWh"` are known, `max`/`step` are not, and neither is invented (§2.4).
 
 ### 8.6 Thermostat
 
@@ -331,10 +344,11 @@ Illustrative `GET /api/devices/{id}`-shaped payloads — field names for the API
 {
   "id": 106,
   "type": "other",
+  "connectivity": "online",
   "capabilities": {
     "current_temperature": {
       "access": "read", "operations": [],
-      "constraints": { "type": "number", "min": -20, "max": 60, "step": 0.1, "unit": "celsius" }
+      "constraints": { "type": "number", "min": null, "max": null, "step": null, "unit": "celsius" }
     },
     "target_temperature": {
       "access": "read_write", "operations": ["set"],
@@ -346,12 +360,12 @@ Illustrative `GET /api/devices/{id}`-shaped payloads — field names for the API
     }
   },
   "state": {
-    "connectivity": "online",
     "values": { "current_temperature": 21.5, "target_temperature": 22.0, "hvac_mode": "heat" },
     "read_at": "2026-09-08T12:00:00Z"
   }
 }
 ```
+`current_temperature.constraints` has `min`/`max`/`step` all `null` — a thermostat's sensor typically has no documented range — while `unit: "celsius"` is still known. `target_temperature` is the contrasting case: a real, device-enforced range, populated because it genuinely exists. This is the exact distinction §2.4's nullable bounds exist to make representable, applied to the two numeric capabilities on the same device.
 
 ---
 
