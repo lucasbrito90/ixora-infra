@@ -364,6 +364,47 @@ See [`plan.md`](plan.md) and [`tasks.md`](tasks.md).
 
 ---
 
+## Post-MVP evolution — current state (v1.4.0)
+
+The sections above describe the **original MVP intent** (Phase 1 documentation, single Home Assistant connection, three action types, no capabilities column, fire-and-forget execution with no per-action log). Release **v1.4.0** extended Smart Home without rewriting this document. The subsections below record **what shipped** in three areas where live code now diverges from the MVP text.
+
+### Capabilities model (ADR-033, T13–T20)
+
+**MVP text:** §2.7 lists only `turn_on`, `turn_off`, and `toggle`. The device record model (§3) has no `capabilities` field.
+
+**Current state:**
+
+- `devices.capabilities` (JSON, nullable) stores an Ixora-normalised map (`can_turn_on`, `can_turn_off`, `can_toggle`, `can_set_brightness`) derived by the adapter at sync time.
+- `ActionType` includes `set_brightness`; `SceneActionJob` runs a capability gate before dispatch (fail-open when `capabilities` is `null`).
+- Mobile scene action editor filters available actions by device capabilities (T26).
+
+**Authoritative docs:** [ADR-033](../../../decisions/ADR-033-device-capabilities.md), [`multi-provider/current-state.md`](../multi-provider/current-state.md) (T01 audit).
+
+### Multiple connections per provider slug (ADR-032 decision C, T12)
+
+**MVP text:** §2.3 implies a single Home Assistant connection per user. ADR-014 § "Uniqueness constraint" documents `UNIQUE (user_id, provider, provider_device_id)` on devices.
+
+**Current state:**
+
+- `UNIQUE (user_id, provider)` on `provider_connections` was **removed**; users may create multiple connections sharing the same provider slug (e.g. home + office Home Assistant), disambiguated by unique `(user_id, name)`.
+- Device dedupe is **`UNIQUE (provider_connection_id, provider_device_id)`** — the same provider-native ID on two connections produces two IXORA device rows (one per connection).
+
+**Authoritative docs:** [ADR-032 decision C](../../../decisions/ADR-032-multi-provider-scope.md), [ADR-014 supersession note](../../../decisions/ADR-014-device-abstraction-and-deduplication.md).
+
+### Per-action execution logging (ADR-034, T21–T22)
+
+**MVP text:** §5 "Execution model" and [ADR-016](../../../decisions/ADR-016-smart-home-async-execution.md) describe fire-and-forget queue dispatch with a **future** `action_execution_logs` table.
+
+**Current state:**
+
+- `scene_action_executions` records one row per action attempt (`success`, `failure`, `timeout`, `unsupported`, …) keyed by `scene_execution_id`.
+- `POST /api/scenes/{scene}/execute` returns a `scene_execution_id`; `GET /api/scenes/{scene}/executions/{sceneExecutionId}` exposes aggregate outcome and per-provider breakdown (T22).
+- Mobile polls execution summary after dispatch and surfaces result toast (T26).
+
+**Authoritative docs:** [ADR-034](../../../decisions/ADR-034-partial-execution-outcome.md), [ADR-016 supersession note](../../../decisions/ADR-016-smart-home-async-execution.md).
+
+---
+
 ## Related docs
 
 | Document | Relationship |

@@ -154,6 +154,14 @@ GET /api/provider-connections/{id}/sync
 
 ---
 
+## What changed vs prior ADRs (v1.4.0 supersession)
+
+| Prior statement | Governing rule (v1.4.0) |
+| --- | --- |
+| This ADR § "Uniqueness constraint": `UNIQUE (user_id, provider, provider_device_id)` on `devices`; dedupe scoped by user + provider slug | **Superseded for runtime schema and sync behaviour** — live v1.1.0+ schema uses `UNIQUE (provider_connection_id, provider_device_id)`. Multiple connections per provider slug ([ADR-032](ADR-032-multi-provider-scope.md) decision C) permanently breaks equivalence between the triple key and the connection-scoped key. **ADR-032 decision C is the governing rule** for device dedupe and multi-instance connections. |
+
+---
+
 ## Related Docs
 
 | Document | Relationship |
