@@ -58,7 +58,7 @@ Firebase / Spaces are **not** required for the default Pest suite (uses fakes / 
 
 | Check | Command | Pass | Verified |
 | --- | --- | --- | --- |
-| **Tests (Pest)** | `composer test` | Exit `0`; JSON line `"result":"passed"` | ✅ 100 tests |
+| **Tests (Pest)** | `composer test` | Exit `0`; JSON line `"result":"passed"` | ✅ **1410** tests (2026-09-23) |
 | **Style (Pint dry-run)** | `composer lint:pint` | Exit `0` | ⚠️ **Currently fails** — 16 files need formatting (run `composer format:pint` when ready) |
 | **Style (Pint fix)** | `composer format:pint` | Rewrites files | ✅ command exists |
 | **Pint (direct)** | `./vendor/bin/pint --test` | Same as `lint:pint` | ✅ |
@@ -181,7 +181,8 @@ npm install
 | **Typecheck** | `npm run typecheck` | Exit `0` | ✅ `vue-tsc --noEmit` |
 | **Build** | `npm run build` | Exit `0` | ✅ includes `vue-tsc` + Vite |
 | **Staging build** | `npm run build:staging` | Same as build with staging env | ✅ (same toolchain) |
-| **Unit tests (Vitest)** | `npm run test:unit` | Exit `0` | ✅ no tests yet (`passWithNoTests`) |
+| **Unit tests (Vitest)** | `npm run test:unit` | Exit `0` | ✅ **515** tests / **48** files (2026-09-23) |
+| **Android unit (Gradle)** | `cd android && ./gradlew testDebugUnitTest` | Exit `0` | ✅ **26** tests (2026-09-23, app module JVM) |
 | **Capacitor Android sync** | `npm run cap:sync:android` | Exit `0` | ✅ wraps `cap sync android` |
 | **E2E (Cypress)** | `npm run test:e2e` | — | ⏸️ **Not in baseline** — exists but not required |
 
@@ -202,6 +203,23 @@ npx cap sync android
 - Cypress in mandatory harness (`test:e2e` remains optional)
 - Android instrumented / Espresso tests
 - iOS sync in baseline (add `cap:sync:ios` when iOS is active)
+
+---
+
+## CSDM boundary tests (baseline)
+
+Permanent source-scan guards for the canonical Smart Home model (ADR-037). Run as part of each repo’s normal unit suite — **not** a separate command.
+
+| Repo | Test file | Verified |
+| --- | --- | --- |
+| `back_vibes` | `tests/Unit/SmartHome/Canonical/CanonicalBoundaryTest.php` | ✅ included in `composer test` (2026-09-23) |
+| `back_vibes` | `tests/Unit/SmartHome/Canonical/CapabilityContractCoherenceTest.php` | ✅ schema ↔ PHP |
+| `back_vibes` | `tests/Unit/SmartHome/ProviderExtensibilityBoundaryTest.php` | ✅ ADR-032 D.1 (domain provider slugs) |
+| `front_vibes` | `src/utils/__tests__/canonical-boundary.test.ts` | ✅ included in `npm run test:unit` |
+| `front_vibes` | `src/utils/__tests__/capability-contract-coherence.test.ts` | ✅ schema ↔ TS constants |
+| `front_vibes` Android | `android/app/src/test/java/app/ixora/googlehome/CanonicalScaleBoundaryTest.kt` | ✅ included in `testDebugUnitTest` |
+
+Contract vendoring: [`contracts/README.md`](../../contracts/README.md).
 
 ---
 
@@ -254,6 +272,14 @@ Commands executed in workspace **2026-05-23**:
 | front_vibes | `npm run build` | Pass |
 | front_vibes | `npm run test:unit` | Pass (no tests) |
 | front_vibes | `npm run cap:sync:android` | Pass |
+
+**CSDM-07 harness refresh (2026-09-23):**
+
+| Repo | Command | Result |
+| --- | --- | --- |
+| back_vibes | `composer test` | **1410** passed, **6976** assertions |
+| front_vibes | `npm run test:unit` | **515** passed, **48** files |
+| front_vibes | `cd android && ./gradlew testDebugUnitTest` | BUILD SUCCESSFUL, **26** JVM unit tests |
 
 ---
 

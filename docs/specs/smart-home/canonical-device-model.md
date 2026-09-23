@@ -1,7 +1,7 @@
 # Canonical Smart Home Device Model — Specification
 
 **Status:** Normative — living document, implements [ADR-037](../../decisions/ADR-037-canonical-smart-home-device-model.md) (**Accepted** 2026-09-08). This is the reference contract implementers code against; it evolves under the versioning rules in §9, not by silent edit.
-**Contract version:** `csdm/v1` (not yet released as a standalone schema artifact — CSDM-01 produces it; see [Versioning and evolution](#versioning-and-evolution))
+**Contract version:** `csdm/v1` — schema artifact **`capability.v1.schema.json`** (CSDM-01), canonical in [`ixora-infra/contracts/smart-home/`](../../../contracts/smart-home/capability.v1.schema.json), vendored in `back_vibes` and `front_vibes` (see [contracts/README.md](../../../contracts/README.md)). Semver field: `x-contract-version` **1.0.0**.
 **Governing decision:** [ADR-037](../../decisions/ADR-037-canonical-smart-home-device-model.md), superseding [ADR-033](../../decisions/ADR-033-device-capabilities.md)'s capability shape.
 **Audience:** `back_vibes` (capability derivation, validation, persistence), `front_vibes` (schema-driven UI, TypeScript types), the Google Home Android/Kotlin integration ([GH04](google-home/trait-capability-mapping.md)), and any future provider mapper (Tuya or otherwise).
 
@@ -371,14 +371,14 @@ Illustrative `GET /api/devices/{id}`-shaped payloads — field names for the API
 
 ## 9. Versioning and evolution
 
-The contract (this spec + its JSON Schema artifact, once CSDM-01 produces one) is versioned independently of application releases, `csdm/v<major>.<minor>`.
+The contract (this spec + its JSON Schema artifact) is versioned independently of application releases, `csdm/v<major>.<minor>`.
 
 **Minor version bump — additive, no consumer breakage required:**
 - A new capability id added to §3's catalog.
 - A new operation added to an existing capability.
 - A new optional field on `Capability`, `Constraint`, or `DeviceState`.
 
-**Major version bump — requires the dual-read compatibility path (ADR-037 §8, owned by CSDM-07):**
+**Major version bump — requires the dual-read compatibility path (ADR-037 §8).** Boundary tests (CSDM-07a/07b) guard against provider scale and trait leakage during the transition; remaining dual-write/dual-read debt is tracked in [`csdm-transition-debt.md`](csdm-transition-debt.md):
 - A change to an existing capability's constraint shape (e.g. changing brightness's canonical unit or range).
 - A new `Constraint` type-union case (e.g. a struct color type) that existing consumers cannot ignore.
 - Any change to the meaning of an existing field.
@@ -395,3 +395,5 @@ The contract (this spec + its JSON Schema artifact, once CSDM-01 produces one) i
 - [ADR-033](../../decisions/ADR-033-device-capabilities.md) — the superseded capability shape; kept for historical reference and for understanding the legacy data this spec's consumers must read during the transition window (§9, ADR-037 §8).
 - [`canonical-device-model-audit.md`](canonical-device-model-audit.md) — the code audit that surfaced the gaps this model closes.
 - [GH04 — Google Home trait/device-type mapping](google-home/trait-capability-mapping.md) — the first real provider mapper analysis this spec's shape is validated against (brightness range mismatch, missing native toggle).
+- [`csdm-transition-debt.md`](csdm-transition-debt.md) — post–CSDM-07 tracked debt (dual-write HA, legacy parameters, wire `ActionType`, Android legacy brightness path, E2E gaps).
+- [ADR-037 §15 addendum](../../decisions/ADR-037-canonical-smart-home-device-model.md#15--addendum-transição-csdm-0107-estado-de-fechamento-2026-09-23) — closure status of the CSDM-01–07 track.
