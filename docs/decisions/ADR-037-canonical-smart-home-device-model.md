@@ -298,6 +298,38 @@ The PO approved this ADR's direction but required three corrections before movin
 
 No further inconsistency was found while applying these corrections. §13 confirms none of the seven CSDM implementation cards need a structural change as a result.
 
+---
+
+## 15 — Addendum: Transição CSDM-01–07 — estado de fechamento (2026-09-23)
+
+**Status note:** The Accepted text above is unchanged. This section records what the CSDM-01–07 implementation track delivered and what remains as tracked debt. Detailed debt items: [`docs/specs/smart-home/csdm-transition-debt.md`](../specs/smart-home/csdm-transition-debt.md). Release summary: [`docs/releases/csdm-canonical-device-model.md`](../releases/csdm-canonical-device-model.md).
+
+### (a) Entregue — contrato e guards
+
+| Card | Entregável | Onde vive |
+| --- | --- | --- |
+| CSDM-01 | JSON Schema `capability.v1.schema.json` (`x-contract-version` **1.0.0**) | Canônico: `ixora-infra/contracts/smart-home/`; vendored byte-idêntico em `back_vibes` e `front_vibes` (ver `contracts/README.md`) |
+| CSDM-02–03 | Validação canônica, mapper HA, dual-read legado | `back_vibes/app/SmartHome/Canonical/*`, `HomeAssistantCanonicalMapper.php` |
+| CSDM-04–06 | Google mapper (Kotlin + TS), UI schema-driven | `front_vibes` plugin + `canonical-capabilities.ts`, editor de ações |
+| CSDM-07a | Boundary guards backend | `back_vibes/tests/Unit/SmartHome/Canonical/CanonicalBoundaryTest.php` (+ sentinels); domínio ADR-032 continua em `ProviderExtensibilityBoundaryTest.php` |
+| CSDM-07b | Schema vendored no front, payload Google só envelope, guards Vitest/Kotlin | `front_vibes/contracts/smart-home/capability.v1.schema.json`, `canonical-boundary.test.ts`, `capability-contract-coherence.test.ts`, `CanonicalScaleBoundaryTest.kt` |
+
+### (b) Janela dual-shape ainda aberta
+
+- **Persistência HA:** `HomeAssistantCanonicalMapper::toStoredPayload()` ainda grava **envelope canônico + chaves `can_*`** via `legacyKeysFor()` (expand/contract ADR-037 §8).
+- **Leitura legado:** `LegacyCapabilityMapReader` (e validação de parâmetros legados em `CommandValidator`) continua ativos.
+- **Wire:** `scene_actions.action_type` permanece o vocabulário ADR-033 (`turn_on`, `set_brightness`, …).
+
+### (c) Fechado nesta transição (documentação CSDM-07)
+
+- **Front — sync Google Home:** `google-home.service.ts` passa a **emitir somente** `contract_version` + `capabilities` (sem gerar `can_*` nem escalas 255/254 no payload reportado) — CSDM-07b.
+- **Back — gate de capabilities:** `ActionType::isBlockedByDeviceCapabilities()` interpreta envelope canônico e mapa legado via `LegacyCapabilityMapReader`, não só chaves `can_*` — CSDM-07a.
+- **Semântica de domínio:** `ActionType` **reinterpretado** por `ActionTypeTranslation` + `CommandValidator`; não aposentado no wire.
+
+### (d) Decisão formal — `ActionType` no wire
+
+Retirar o enum / campo `action_type` da API pública é **mudança breaking** e **não** foi feita no track CSDM-07. Deve ser tratada como decisão futura própria (versão de API, telemetria, clientes). Ver item 5 em [`csdm-transition-debt.md`](../specs/smart-home/csdm-transition-debt.md).
+
 ## Sources
 
 Code (verified 2026-09-07/08): `back_vibes/app/SmartHome/{ActionType.php, Adapters/HomeAssistantAdapter.php, DTOs/{ProviderDevice.php, DeviceStatusResult.php}, DeviceStatus.php}`, `app/Models/{Device.php, SceneAction.php}`, `app/Http/Resources/DeviceResource.php`, `app/Http/Requests/{Store,Update}SceneActionRequest.php`, `database/migrations/2026_09_04_000001_add_capabilities_to_devices_table.php`, `front_vibes/src/utils/device-action.ts`. Internal: [ADR-032](ADR-032-multi-provider-scope.md), [ADR-033](ADR-033-device-capabilities.md), [ADR-036](ADR-036-google-home-execution-model.md), GH04 (`docs/specs/smart-home/google-home/trait-capability-mapping.md`).
