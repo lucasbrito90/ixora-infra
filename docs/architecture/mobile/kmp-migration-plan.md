@@ -1,13 +1,13 @@
 # Plano de migração do front_vibes para Kotlin Multiplatform
 
-**Status:** Direção aprovada pelo PO em 2026-09-24 (§0). O restante do documento é o plano de execução dessa direção; nenhuma implementação é autorizada por este documento.
-**Data:** 2026-09-23 · **Revisado:** 2026-09-24 (decisões definitivas do PO)
+**Status:** Direção aprovada pelo PO em 2026-09-23 (§0). O restante do documento é o plano de execução dessa direção; nenhuma implementação é autorizada por este documento.
+**Data:** 2026-09-23 · **Revisado:** 2026-09-23 (decisões definitivas do PO)
 **Escopo:** camada mobile do Ixora. Não altera `back_vibes`, `ixora-admin` nem contratos de API.
 **Premissas confirmadas com o PO:** iOS depende da compra de um Mac (sem data); os motivadores são qualidade do player de áudio, experiência nativa de UI e consolidação em Kotlin; execução solo com apoio do Cursor.
 
 ---
 
-## 0. Decisões definitivas do PO (2026-09-24)
+## 0. Decisões definitivas do PO (2026-09-23)
 
 Estas decisões são **posteriores ao corpo original deste documento e prevalecem sobre ele**. Foram tomadas pelo PO e não devem ser reabertas sem evidência técnica concreta.
 
@@ -1037,7 +1037,7 @@ Fatias pequenas o bastante para execução assistida, cada uma com resultado ver
 
 | # | Tarefa | Fase | Saída verificável |
 | --- | --- | --- | --- |
-| K01 | **Consolidar decisões arquiteturais** | 0 | ✅ **Concluído em 2026-09-24** por esta revisão: §0 registra D1–D5; questões 1, 4, 6, 7 e 9 do §15 fechadas; §5.3, §10.4, §11, §14 e §15 atualizados. Restam abertas as questões 2, 3, 5 e 8, nenhuma bloqueante. |
+| K01 | **Consolidar decisões arquiteturais** | 0 | ✅ **Concluído em 2026-09-23** por esta revisão: §0 registra D1–D5; questões 1, 4, 6, 7 e 9 do §15 fechadas; §5.3, §10.4, §11, §14 e §15 atualizados. Restam abertas as questões 2, 3, 5 e 8, nenhuma bloqueante. |
 | K02 | **ADR-038 — KMP Shared Layer** | 0 | ADR Accepted: o que vai para `commonMain`, o que não vai, e o critério de decisão (a matriz do §3) |
 | K03 | **ADR-039 — Native UI: Compose + SwiftUI** | 0 | ADR Accepted: sem Compose Multiplatform; custo aceito de reescrever a UI duas vezes; estratégia de Design System de §16.14 registrada como decisão (linguagem comum, implementação nativa, sem módulo `design-system`, Figma como origem) |
 | K04 | **ADR-042 — Migration / Repository Strategy** | 0 | ADR Accepted + `repo-responsibilities.md`, `architecture-map.md` e `CLAUDE.md` da raiz refletindo o quinto repositório (`ixora-app`) e o feature freeze |

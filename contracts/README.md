@@ -16,6 +16,8 @@ Machine-readable contracts shared by more than one repository. Unlike `docs/`, w
 | --- | --- | --- |
 | `smart-home/capability.v1.schema.json` | this repo | `back_vibes/contracts/smart-home/capability.v1.schema.json`, `front_vibes/contracts/smart-home/capability.v1.schema.json` |
 
+**Planned consumer (no code yet):** [`ixora-app`](../docs/decisions/ADR-042-migration-repository.md), the Kotlin Multiplatform rebuild of the mobile layer. It will vendor a byte-identical copy once there is code consuming it, with its own coherence test, exactly as `back_vibes` and `front_vibes` do. It is **not** listed in the table above because the repository is currently empty.
+
 **Planned consumer (no vendored schema copy):** the Google Home Android plugin (Kotlin, CSDM-04). It implements the contract in code — canonical brightness conversion lives in `front_vibes/android/app/src/main/java/app/ixora/googlehome/CanonicalBrightness.kt`; Matter 0–254 never crosses into TypeScript. The plugin does not duplicate the JSON file; coherence is enforced by Kotlin unit tests (`CanonicalBrightnessTest.kt`, `CanonicalScaleBoundaryTest.kt`) and by the mobile app’s vendored schema + Vitest coherence test on the TypeScript side.
 
 ### Changing a contract

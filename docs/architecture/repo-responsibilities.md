@@ -2,7 +2,7 @@
 
 **Status:** Active architecture (source of truth)  
 **Scope:** What **must** and **must not** live in each Ixora repository  
-**Applies to:** `front_vibes`, `ixora-admin`, `back_vibes`, `ixora-infra` — all engineers and AI-assisted tooling
+**Applies to:** `front_vibes`, `ixora-app`, `ixora-admin`, `back_vibes`, `ixora-infra` — all engineers and AI-assisted tooling
 
 > **Drift prevention.** When unsure where code or config belongs, use this document **before** opening a PR. Conflicts with an ADR require a **new ADR** — not a silent exception in an app repo.
 
@@ -12,7 +12,7 @@
 
 ## Purpose
 
-Define **hard ownership boundaries** across the four Ixora repositories so business rules, secrets, playback, uploads, infrastructure, and shared contracts stay in the correct layer as the platform grows — without duplicating authority or hiding cross-repo coupling.
+Define **hard ownership boundaries** across the five Ixora repositories so business rules, secrets, playback, uploads, infrastructure, and shared contracts stay in the correct layer as the platform grows — without duplicating authority or hiding cross-repo coupling.
 
 ---
 
@@ -23,21 +23,25 @@ Define **hard ownership boundaries** across the four Ixora repositories so busin
 │                         SHARED CONTRACTS (documented)                      │
 │  REST JSON · Firebase JWT · CDN URL strings · Git Flow · specs · ADRs    │
 └─────────────────────────────────────────────────────────────────────────┘
-         ▲                    ▲                    ▲                 ▲
-         │                    │                    │                 │
-  ┌──────┴──────┐      ┌──────┴──────┐      ┌──────┴──────┐   ┌────┴────┐
-  │ front_vibes │      │ ixora-admin │      │ back_vibes  │   │ixora-infra│
-  │   MOBILE    │      │    ADMIN    │      │     API     │   │ INFRA+DOCS│
-  │  runtime    │      │     UI      │      │   domain    │   │  OpenTofu │
-  └─────────────┘      └─────────────┘      └─────────────┘   └───────────┘
+         ▲            ▲            ▲            ▲            ▲
+         │            │            │            │            │
+  ┌──────┴─────┐ ┌────┴─────┐ ┌────┴─────┐ ┌────┴─────┐ ┌────┴─────┐
+  │front_vibes │ │ ixora-app│ │ixora-admin│ │back_vibes│ │ixora-infra│
+  │  MOBILE    │ │  MOBILE  │ │   ADMIN   │ │   API    │ │INFRA+DOCS │
+  │ shipping   │ │   KMP    │ │    UI     │ │  domain  │ │ OpenTofu  │
+  │  (frozen)  │ │(building)│ │           │ │          │ │           │
+  └────────────┘ └──────────┘ └───────────┘ └──────────┘ └───────────┘
 ```
 
 | Repository | One-line role |
 | --- | --- |
 | **`back_vibes`** | Authoritative **business logic**, persistence, authorization, **Spaces writes**, async jobs |
-| **`front_vibes`** | **Mobile runtime** — playback, execution plan, offline, user-facing vibe UX |
+| **`front_vibes`** | **Mobile runtime (shipping today)** — playback, execution plan, offline, user-facing vibe UX. **Feature-frozen** for the KMP migration |
+| **`ixora-app`** | **Mobile runtime (under construction)** — Kotlin Multiplatform + native UI; replaces `front_vibes` at cutover |
 | **`ixora-admin`** | **Admin UI** — catalog maintenance; all mutations via API |
 | **`ixora-infra`** | **Staging infrastructure** (OpenTofu) + **central documentation** (specs, ADRs, standards) |
+
+> **Transition in progress.** The mobile layer is being rebuilt from Ionic/Capacitor into Kotlin Multiplatform, in a **parallel repository** ([ADR-042](../decisions/ADR-042-migration-repository.md)). Until cutover, `front_vibes` is the real installable application and `ixora-app` is not. Everything this document says about `front_vibes` therefore remains current; the `ixora-app` section describes the destination, not today's runtime.
 
 Each repo has its **own** git history and **`main` / `develop` / `staging`** branches ([Git Flow](../standards/git-flow.md)).
 
@@ -45,26 +49,30 @@ Each repo has its **own** git history and **`main` / `develop` / `staging`** bra
 
 ## Boundary matrix (at a glance)
 
-| Concern | front_vibes | ixora-admin | back_vibes | ixora-infra |
-| --- | --- | --- | --- | --- |
-| **Deployment** | Manual/CI app build | App Platform static (`staging` push) | App Platform API + worker | `tofu apply` (operator) |
-| **Auth (identity)** | Firebase client SDK | Firebase client SDK | JWT verify + `users` sync | Firebase **env injection** only |
-| **Auth (authorization)** | Route guards (UX) | Middleware (UX) | Policies, middleware, ownership | — |
-| **Storage writes** | ❌ | ❌ (via API) | ✅ sole Spaces writer | Bucket resource only |
-| **Storage reads** | CDN HTTPS URLs | CDN HTTPS URLs | Server SDK + CDN URLs in JSON | CDN hostname in env |
-| **Playback runtime** | ✅ | ❌ | ❌ | ❌ |
-| **Execution plan** | ✅ | ❌ | ❌ | ❌ |
-| **Offline bytes** | ✅ | ❌ | ❌ | ❌ |
-| **Catalog CRUD rules** | ❌ | Forms only | ✅ | ❌ |
-| **Queue / mail jobs** | ❌ | ❌ | ✅ worker | Worker **spec** only |
-| **Infrastructure** | ❌ | ❌ | ❌ | ✅ OpenTofu |
-| **Feature specs / ADRs** | Copies optional | Copies optional | Copies optional | ✅ **canonical** |
+| Concern | front_vibes | ixora-app | ixora-admin | back_vibes | ixora-infra |
+| --- | --- | --- | --- | --- | --- |
+| **Deployment** | Manual/CI app build | Manual/CI app build (Gradle) | App Platform static (`staging` push) | App Platform API + worker | `tofu apply` (operator) |
+| **Auth (identity)** | Firebase client SDK | Firebase native SDKs | Firebase client SDK | JWT verify + `users` sync | Firebase **env injection** only |
+| **Auth (authorization)** | Route guards (UX) | Route guards (UX) | Middleware (UX) | Policies, middleware, ownership | — |
+| **Storage writes** | ❌ | ❌ | ❌ (via API) | ✅ sole Spaces writer | Bucket resource only |
+| **Storage reads** | CDN HTTPS URLs | CDN HTTPS URLs | CDN HTTPS URLs | Server SDK + CDN URLs in JSON | CDN hostname in env |
+| **Playback runtime** | ✅ today | ✅ at cutover | ❌ | ❌ | ❌ |
+| **Execution plan** | ✅ today | ✅ at cutover (`commonMain`) | ❌ | ❌ | ❌ |
+| **Offline bytes** | ✅ today | ✅ at cutover | ❌ | ❌ | ❌ |
+| **Catalog CRUD rules** | ❌ | ❌ | Forms only | ✅ | ❌ |
+| **Queue / mail jobs** | ❌ | ❌ | ❌ | ✅ worker | Worker **spec** only |
+| **Infrastructure** | ❌ | ❌ | ❌ | ❌ | ✅ OpenTofu |
+| **Feature specs / ADRs** | Copies optional | Copies optional | Copies optional | Copies optional | ✅ **canonical** |
+
+The mobile columns are **not** additive: `front_vibes` owns the mobile runtime today and `ixora-app` owns it after cutover ([ADR-042](../decisions/ADR-042-migration-repository.md) Decision 6). They are never both authoritative at once.
 
 ---
 
-## `front_vibes` — mobile application
+## `front_vibes` — mobile application (shipping today, feature-frozen)
 
 **Stack:** Ionic 8, Vue 3, Capacitor 8, Pinia, Firebase client SDK.
+
+> **Feature-frozen** for the duration of the KMP migration ([ADR-042](../decisions/ADR-042-migration-repository.md) Decision 2). No new features; changes are limited to what the migration requires or to recovering existing functionality. It remains the **real installable application** until cutover, and is never deleted. Everything below is current and authoritative until then.
 
 ### Responsibilities
 
@@ -111,6 +119,60 @@ Each repo has its **own** git history and **`main` / `develop` / `staging`** bra
 - REST: `/api/vibes`, `/api/sounds`, `/api/preset-vibes`, `/api/auth/sync`, …
 - JSON shape from Laravel **Resources** ([api-resource-patterns](../standards/api-resource-patterns.md)).
 - Firebase JWT on every mutating/read request as implemented per service.
+
+---
+
+## `ixora-app` — mobile application (under construction)
+
+**Stack:** Kotlin Multiplatform, Jetpack Compose (Android), SwiftUI (iOS, not built yet), Gradle.
+
+> **Status: empty repository.** Created 2026-09-23; no code yet. This section describes the boundaries the repository will have, so that the first commit lands inside them. It does **not** describe a running application.
+
+### Responsibilities
+
+- Destination of the mobile rebuild ([ADR-042](../decisions/ADR-042-migration-repository.md)). Takes over `front_vibes`'s responsibilities at cutover, **unchanged in substance** — same behaviour, same API contracts, same user experience.
+- **Shared layer** (`shared/`, Kotlin Multiplatform): domain models, business rules, API clients, repositories, execution plan, layer scheduling, presentation state ([ADR-038](../decisions/ADR-038-kmp-shared-layer.md) is the authority on what qualifies).
+- **Android application** (`androidApp/`): Jetpack Compose UI, Media3 playback transport, foreground service, Google Home SDK, Firebase and FCM native integration ([ADR-039](../decisions/ADR-039-native-ui.md)).
+- **iOS application** (`iosApp/`): SwiftUI, structure defined and **not implemented** — waiting on a Mac/Xcode environment.
+
+### MUST live here
+
+| Category | Examples |
+| --- | --- |
+| Shared domain and contracts | `commonMain` models, repositories, `buildVibeExecutionPlan`, canonical smart-home domain |
+| Playback decision layer | Deterministic scheduler — what should be playing at time *t* |
+| Native audio transport | Media3/ExoPlayer (Android); AVAudioEngine (iOS, later) |
+| Native UI | Compose theme, components and screens; SwiftUI equivalents later |
+| Platform integrations | Secure storage, permissions, push delivery, Google Home SDK |
+| Vendored contract copy | `capability.v1.schema.json`, byte-identical, once the code consumes it |
+
+### MUST NOT live here
+
+| Forbidden | Why |
+| --- | --- |
+| **`DO_SPACES_*` or bucket SDK** | [ADR-002](../decisions/ADR-002-laravel-only-storage-writes.md) · [ADR-006](../decisions/ADR-006-no-direct-mobile-uploads.md) — inherited unchanged |
+| **Authoritative validation** (MIME, size, ownership) | Server FormRequests — client hints only |
+| **Business policies** (ownership, admin gates) | Laravel policies |
+| **Backend scheduling / play endpoints** | No server play engine ([ADR-007](../decisions/ADR-007-execution-plan-runtime-contract.md)) |
+| **Shared UI abstractions** (`SharedButton`, `SharedScreen`, …) | [ADR-039](../decisions/ADR-039-native-ui.md) Decision 6 |
+| **Compose Multiplatform** | [ADR-039](../decisions/ADR-039-native-ui.md) Decision 1 |
+| **A `design-system` KMP module** | [ADR-039](../decisions/ADR-039-native-ui.md) Decision 4 — only with a measured, documented need |
+| **Android-only or JVM-only APIs in `commonMain`** | [ADR-038](../decisions/ADR-038-kmp-shared-layer.md) Decision 5, enforced by boundary test |
+| **New features during the migration** | [ADR-042](../decisions/ADR-042-migration-repository.md) Decision 8 — migration is not redesign |
+| **OpenTofu / App Platform config** | `ixora-infra` |
+| **Canonical feature specs** | `ixora-infra/docs/specs/` |
+
+### Deployment responsibility
+
+- **Not** hosted on DigitalOcean App Platform — same property as `front_vibes`, so this repository adds **no** infrastructure and requires no `tofu apply`.
+- Gradle build → Android device or store pipeline. Must ship with `applicationId` **`app.ixora.ixora`** and the same signing key as `front_vibes`, or existing installations cannot update ([ADR-042](../decisions/ADR-042-migration-repository.md) Decision 6).
+- Same Git Flow as every other repository: `main`, `develop`, `staging`; branches are never deleted.
+
+### Shared contracts consumed
+
+- The same REST endpoints and JSON shapes `front_vibes` consumes today — the API contract does **not** change because of this migration.
+- Firebase JWT as `Authorization: Bearer <token>`.
+- `capability.v1.schema.json`, vendored byte-identical once there is code to consume it (see [`contracts/README.md`](../../contracts/README.md)).
 
 ---
 
@@ -347,7 +409,11 @@ Does it mutate PostgreSQL or enforce who may mutate?
   └─ YES → back_vibes
 
 Does it play audio, schedule layers, or store offline bytes?
-  └─ YES → front_vibes
+  ├─ Is it a fix to the shipping app, required by the migration
+  │  or to recover existing functionality?      → front_vibes (frozen: nothing else)
+  └─ Is it part of the rebuild?                 → ixora-app
+       ├─ Is it a rule, contract or decision?   → shared/ (ADR-038 decides)
+       └─ Is it transport, UI or OS integration?→ androidApp/ (iosApp/ later)
 
 Does it render admin catalog forms or upload UX?
   └─ YES → ixora-admin (bytes still through API)
