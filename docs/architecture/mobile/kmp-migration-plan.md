@@ -1,9 +1,27 @@
 # Plano de migração do front_vibes para Kotlin Multiplatform
 
-**Status:** Proposta para decisão — nenhuma implementação autorizada por este documento.
-**Data:** 2026-09-23
-**Escopo:** camada mobile do Ixora (`front_vibes`). Não altera `back_vibes`, `ixora-admin` nem contratos de API.
+**Status:** Direção aprovada pelo PO em 2026-09-24 (§0). O restante do documento é o plano de execução dessa direção; nenhuma implementação é autorizada por este documento.
+**Data:** 2026-09-23 · **Revisado:** 2026-09-24 (decisões definitivas do PO)
+**Escopo:** camada mobile do Ixora. Não altera `back_vibes`, `ixora-admin` nem contratos de API.
 **Premissas confirmadas com o PO:** iOS depende da compra de um Mac (sem data); os motivadores são qualidade do player de áudio, experiência nativa de UI e consolidação em Kotlin; execução solo com apoio do Cursor.
+
+---
+
+## 0. Decisões definitivas do PO (2026-09-24)
+
+Estas decisões são **posteriores ao corpo original deste documento e prevalecem sobre ele**. Foram tomadas pelo PO e não devem ser reabertas sem evidência técnica concreta.
+
+| # | Decisão | Efeito neste plano |
+| --- | --- | --- |
+| **D1** | O app novo é desenvolvido em **`git@github.com:lucasbrito90/ixora-app.git`** (repositório já criado, vazio). `front_vibes` segue como referência e histórico. | Confirma a Opção A do §5.3 e fixa o nome. A recomendação anterior de `ixora-mobile` está descartada. |
+| **D2** | **Feature freeze** no `front_vibes` durante toda a migração. Nenhuma feature nova; o objetivo é reproduzir o comportamento existente. | Resolve a questão 1 do §15 e muda a estratégia de migração (§11). |
+| **D3** | **Sem migração de dados locais.** Áudio offline, cache de playback e o espelho SQLite são reconstruídos por download ou sincronização. | Resolve a questão 6 do §15 e remove o risco 7 do §14. |
+| **D4** | **Fade deve ser recuperado** na nova arquitetura, como parte do K05 / ADR-040. | Resolve a questão 7 do §15 e amplia deliberadamente o escopo do player. Ver §10.4 para o que isso significa de fato. |
+| **D5** | **Android primeiro**, com o `shared` nascendo KMP e o target iOS declarado. Sem Compose Multiplatform. | Já era a recomendação central do §1.2; agora é decisão. |
+
+### 0.1 Questões do §15 ainda em aberto
+
+Fechadas por estas decisões: 1, 6, 7 e 9. **Permanecem em aberto:** 2 (prazo ou projeto de fundo), 3 (`minSdk` alvo), 5 (telemetria OTel desde o começo) e 8 (portar os tokens de tema ou redesenhar). Nenhuma das quatro bloqueia o K07.
 
 ---
 
@@ -205,7 +223,7 @@ Dividir em módulos Gradle depois, quando houver **motivo medido**: tempo de bui
 ### 5.2 Estrutura de diretórios recomendada
 
 ```
-ixora-mobile/
+ixora-app/
 ├── settings.gradle.kts
 ├── gradle/libs.versions.toml          # version catalog
 │
@@ -249,12 +267,14 @@ ixora-mobile/
 
 | Opção | A favor | Contra |
 | --- | --- | --- |
-| **A. Novo repo `ixora-mobile`** | Raiz Gradle limpa; os dois apps coexistem sem conflito de tooling; `front_vibes` preservado como referência | Quinto repositório no workspace; CI e docs novos; exige atualizar `repo-responsibilities.md` |
+| **A. Novo repositório** | Raiz Gradle limpa; os dois apps coexistem sem conflito de tooling; `front_vibes` preservado como referência | Quinto repositório no workspace; CI e docs novos; exige atualizar `repo-responsibilities.md` |
 | **B. Dentro do `front_vibes`** | Mantém histórico, Git Flow e evidências de QA; um lugar só | Conflito de raiz (npm/Vite vs. Gradle); o `android/` gerado pelo Capacitor colide com `androidApp/`; meses com duas stacks na mesma árvore |
 
-**Recomendação: Opção A — novo repositório `ixora-mobile`**, criado a partir do momento em que a Fase 2 começar. A Fase 1 (prova do módulo compartilhado) pode ocorrer dentro do `front_vibes` atual, porque o projeto Android gerado pelo Capacitor é um projeto Gradle comum e aceita um módulo KMP — isso permite validar a tese sem criar repositório algum. Ver §11.
+**Decidido (D1): Opção A — repositório `ixora-app`** (`git@github.com:lucasbrito90/ixora-app.git`), já criado e vazio. Todo o trabalho a partir do K07 acontece nele, inclusive a Fase 1 — a variante anterior, de começar dentro do `front_vibes`, foi descartada junto com a estratégia strangler (§11).
 
-`front_vibes` nunca é deletado; vira repositório congelado de referência, coerente com a política do projeto de não apagar histórico.
+O workspace passa de quatro para cinco repositórios. `repo-responsibilities.md`, `architecture-map.md` e o `CLAUDE.md` da raiz precisam refletir isso; o K04 (ADR-042) é o lugar certo para essa atualização.
+
+`front_vibes` nunca é deletado; vira repositório de referência em feature freeze (D2), coerente com a política do projeto de não apagar histórico.
 
 ---
 
@@ -453,6 +473,26 @@ Colocar essa lógica em um scheduler determinístico e compartilhado significa e
 
 Media3 e AVAudioEngine expõem controle de volume por nó, o que torna **fade-in e fade-out viáveis** — recurso hoje desativado por limitação do `@capgo/native-audio`, com os campos `fade_in_seconds`/`fade_out_seconds` já presentes no schema aguardando um runtime capaz de honrá-los.
 
+### 10.4 Fade (D4) — o que existe hoje, medido
+
+A decisão D4 determina recuperar o fade. Antes de planejar o K05 é preciso registrar um fato verificado no código, porque ele muda a natureza do trabalho:
+
+**Não existe comportamento de fade em runtime no `front_vibes` para ser reproduzido.** O que existe é o contrato completo, honrado em todas as camadas exceto no transporte de áudio:
+
+| Camada | Estado | Evidência |
+| --- | --- | --- |
+| Banco e API | Persiste e expõe os campos | `vibe_sounds.fade_in_seconds` / `fade_out_seconds`; `VibeSoundResource`, `AttachVibeSoundRequest`, `UpdateVibeSoundRequest` |
+| Plano de execução | Calcula e propaga | `player-engine.service.ts:168-169` mapeia para `fadeInSeconds` / `fadeOutSeconds` |
+| UI | **Anuncia ao usuário** | `VibePlayerPage.vue:240-244` e `VibeSoundsPage.vue:279-280` exibem "fade in Ns" / "fade↓ Ns" |
+| Painel de debug | Declara a lacuna | `PlayerDebugPanel.vue:142` imprime o valor seguido de "(stored but ignored)" |
+| Transporte | **Ignora** | `audio-player.service.ts:15` — "fadeIn/fadeOut are intentionally NOT applied at runtime"; `native-audio.engine.ts:70` passa `fade: false` |
+
+Duas consequências práticas:
+
+1. **O K05 precisa especificar a semântica do fade, não copiá-la.** Não há fonte de verdade comportamental. A especificação precisa decidir, no mínimo: curva (linear ou logarítmica — para volume percebido, logarítmica), se o fade-out é ancorado em `endsAtSeconds` ou no fim do arquivo, comportamento em `interval` (fade por tick ou só nas bordas da camada), interação com pausa e retomada, e comportamento na borda do loop. Essas escolhas são novas por necessidade, não por vontade — e a instrução "não inventar um comportamento de fade diferente" deve ser lida como "não extrapolar além do que os campos já existentes descrevem".
+
+2. **Recuperar o fade não viola o feature freeze (D2).** A UI já promete fade ao usuário e o áudio não entrega: é uma lacuna de implementação de um contrato existente, não uma feature nova. O freeze continua valendo para qualquer coisa além disso.
+
 ---
 
 ## 11. Estratégia de migração
@@ -465,9 +505,13 @@ Media3 e AVAudioEngine expõem controle de volume por nó, o que torna **fade-in
 | **B. Strangler dentro do app atual** | Adicionar o módulo KMP e telas Compose ao projeto Android do Capacitor, migrando tela a tela | App sempre publicável; convivência de duas stacks por um período |
 | **C. Híbrido** | Provar o núcleo no app atual (Fase 1–2), depois seguir em repositório novo | Combina validação cedo com estrutura limpa |
 
-**Recomendação: Opção C.** Um app Capacitor é um projeto Android comum: aceita módulo Gradle KMP e Activities Compose, e o projeto já tem o precedente de código nativo (`GoogleHomePlugin`). Isso permite provar a tese — inclusive o player nativo, que é o motivador nº 1 — **sem** um período longo sem entregar, e sem criar repositório antes de ter confiança na arquitetura.
+**Decidido (D1 + D2): Opção A — construção paralela em `ixora-app`.** As opções B e C ficam descartadas.
 
-Para uma pessoa só, com Cursor, esse é o fator decisivo: cada fase precisa terminar com algo instalável no aparelho.
+A recomendação original deste documento era a Opção C, e o argumento era um só: evitar um período longo sem entregar. **O feature freeze (D2) remove esse argumento** — com o `front_vibes` congelado e publicável como está, não há pressão de entrega durante a reconstrução, e a complexidade de manter duas stacks no mesmo APK deixa de se pagar. A combinação D1 + D2 + D3 forma uma estratégia coerente de *congelar e reconstruir*.
+
+**Consequência a aceitar conscientemente:** o ganho do motivador nº 1 (player) não chega mais cedo, como chegaria no strangler. Ele chega quando o app novo estiver instalável. Em troca, o caminho é mais simples e não gera trabalho descartável de ponte entre o player nativo e a UI Vue.
+
+**Mitigação obrigatória, já que o strangler não protege mais contra abandono:** o `ixora-app` precisa estar **instalável no aparelho a partir da Fase 4**, ainda que com UI mínima. Uma tela que lista vibes e toca uma delas já serve. O critério é que cada fase termine com algo demonstrável rodando no celular, não com testes verdes apenas.
 
 ### 11.2 Fases
 
@@ -482,10 +526,10 @@ Critério: ADRs em estado Accepted; questões de §15 respondidas.
 Não iniciar antes: qualquer código.
 
 **Fase 1 — Fundação KMP e prova do plano de execução**
-Objetivo: módulo `shared` compilando dentro do projeto Android atual, com `buildVibeExecutionPlan` portado.
-Componentes: Gradle/KMP, version catalog, kotlinx.serialization, kotlinx-datetime, teste de fronteira do `commonMain`.
+Objetivo: repositório `ixora-app` inicializado e módulo `shared` compilando, com `buildVibeExecutionPlan` portado.
+Componentes: Gradle/KMP, version catalog, kotlinx.serialization, kotlinx-datetime, teste de fronteira do `commonMain`, Git Flow do novo repositório.
 Risco: baixo. É onde se aprende KMP sem pressão.
-Critério: os testes Vitest de `player-engine` reproduzidos em `commonTest`, com os mesmos casos e resultados idênticos; APK ainda instala e funciona.
+Critério: os testes Vitest de `player-engine` reproduzidos em `commonTest`, com os mesmos casos e resultados idênticos.
 Testável: paridade do plano de execução entre TS e Kotlin.
 
 **Fase 2 — Networking e autenticação**
@@ -502,33 +546,34 @@ Componentes: os ≈3.900 linhas de lógica pura identificados no §2.1, mais o s
 Critério: testes portados verdes; guards de fronteira do CSDM reproduzidos em Kotlin.
 
 **Fase 4 — Player nativo Android**
-Objetivo: `PlaybackScheduler` compartilhado + transporte Media3 + foreground service + MediaSession.
-Dependências: Fases 1 e 3.
-Risco: **o mais alto do plano.** É a reescrita da parte mais sutil do app.
-Critério: uma vibe multi-camada toca com paridade comportamental comprovada contra o app atual (loop, once, interval, pausa no intervalo, foco de áudio, background), verificada em aparelho real.
+Objetivo: `PlaybackScheduler` compartilhado + transporte Media3 + foreground service + MediaSession + **fade (D4)**.
+Dependências: Fases 1 e 3, e a ADR-040 aceita (K05) com a semântica de fade especificada.
+Risco: **o mais alto do plano.** É a reescrita da parte mais sutil do app, agora com um comportamento novo a definir (§10.4).
+Critério: uma vibe multi-camada toca com paridade comportamental comprovada contra o `front_vibes` congelado (loop, once, interval, pausa no intervalo, foco de áudio, background), verificada no mesmo aparelho; fade aplicado conforme a especificação da ADR-040.
 Não iniciar antes: Fase 3 completa — o scheduler depende do plano e dos modelos.
 
-**Fase 5 — Corte do player**
-Objetivo: o player nativo substitui o player Vue dentro do app atual, com o restante da UI ainda em WebView.
+**Fase 5 — Shell instalável**
+Objetivo: o `ixora-app` vira um APK instalável e demonstrável: login, lista de vibes e reprodução. UI mínima, sem polimento.
 Dependências: Fase 4.
-Risco: a ponte entre o estado nativo do player e o MiniPlayer em Vue é trabalho descartável.
-Critério: usuário toca uma vibe pelo runtime nativo em build de staging, sem regressão.
-Nota: é aqui que o motivador nº 1 é entregue, muito antes do fim da migração.
+Critério: instalar no aparelho, autenticar contra o staging, tocar uma vibe do início ao fim.
+Razão de existir: é a mitigação do risco nº 1. Sem o strangler, esta é a primeira prova concreta de que a reconstrução funciona — e o ponto a partir do qual todas as fases seguintes terminam com algo rodando no celular.
 
-**Fase 6 — Repositório novo e UI Compose**
-Objetivo: `ixora-mobile` criado; telas migradas por área, em ordem de valor: Vibes → Player → Sounds → Scenes/Devices → Schedules → Auth/Settings.
+**Fase 6 — UI Compose por área**
+Objetivo: telas migradas em ordem de valor: Vibes → Player → Sounds → Scenes/Devices → Schedules → Auth/Settings.
 Dependências: Fase 5.
-Critério por área: tela nativa com paridade funcional, coberta por Compose UI Test.
+Critério por área: tela nativa com paridade funcional contra o `front_vibes`, coberta por Compose UI Test.
+Escopo: reproduzir o comportamento existente (D2). Redesenho não entra aqui.
 
 **Fase 7 — Google Home nativo**
-Objetivo: o plugin Kotlin vira módulo Android, sem invólucro Capacitor.
+Objetivo: o `GoogleHomePlugin.kt` vira módulo Android direto, sem invólucro Capacitor.
 Dependências: Fase 6 na área de Devices.
-Critério: descoberta e execução funcionando; guards de escala canônica preservados.
+Critério: descoberta e execução funcionando; guards de escala canônica do CSDM preservados.
 
-**Fase 8 — Remoção do Capacitor**
-Objetivo: eliminar Ionic, Vue, Capacitor e os 12 plugins.
-Dependências: Fases 6 e 7 completas.
-Critério: APK sem WebView; `applicationId` e chave de assinatura preservados.
+**Fase 8 — Corte e descomissionamento**
+Objetivo: o `ixora-app` substitui o `front_vibes` como aplicativo distribuído.
+Dependências: Fases 6 e 7 completas, com paridade funcional verificada área a área.
+Critério: **`applicationId` `app.ixora.ixora` e a mesma chave de assinatura**, sem o que o app novo não atualiza o instalado; `front_vibes` marcado como arquivado/referência, nunca deletado.
+Nota: não há "remoção do Capacitor" a fazer — o Capacitor nunca existiu no `ixora-app`. O que há é a aposentadoria de um repositório inteiro.
 
 **Fase 9 — Preparação de iOS (contínua, não uma fase final)**
 Objetivo: manter o `commonMain` compilável para iOS.
@@ -567,7 +612,7 @@ Apenas decisões com impacto arquitetural real. Numeração seguindo a sequênci
 | **ADR-039** | UI nativa (Compose + SwiftUI) sem Compose Multiplatform, e o custo aceito de reescrever a UI duas vezes | **Sim** |
 | **ADR-040** | Arquitetura do player: plano e scheduler compartilhados, transporte nativo | **Sim** — condiciona a Fase 4 |
 | **ADR-041** | Contrato de estado e interop Kotlin↔Swift: StateFlow, `Result` selado, SKIE | **Sim** |
-| **ADR-042** | Estratégia de migração e destino do repositório (strangler + `ixora-mobile`) | **Sim** — altera `repo-responsibilities.md` |
+| **ADR-042** | Estratégia de migração e destino do repositório (construção paralela em `ixora-app`, feature freeze do `front_vibes`) | **Sim** — altera `repo-responsibilities.md`, `architecture-map.md` e o `CLAUDE.md` da raiz |
 | **ADR-043** | Persistência mobile: SQLDelight, DataStore e armazenamento seguro do token | Não — pode ser decidido na Fase 3 |
 | **ADR-044** | Autenticação Firebase em KMP via `expect/actual` | Não — pode ser decidido na Fase 2 |
 
@@ -581,13 +626,13 @@ Não recomendo ADR para DI nem para testes: são escolhas reversíveis de baixo 
 
 | # | Risco | Probabilidade | Impacto | Mitigação |
 | --- | --- | --- | --- | --- |
-| 1 | **Migração abandonada no meio**, deixando duas stacks vivas | Alta | Alto | Estratégia strangler: toda fase termina instalável. Nunca permitir um período longo sem entrega. |
-| 2 | **Regressão no player** — a semântica de `interval` e pausa é sutil | Alta | Alto | Scheduler determinístico com testes de tabela; comparação lado a lado com o app atual em aparelho antes do corte. |
+| 1 | **Migração abandonada no meio**, deixando o `front_vibes` congelado e o `ixora-app` incompleto | Alta | Alto | Com a construção paralela (D1) o strangler não protege mais. Mitigação: `ixora-app` instalável no aparelho desde a Fase 4, ainda que com UI mínima; cada fase termina com algo demonstrável no celular. |
+| 2 | **Regressão no player** — a semântica de `interval` e pausa é sutil, e o fade (D4) não tem comportamento de origem para copiar (§10.4) | Alta | Alto | Scheduler determinístico com testes de tabela; comparação lado a lado com o `front_vibes` congelado, no mesmo aparelho, antes de considerar a Fase 4 concluída. |
 | 3 | **iOS revela problemas em série na primeira compilação** | Alta | Médio | Assumido explicitamente. Teste de fronteira reduz, não elimina. Não escrever muito `iosMain` "no escuro". |
 | 4 | **Retorno do KMP não chega** se o Mac não vier | Média | Médio | Recomendação já entrega valor só com Android; o KMP é custo marginal, não aposta. |
 | 5 | **Perda da rede de testes** — 515 testes Vitest e todos os specs WDIO do WebView | Certa | Alto | Portar testes de lógica pura como paridade nomeada; refazer E2E com seletores nativos. |
 | 6 | **Quebra de atualização na Play Store** por `applicationId` ou chave diferente | Baixa | Crítico | Tratar como critério de aceite da Fase 8. |
-| 7 | **Perda de dados de usuários** — áudio offline e espelho de schedules | Média | Médio | Decidir migração ou reset consciente (§15, questão 6). |
+| 7 | ~~Perda de dados de usuários~~ — **eliminado por D3** | — | — | Reset consciente decidido: áudio offline e espelho de schedules são reconstruídos por download e sincronização. |
 | 8 | **Dependência de SKIE**, ferramenta comunitária, na fronteira Swift | Média | Médio | Só afeta a plataforma iOS; substituível por wrappers manuais. |
 | 9 | **Curva de aprendizado simultânea** — KMP, Compose, Media3, Gradle, e depois SwiftUI | Alta | Médio | A ordem das fases é deliberadamente crescente em dificuldade. |
 | 10 | **Escopo do app cresce durante a migração** | Média | Alto | Congelar features novas em `front_vibes` a partir da Fase 5, ou aceitar implementá-las duas vezes. |
@@ -598,15 +643,15 @@ Risco 1 é o dominante. Toda a estrutura de fases existe para contê-lo.
 
 ## 15. Questões a decidir antes de começar
 
-1. **O app continua recebendo features durante a migração?** Se sim, cada feature nova custa duas implementações a partir da Fase 5.
-2. **Existe prazo ou é projeto de fundo?** Muda o tamanho das fatias, não a ordem.
-3. **`minSdk` alvo do app novo.** Media3 e Compose permitem subir o piso; vale verificar a base instalada antes.
-4. **Repositório novo (`ixora-mobile`) confirmado?** Altera `repo-responsibilities.md` e o contrato de 4 repositórios descrito no `CLAUDE.md`.
-5. **Telemetria OTel entra desde o começo ou depois?** São 541 linhas hoje; reimplementar cedo atrasa, e tarde cria ponto cego.
-6. **Dados existentes no aparelho:** os áudios offline (`Directory.Data` + manifesto em Preferences) e o espelho SQLite de schedules migram, ou aceita-se que o usuário rebaixe e re-sincronize na primeira abertura do app novo?
-7. **Fade entra no escopo do player novo?** É o ganho mais visível do motivador nº 1, mas amplia a Fase 4. Recomendo entregar a Fase 4 com paridade e adicionar fade logo depois, como feature própria.
-8. **Design system:** portar os tokens atuais (tema claro, `variables.css`) para um `Theme` Compose, ou redesenhar aproveitando a mudança?
-9. **O que acontece com `front_vibes`** depois da Fase 8: congelado, arquivado ou mantido como referência viva?
+1. ~~O app continua recebendo features durante a migração?~~ **Fechada por D2** — feature freeze durante toda a migração.
+2. **Existe prazo ou é projeto de fundo?** Muda o tamanho das fatias, não a ordem. *(aberta — não bloqueia o K07)*
+3. **`minSdk` alvo do app novo.** Media3 e Compose permitem subir o piso; vale verificar a base instalada antes. *(aberta — decidir até o K07)*
+4. ~~Repositório novo confirmado?~~ **Fechada por D1** — `ixora-app`, já criado.
+5. **Telemetria OTel entra desde o começo ou depois?** São 541 linhas hoje; reimplementar cedo atrasa, e tarde cria ponto cego. *(aberta — decidir até a Fase 2)*
+6. ~~Dados existentes no aparelho migram?~~ **Fechada por D3** — sem migração; reconstrução por download e sincronização.
+7. ~~Fade entra no escopo do player novo?~~ **Fechada por D4** — entra, como parte do K05 / ADR-040. Ver §10.4: o trabalho é especificar a semântica, não copiá-la.
+8. **Design system:** portar os tokens atuais (tema claro, `variables.css`) para um `Theme` Compose, ou redesenhar aproveitando a mudança? *(aberta — decidir até a Fase 6; note que redesenhar tende a colidir com o espírito de D2)*
+9. ~~O que acontece com `front_vibes`?~~ **Fechada por D1/D2** — referência e histórico em feature freeze; nunca deletado.
 
 ---
 
@@ -616,18 +661,20 @@ Fatias pequenas o bastante para execução assistida, cada uma com resultado ver
 
 | # | Tarefa | Fase | Saída verificável |
 | --- | --- | --- | --- |
-| K01 | Responder as 9 questões do §15 | 0 | Decisões registradas |
-| K02 | ADR-038 — KMP como camada compartilhada | 0 | ADR Accepted |
-| K03 | ADR-039 — UI nativa Compose + SwiftUI | 0 | ADR Accepted |
-| K04 | ADR-042 — Estratégia de migração e repositório | 0 | ADR Accepted + `repo-responsibilities.md` atualizado |
-| K05 | ADR-040 — Arquitetura do player | 0 | ADR Accepted |
-| K06 | ADR-041 — Contrato de estado e interop | 0 | ADR Accepted |
-| K07 | Adicionar módulo `shared` (KMP) ao projeto Android atual, com version catalog e targets android + iOS declarados | 1 | `./gradlew :shared:build` verde; APK do app atual continua instalando |
-| K08 | Teste de fronteira do `commonMain` (sem API JVM-only nem Android-only), com sentinela que prova a falha | 1 | Teste verde + sentinela detectando violação deliberada |
-| K09 | Portar modelos `VibeSound` e `VibeExecutionLayer` com kotlinx.serialization | 1 | Serialização redonda testada |
-| K10 | Portar `buildVibeExecutionPlan` para `commonMain` | 1 | Função implementada |
-| K11 | Portar os testes de `player-engine` para `commonTest`, preservando nomes e casos | 1 | Paridade auditável caso a caso contra o Vitest |
-| K12 | Documentar o resultado da Fase 1 e revisar este plano com o aprendizado | 1 | Plano atualizado antes da Fase 2 |
+| K01 | **Consolidar decisões arquiteturais** | 0 | ✅ **Concluído em 2026-09-24** por esta revisão: §0 registra D1–D5; questões 1, 4, 6, 7 e 9 do §15 fechadas; §5.3, §10.4, §11, §14 e §15 atualizados. Restam abertas as questões 2, 3, 5 e 8, nenhuma bloqueante. |
+| K02 | **ADR-038 — KMP Shared Layer** | 0 | ADR Accepted: o que vai para `commonMain`, o que não vai, e o critério de decisão (a matriz do §3) |
+| K03 | **ADR-039 — Native UI: Compose + SwiftUI** | 0 | ADR Accepted: sem Compose Multiplatform; custo aceito de reescrever a UI duas vezes |
+| K04 | **ADR-042 — Migration / Repository Strategy** | 0 | ADR Accepted + `repo-responsibilities.md`, `architecture-map.md` e `CLAUDE.md` da raiz refletindo o quinto repositório (`ixora-app`) e o feature freeze |
+| K05 | **ADR-040 — Native Player Architecture** | 0 | ADR Accepted cobrindo: plano e scheduler compartilhados, transporte nativo, **e a especificação da semântica de fade (§10.4)**. Deve declarar explicitamente que supersede a proibição de fade da ADR-008 |
+| K06 | **ADR-041 — State Management / Swift Interop** | 0 | ADR Accepted: StateFlow, `Result` selado, efeitos por `Channel`, SKIE |
+| K07 | **Criar módulo `shared` KMP** no repositório `ixora-app`, com version catalog e targets android + iOS declarados | 1 | `./gradlew :shared:build` verde no novo repositório, com Git Flow configurado |
+| K08 | **Criar boundary tests** do `commonMain` (sem API JVM-only nem Android-only), com sentinela que prova a falha | 1 | Teste verde + sentinela detectando violação deliberada |
+| K09 | **Migrar `VibeSound` e `VibeExecutionLayer`** com kotlinx.serialization | 1 | Serialização redonda testada, incluindo `fade_in_seconds` / `fade_out_seconds` |
+| K10 | **Migrar `buildVibeExecutionPlan`** para `commonMain` | 1 | Função implementada |
+| K11 | **Migrar os testes do player engine** para `commonTest`, preservando nomes e casos | 1 | Paridade auditável caso a caso contra o Vitest |
+| K12 | **Documentar o resultado da Fase 1** e revisar este plano com o aprendizado | 1 | Plano atualizado antes da Fase 2 |
+
+Ordem de execução: K01 → K02–K06 (as cinco ADRs, que podem ser escritas em qualquer ordem entre si) → K07 → K08 → K09 → K10 → K11 → K12. O K05 é o mais denso das ADRs, porque acumula a especificação de fade.
 
 K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP de verdade, e a maioria das estimativas deste documento merece revisão depois dela.
 
@@ -636,7 +683,7 @@ K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP 
 ## 17. Relação com outros documentos
 
 - [ADR-007 — Execution plan as mobile playback runtime contract](../../decisions/ADR-007-execution-plan-runtime-contract.md) — o contrato do plano de execução é **reafirmado**: continua device-side e o `back_vibes` segue sem engine de playback. Mas a ADR nomeia explicitamente `player-engine.service.ts`, `player.store` e `audio-player.service` como a implementação vigente; quando a Fase 5 concluir, ela precisa de um addendum apontando para o `PlaybackScheduler` em Kotlin. A decisão não muda, a implementação citada sim.
-- [ADR-008 — NativeAudio limitations over unstable JS-driven DSP](../../decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md) — **esta é a única ADR que a migração efetivamente reabre.** Ela removeu fades em runtime porque o `@capgo/native-audio` e a ponte Capacitor não sustentavam DSP confiável. Com Media3 e AVAudioEngine essa premissa deixa de valer, e a proibição precisa ser revisitada — provavelmente por uma ADR nova, não por revogação silenciosa. Ver §15, questão 7.
+- [ADR-008 — NativeAudio limitations over unstable JS-driven DSP](../../decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md) — **esta é a única ADR que a migração efetivamente reabre, e a decisão D4 já determinou que ela será reaberta.** Ela removeu fades em runtime porque o `@capgo/native-audio` e a ponte Capacitor não sustentavam DSP confiável; com Media3 e AVAudioEngine a premissa deixa de valer. A ADR-040 (K05) deve **supersedê-la explicitamente na parte de fade**, declarando que a proibição valia para a stack Capacitor e não se transfere para a nova. A ADR-008 passa a Superseded-in-part e o [`audio-engine-fade-limitations.md`](../audio/audio-engine-fade-limitations.md) vira documento histórico quando a Fase 4 concluir. Revogação silenciosa não é aceitável — a decisão original foi tomada com razão técnica e merece ser encerrada com a mesma formalidade.
 - [ADR-036](../../decisions/ADR-036-google-home-execution-model.md) — modelo de execução do Google Home: o SDK segue Android-only; o iOS nunca terá Google Home.
 - [ADR-037](../../decisions/ADR-037-canonical-smart-home-device-model.md) e [CSDM](../../specs/smart-home/canonical-device-model.md) — o modelo canônico migra para Kotlin com os mesmos guards.
 - [`playback-runtime.md`](../audio/playback-runtime.md) e [`audio-engine-fade-limitations.md`](../audio/audio-engine-fade-limitations.md) — descrevem o runtime que este plano substitui; devem ser marcados como histórico quando a Fase 5 concluir.
