@@ -21,7 +21,9 @@ Estas decisões são **posteriores ao corpo original deste documento e prevalece
 
 ### 0.1 Questões do §15 ainda em aberto
 
-Fechadas por estas decisões: 1, 6, 7 e 9. **Permanecem em aberto:** 2 (prazo ou projeto de fundo), 3 (`minSdk` alvo), 5 (telemetria OTel desde o começo) e 8 (portar os tokens de tema ou redesenhar). Nenhuma das quatro bloqueia o K07.
+Fechadas por estas decisões: 1, 4, 6, 7 e 9. **Permanecem em aberto:** 2 (prazo ou projeto de fundo), 3 (`minSdk` alvo), 5 (em que fase entra a instrumentação de telemetria — o *se* foi fechado por §16.13) e 8 (portar os tokens de tema ou redesenhar). Nenhuma das quatro bloqueia o K07.
+
+Os requisitos transversais do projeto (multilinguagem, acessibilidade, deep links, armazenamento seguro e outros) estão consolidados em **§16**.
 
 ---
 
@@ -112,7 +114,7 @@ Acoplamento medido por import: `@ionic` em 40 arquivos, `vue` em 49, `@capacitor
 | Navegação | Navigation Compose / `NavigationStack` do SwiftUI. |
 | UI completa | Compose e SwiftUI. |
 | Google Home SDK | **Android-only por natureza** (ADR-036). Vira módulo Android direto. |
-| Telemetria OTel | SDK por plataforma atrás de interface compartilhada. |
+| Telemetria OTel | SDK por plataforma atrás de interface compartilhada — ver §16.13, fonte de verdade sobre observabilidade. |
 
 **REMOVE/REPLACE — sai do projeto**
 
@@ -152,7 +154,7 @@ Legenda: ● implementa · ○ consome · — não participa
 | Google Home | ○ | ● | — | SDK exclusivo de Android; iOS nunca terá (ADR-036). |
 | Permissões | — | ● | ● | APIs e fluxos de consentimento divergentes. |
 | Background tasks | — | ● | ● | WorkManager vs. BGTaskScheduler. |
-| Analytics / Telemetria | ○ | ● | ● | Interface compartilhada, SDK nativo. |
+| Analytics / Telemetria | ○ | ● | ● | Interface compartilhada, SDK nativo. Critérios e escopo em §16.13. |
 | Logging | ● | ○ | ○ | Abstração barata; saída por plataforma. |
 | Tratamento de erros | ● | ○ | ○ | Tipos de erro de domínio compartilhados — ver §8. |
 | UI | — | ● | ● | Decisão explícita do PO: sem Compose Multiplatform. |
@@ -336,7 +338,7 @@ Alternativa: `KMP-NativeCoroutines`, que resolve o mesmo problema com anotaçõe
 - **Android:** `androidx.media3` (ExoPlayer) + `MediaSessionService`.
 - **iOS:** `AVAudioEngine` com `AVAudioPlayerNode` por camada e um mixer.
 
-Ambos suportam **fade real** — o recurso que a stack atual abandonou por limitação do plugin, documentado em [`audio-engine-fade-limitations.md`](../audio/audio-engine-fade-limitations.md) e decidido na [ADR-008](../../decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md). Recuperar fade é o ganho mais concreto e demonstrável do motivador nº 1, mas exige reabrir aquela decisão de forma explícita (§17).
+Ambos suportam **fade real** — o recurso que a stack atual abandonou por limitação do plugin, documentado em [`audio-engine-fade-limitations.md`](../audio/audio-engine-fade-limitations.md) e decidido na [ADR-008](../../decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md). Recuperar fade é o ganho mais concreto e demonstrável do motivador nº 1, mas exige reabrir aquela decisão de forma explícita (§18).
 
 ### 6.7 Firebase
 
@@ -435,7 +437,7 @@ Critério: `expect/actual` quando a API é **pequena e estável**; interface no 
 | Google Home | Módulo Android direto | Android-only por decisão arquitetural (ADR-036). O `commonMain` só conhece a interface de execução. |
 | Home Assistant | Nada no dispositivo | Execução é server-side; o mobile só chama a API. |
 | Bluetooth | Fora de escopo | Não existe no app atual. |
-| Telemetria | **Interface + injeção** | OTel tem SDK Kotlin (JVM) e Swift; o `commonMain` só conhece a interface. |
+| Telemetria | **Interface + injeção** | OTel tem SDK Kotlin (JVM) e Swift, e nenhum viável em Kotlin/Native; o `commonMain` só conhece a interface. Fonte de verdade: §16.13. |
 
 O `GoogleHomePlugin.kt` (378 linhas) e o `CanonicalBrightness.kt` já existentes **migram praticamente sem alteração** — perdem apenas o invólucro de plugin Capacitor. É o único código do app que a migração aproveita integralmente.
 
@@ -647,7 +649,7 @@ Risco 1 é o dominante. Toda a estrutura de fases existe para contê-lo.
 2. **Existe prazo ou é projeto de fundo?** Muda o tamanho das fatias, não a ordem. *(aberta — não bloqueia o K07)*
 3. **`minSdk` alvo do app novo.** Media3 e Compose permitem subir o piso; vale verificar a base instalada antes. *(aberta — decidir até o K07)*
 4. ~~Repositório novo confirmado?~~ **Fechada por D1** — `ixora-app`, já criado.
-5. **Telemetria OTel entra desde o começo ou depois?** São 541 linhas hoje; reimplementar cedo atrasa, e tarde cria ponto cego. *(aberta — decidir até a Fase 2)*
+5. **Telemetria OTel: em que fase entra a instrumentação mínima?** §16.13 já decidiu que a nova arquitetura preserva e se integra ao OTel/Grafana/Loki/Tempo existentes — o *se* está fechado. Resta o *quando*: reimplementar cedo atrasa, e tarde cria ponto cego. *(aberta — decidir até a Fase 2)*
 6. ~~Dados existentes no aparelho migram?~~ **Fechada por D3** — sem migração; reconstrução por download e sincronização.
 7. ~~Fade entra no escopo do player novo?~~ **Fechada por D4** — entra, como parte do K05 / ADR-040. Ver §10.4: o trabalho é especificar a semântica, não copiá-la.
 8. **Design system:** portar os tokens atuais (tema claro, `variables.css`) para um `Theme` Compose, ou redesenhar aproveitando a mudança? *(aberta — decidir até a Fase 6; note que redesenhar tende a colidir com o espírito de D2)*
@@ -655,7 +657,225 @@ Risco 1 é o dominante. Toda a estrutura de fases existe para contê-lo.
 
 ---
 
-## 16. Backlog inicial de tarefas arquiteturais
+## 16. Configurações e requisitos iniciais do projeto
+
+Requisitos arquiteturais a considerar desde o início da reconstrução. **Esta seção não autoriza implementação.** Cada item é implementado no card/fase apropriado; durante a execução de cada card cabe verificar se algum destes requisitos é relevante para aquela implementação e incorporá-lo quando for. Não criar abstrações, módulos ou infraestrutura antecipadamente só para "deixar preparado" sem necessidade concreta, e não reabrir decisões já estabelecidas salvo com evidência técnica concreta de conflito arquitetural.
+
+### 16.0 Estado atual de cada requisito (verificado no código)
+
+A coluna decisiva é a última: distingue o que é **paridade** (reproduzir algo que já existe) do que é **acréscimo** (funcionalidade que o `front_vibes` não tem). O acréscimo precisa ser consciente, porque D2 congela escopo funcional.
+
+| # | Requisito | Existe hoje no `front_vibes`? | Natureza |
+| --- | --- | --- | --- |
+| 1 | Multilinguagem | **Não.** Nenhuma biblioteca de i18n; strings em inglês no código | **Acréscimo** |
+| 2 | Autenticação Firebase + Google | Sim (`auth.service.ts`, `@codetrix-studio/capacitor-google-auth`) | Paridade |
+| 3 | Tema claro/escuro | **Sim** (`useThemeMode.ts`: `system`/`light`/`dark`, persistido, `ion-palette-dark`) | Paridade |
+| 4 | Ambientes dev/staging/prod | Sim (`.env.development`, `.env.staging`) | Paridade |
+| 5 | Push FCM | Sim (`@capacitor-firebase/messaging`, `push-token.service.ts`) | Paridade |
+| 6 | Deep links | **Não.** Só `appStateChange`; nenhum handler de URL | **Acréscimo (preparação)** |
+| 7 | Armazenamento seguro | **Não.** Token em `@capacitor/preferences`, sem cifra | **Correção** |
+| 8 | Preferências do usuário | Sim (tema e manifesto offline em Preferences) | Paridade |
+| 9 | Permissões | Parcial (`autoGrantPermissions` no Capacitor) | Paridade + formalização |
+| 10 | Acessibilidade | Mínima (1–4 `aria-label` por tela) | **Acréscimo** |
+| 11 | Localização regional | Parcial (`toLocaleString()` sem locale fixo — correto) | Paridade + formalização |
+| 12 | Timezone | Sim (`schedule-datetime.ts` resolve a IANA do dispositivo) | Paridade |
+| 13 | Observabilidade | Sim (OTel, 541 linhas, coletor de staging) | Paridade |
+| 14 | Design System / tokens | Sim, informal (`variables.css`, com paleta dark) | Paridade + formalização |
+| 15 | Feature flags | **Não** | **Acréscimo (avaliar)** |
+| 16 | Testes | Sim (515 testes Vitest) | Paridade |
+| 17 | Versionamento | Parcial (Gradle + `capacitor.config`) | Paridade + centralização |
+| 18 | Política de cache | Por funcionalidade, não global | Paridade |
+| 19 | Estado de sessão | Sim (`useAuth`) | Paridade |
+| 20 | Logout | Sim (`auth.service.ts`) | Paridade |
+| 21 | Segurança em logs | Sim (`telemetry/pii-sanitizer.ts`) | Paridade |
+| 22 | Conectividade | Sim (`isDeviceOffline`, `offline-playback-status`) | Paridade |
+| 23 | Player em background | Sim (foreground service + `backgroundAudio.service`) | Paridade |
+
+**Três itens ampliam escopo funcional além da paridade** — multilinguagem (1), acessibilidade (10) e deep links (6) — e um corrige uma falha existente (7). Estão nesta lista por decisão explícita do PO; o registro aqui serve para que a exceção a D2 seja consciente e não vire precedente para outras.
+
+**Correção de documentação identificada:** o `CLAUDE.md` da raiz do workspace (linha 105) afirma que o tema é "light-only". Isso está **desatualizado** — o `front_vibes` tem dark mode completo desde `useThemeMode.ts`. O item 3 é, portanto, paridade e não feature nova.
+
+### 16.1 Multilinguagem
+
+- Idioma padrão: **inglês**.
+- Idiomas inicialmente suportados: **inglês, francês, português, espanhol**.
+- A arquitetura deve permitir adicionar novos idiomas depois sem alteração estrutural significativa.
+
+Nota de implementação: o catálogo de strings pode viver no `shared` (uma fonte só) ou nos recursos nativos de cada plataforma (`strings.xml` e `.strings`/String Catalog). A segunda opção entrega pluralização, Dynamic Type e ferramentas de tradução nativas de graça; a primeira garante texto idêntico. A escolha pertence ao card de multilinguagem, não a este plano. Ver §3 (matriz) quando essa decisão for tomada.
+
+### 16.2 Autenticação
+
+- **Firebase Authentication**, com **login Google**.
+- Sessão, estados de autenticação, logout e armazenamento seguro são definidos durante a implementação do login.
+
+No plano: estratégia técnica em §6.7 (`expect/actual` sobre os SDKs nativos) e §9 (interface + injeção). Estados de sessão no item 16.19; logout no 16.20; armazenamento seguro no 16.7.
+
+### 16.3 Tema claro/escuro
+
+- Suporte a Light e Dark Mode.
+- O Design System deve permitir que Compose e SwiftUI usem os **mesmos conceitos e tokens** de tema.
+- O comportamento da preferência do usuário é definido durante a implementação.
+
+No plano: ver item 16.14 (Design System) e a questão 8 do §15. Paridade: o comportamento atual é `system` / `light` / `dark` com persistência local, e é o alvo a reproduzir.
+
+### 16.4 Ambientes
+
+- **Development, Staging, Production.**
+- A configuração deve separar endpoints, configurações e recursos por ambiente **sem duplicar a lógica da aplicação**.
+
+No plano: §12 — build variants do Gradle com `buildConfigField`, substituindo os arquivos `.env` do Vite. Ver também o item 16.17 (versionamento).
+
+### 16.5 Notificações Push
+
+- **Firebase Cloud Messaging** quando aplicável.
+- A integração específica por plataforma permanece nas camadas nativas.
+
+No plano: §3 (registro e renovação de token compartilhados; entrega e exibição nativas) e §9 (interface + injeção).
+
+### 16.6 Deep Links / Universal Links / App Links
+
+- A arquitetura deve estar preparada para deep links.
+- Android: **App Links** quando aplicável. iOS: **Universal Links** quando o desenvolvimento iOS começar.
+- A navegação deve receber e interpretar links **sem acoplar a lógica de negócio à UI**.
+
+Nota: não existe deep link no app atual. "Preparada para" aqui significa que o roteamento nativo aceite uma rota vinda de fora e a traduza em uma intenção de domínio — não construir infraestrutura de links antes de haver um link real para tratar.
+
+### 16.7 Armazenamento seguro
+
+- Tokens, credenciais e dados sensíveis usam **armazenamento seguro nativo**.
+- Android: Android Keystore ou mecanismo seguro equivalente. iOS: **Keychain**.
+- **Nunca** armazenar tokens sensíveis em armazenamento comum.
+
+No plano: §6.3 e §9 (`expect/actual`). Este item **corrige** o comportamento atual: hoje o ID token do Firebase é gravado em `@capacitor/preferences`, que não é cifrado. A migração é a oportunidade de fechar essa lacuna, e por isso ela cabe dentro de D2.
+
+### 16.8 Preferências do usuário
+
+- Persistir preferências como **idioma, tema, configurações do player** e outras não sensíveis.
+- O mecanismo segue a arquitetura definida no projeto.
+
+No plano: §6.3 (DataStore para não sensíveis). A fronteira com o item 16.7 é rígida: preferência vai em DataStore, credencial vai em armazenamento seguro.
+
+### 16.9 Permissões
+
+- Estratégia **centralizada** para permissões específicas de cada plataforma.
+- A lógica de negócio compartilhada **não** depende diretamente das APIs de permissão do Android ou do iOS.
+
+No plano: §9 — interface no `commonMain` com implementação injetada, porque o fluxo é assíncrono e depende da resposta do usuário.
+
+### 16.10 Acessibilidade
+
+- Considerada **desde o início**, não ao final.
+- Android: TalkBack e os recursos de acessibilidade do Compose. iOS: VoiceOver e os do SwiftUI.
+- Considerar tamanho de fonte, contraste, labels, navegação por acessibilidade e **Dynamic Type** quando aplicável.
+
+Nota: é trabalho majoritariamente novo — o app atual tem poucos `aria-label`. Por ser transversal, o custo é muito menor quando embutido em cada tela da Fase 6 do que em um mutirão posterior. Recomenda-se que "acessibilidade verificada" faça parte do critério de conclusão de cada área de UI, e não vire um card próprio no fim.
+
+### 16.11 Localização regional
+
+- Datas, horas, números e demais informações dependentes de locale respeitam a **configuração regional do usuário**.
+- **Não assumir que idioma e região são a mesma coisa.**
+
+Nota: o app atual já acerta nisso na exibição — usa `toLocaleString()` sem fixar locale. Atenção a um caso que **parece** violação e não é: `schedule-datetime.ts` fixa `'en-US'` dentro de `timeZoneOffsetMs` porque precisa de um formato estável para *parsing* de offset, não para exibição. Fixar locale para leitura de máquina é correto; o requisito vale para o que o usuário lê.
+
+### 16.12 Timezone
+
+- O timezone do usuário é tratado **explicitamente** onde for relevante: schedules, automações, playback e demais funcionalidades dependentes de horário.
+- **Não assumir timezone fixo no código.**
+
+No plano: §6.1 — `kotlinx-datetime` no `commonMain` é obrigatório justamente por isso; `java.time` quebraria o iOS. Paridade: o app atual já resolve a IANA do dispositivo em `schedule-datetime.ts`.
+
+### 16.13 Tratamento global de erros e observabilidade
+
+**Esta é a única fonte de verdade sobre observabilidade neste plano.** As demais menções (§3, §9, §15) apontam para cá.
+
+Erros:
+
+- Estratégia consistente de tratamento de erros em todo o aplicativo.
+- Mensagens apresentadas ao usuário devem ser **localizáveis** (item 16.1).
+- No plano: §7 — erro faz parte do estado, e a superfície pública usa `Result` selado em vez de exceção, inclusive porque exceção Kotlin não tratada encerra o processo no iOS (§8).
+
+Observabilidade:
+
+- A plataforma **já possui** observabilidade configurada com **OpenTelemetry, Grafana, Loki e Tempo**. A nova arquitetura **preserva e se integra** a esse sistema.
+- **Não criar um sistema paralelo** de observabilidade sem necessidade arquitetural explícita.
+- Deve permitir diagnosticar, quando aplicável: erros, eventos relevantes, problemas de performance, falhas de comunicação e problemas do player.
+- Durante cada implementação, avaliar quais eventos, métricas, logs ou traces **realmente** fazem sentido, evitando instrumentação desnecessária.
+- **Dados sensíveis, tokens e credenciais nunca aparecem em logs ou traces** (item 16.21).
+
+Nota técnica: não há SDK OpenTelemetry viável em `commonMain` para Kotlin/Native. O padrão é interface compartilhada com implementação nativa — `opentelemetry-android` no Android e o SDK Swift no iOS — conforme §9. O app atual já sanitiza PII em `telemetry/pii-sanitizer.ts`, comportamento a preservar.
+
+### 16.14 Design System / Design Tokens
+
+- Base de Design System utilizável como **referência** tanto no Jetpack Compose quanto no SwiftUI.
+- Considerar desde o início: **cores, tipografia, espaçamento, dimensões, componentes, estados, Light/Dark Mode**.
+- Objetivo: consistência visual entre Android e iOS **sem compartilhar a implementação da UI**.
+
+Nota: "referência" é a palavra operante — os tokens são a fonte comum, as implementações são independentes. Os tokens atuais (`variables.css`, já com paleta dark) são o ponto de partida natural, o que mantém o item dentro de D2. Ver questão 8 do §15.
+
+### 16.15 Feature Flags / Remote Configuration
+
+- Avaliar suporte a feature flags e configuração remota **quando houver necessidade**.
+- **Não implementar um sistema complexo antecipadamente.**
+- Durante cada implementação, avaliar se a funcionalidade realmente precisa de configuração remota.
+
+### 16.16 Testes automatizados
+
+- A estrutura nasce preparada para `commonTest`, testes unitários e de integração no Android, e testes iOS quando aquele desenvolvimento começar.
+- **Os testes acompanham a migração das regras de negócio e do player** — não vêm depois.
+
+No plano: §6.8 (ferramentas) e §11.2 (testes são critério de conclusão de cada fase, não uma fase final). A regra de paridade nomeada dos testes portados está em §6.8.
+
+### 16.17 Versionamento
+
+- Centralizar **versão do aplicativo, build number, configuração de ambiente** e demais metadados de release.
+- Preservar compatibilidade com os requisitos existentes do aplicativo quando aplicável.
+
+No plano: §12. O requisito crítico de compatibilidade é o `applicationId` `app.ixora.ixora` com a mesma chave de assinatura — sem isso o app novo não atualiza o instalado (Fase 8, risco 6 do §14).
+
+### 16.18 Política de armazenamento e cache
+
+- **Não** definir antecipadamente uma política completa para todo o aplicativo.
+- Durante cada implementação, quando a funcionalidade envolver armazenamento, cache ou dados locais, avaliar qual estratégia faz sentido, considerando explicitamente: **dados temporários, dados persistentes, dados descartáveis, necessidade de sincronização e comportamento offline**.
+- Conforme **D3**, não haverá migração dos dados locais existentes do `front_vibes`.
+
+### 16.19 Estado global de sessão
+
+- **Não implementar antecipadamente.**
+- Durante a implementação do login, definir os estados necessários: `authenticated`, `unauthenticated`, `loading`, `expired` e outros identificados na implementação.
+
+No plano: §7 define *como* o estado é modelado e exposto; *quais* estados de sessão existem é decisão do card de autenticação.
+
+### 16.20 Logout
+
+- Definido durante a implementação do login, considerando: **encerramento da sessão Firebase, limpeza segura dos tokens e credenciais locais, limpeza do estado de sessão e comportamento dos dados e cache relacionados à sessão**.
+- **Não implementar antes do card/fase de autenticação.**
+
+### 16.21 Segurança
+
+- Evitar exposição acidental de **tokens, credenciais, dados sensíveis, informações privadas do usuário e dados de autenticação**.
+- Logs, erros e traces devem ser revisados para evitar vazamento de informação sensível.
+
+Relacionado: item 16.7 (armazenamento seguro), item 16.13 (nada sensível em telemetria) e §12 (secrets fora do versionamento, em `local.properties` e GitHub Secrets).
+
+### 16.22 Conectividade
+
+- A arquitetura deve permitir identificar e reagir ao estado de conectividade **quando isso for relevante**.
+- Funcionalidades que dependem de rede definem explicitamente seu comportamento: **online, offline, reconexão e falha de rede**.
+- **Não criar uma abstração global complexa sem necessidade** — introduzir conforme as funcionalidades exigirem.
+
+Paridade: `isDeviceOffline` e `offline-playback-status` já expressam essa lógica hoje, e `offline-playback-status` está classificado como SHARED em §2.2.
+
+### 16.23 Player em background
+
+- Requisito arquitetural **desde o início**.
+- Considerar: execução em background, controles de mídia, interrupções, áudio em segundo plano, audio focus/session, retomada, comportamento durante bloqueio de tela e integração com os mecanismos nativos de cada plataforma.
+- Os detalhes são definidos no trabalho do player (**K05 / ADR-040**).
+
+No plano: §10 e §3. A divisão vale também aqui: o `shared` decide o que deveria estar tocando; foreground service (Android) e `AVAudioSession` (iOS) fazem tocar.
+
+---
+
+## 17. Backlog inicial de tarefas arquiteturais
 
 Fatias pequenas o bastante para execução assistida, cada uma com resultado verificável. Fases 0 e 1 apenas — o backlog seguinte se escreve depois da Fase 1, com aprendizado real.
 
@@ -680,7 +900,7 @@ K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP 
 
 ---
 
-## 17. Relação com outros documentos
+## 18. Relação com outros documentos
 
 - [ADR-007 — Execution plan as mobile playback runtime contract](../../decisions/ADR-007-execution-plan-runtime-contract.md) — o contrato do plano de execução é **reafirmado**: continua device-side e o `back_vibes` segue sem engine de playback. Mas a ADR nomeia explicitamente `player-engine.service.ts`, `player.store` e `audio-player.service` como a implementação vigente; quando a Fase 5 concluir, ela precisa de um addendum apontando para o `PlaybackScheduler` em Kotlin. A decisão não muda, a implementação citada sim.
 - [ADR-008 — NativeAudio limitations over unstable JS-driven DSP](../../decisions/ADR-008-nativeaudio-limitations-over-unstable-dsp.md) — **esta é a única ADR que a migração efetivamente reabre, e a decisão D4 já determinou que ela será reaberta.** Ela removeu fades em runtime porque o `@capgo/native-audio` e a ponte Capacitor não sustentavam DSP confiável; com Media3 e AVAudioEngine a premissa deixa de valer. A ADR-040 (K05) deve **supersedê-la explicitamente na parte de fade**, declarando que a proibição valia para a stack Capacitor e não se transfere para a nova. A ADR-008 passa a Superseded-in-part e o [`audio-engine-fade-limitations.md`](../audio/audio-engine-fade-limitations.md) vira documento histórico quando a Fase 4 concluir. Revogação silenciosa não é aceitável — a decisão original foi tomada com razão técnica e merece ser encerrada com a mesma formalidade.
