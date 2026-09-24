@@ -2,7 +2,9 @@
 
 ## Status
 
-**Proposed** — awaiting PO acceptance (see §11). Governs how vibe playback is built in `ixora-app`: what the shared module decides, what the platform executes, and the semantics of fade — which is specified here for the first time, because no runtime fade exists to copy.
+**Accepted** (2026-09-24) — governs how vibe playback is built in `ixora-app`: what the shared module decides, what the platform executes, and the semantics of fade — which is specified here for the first time, because no runtime fade exists to copy.
+
+**Approved by the PO on 2026-09-24**, accepting the six points recorded in §11, including the two genuinely new specification choices: the logarithmic fade curve (§8.1) and the proportional clamp for `interval` ticks (§8.5). All thirteen code citations were verified line by line before acceptance. This ADR closes Phase 0 of the KMP migration.
 
 Supersedes [ADR-008](ADR-008-nativeaudio-limitations-over-unstable-dsp.md) **in part**: its prohibition on runtime fades falls, its prohibitions on host-language gain automation and timing hacks stand and are generalized. §9 states exactly which rows change and which survive. ADR-008 anticipated this supersession and required it to happen through a new ADR; this is that ADR.
 
@@ -247,9 +249,9 @@ ADR-008 is amended with a status note pointing here **when Phase 4 completes**, 
 - **[ADR-007](ADR-007-execution-plan-runtime-contract.md)** is reaffirmed. The execution plan remains the playback runtime contract and the backend still has no playback engine. Its reference to the TypeScript implementation needs an addendum when the Kotlin scheduler ships, not now.
 - **[ADR-042](ADR-042-migration-repository.md)** places this work in Phase 4 and makes device-verified parity its completion criterion.
 
-## 11. What acceptance would mean
+## 11. What acceptance meant
 
-Accepting this ADR means accepting:
+Accepted by the PO on 2026-09-24. Acceptance covered, specifically:
 
 1. The scheduler/transport split of Decision 1, with the scheduler deterministic and clockless (Decision 2).
 2. The six preserved semantics of Decision 3 as contract, each covered by a test before the transport is built.
