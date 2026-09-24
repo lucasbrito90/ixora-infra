@@ -2,17 +2,19 @@
 
 ## Status
 
-**Proposed** — awaiting PO acceptance (see §9). Governs the boundary of the Kotlin Multiplatform `shared` module in the `ixora-app` mobile rebuild: which responsibilities live there, which stay native, and the test that classifies a responsibility that does not yet exist.
+**Accepted** (2026-09-23) — governs the boundary of the Kotlin Multiplatform `shared` module in the `ixora-app` mobile rebuild: which responsibilities live there, which stay native, and the test that classifies a responsibility that does not yet exist.
 
-Base ADR of the KMP track. ADR-039 (native UI, card K03), ADR-040 (player, K05), ADR-041 (state and interop, K06) and ADR-042 (migration strategy, K04) all build on the matrix this ADR fixes, and none of them may contradict it. None of the four is written yet — they are referenced here by number, without links, until they exist.
+**Approved by the PO on 2026-09-23**, accepting the five points recorded in §9: the three-condition SHARED test and its tie-breaker (Decision 1), the binding responsibility matrix (Decision 2), the three deliberate non-shares (Decision 3), the single `shared` module with measured split conditions (Decision 4), and boundary enforcement by automated test with a sentinel (Decision 5) — including the accepted residual iOS risk that a scan cannot replace a compiler. No pre-acceptance corrections were required.
+
+Base ADR of the KMP track. [ADR-039](ADR-039-native-ui.md) (native UI, card K03) builds directly on the matrix this ADR fixes. ADR-040 (player, K05), ADR-041 (state and interop, K06) and ADR-042 (migration strategy, K04) do the same and are not written yet — they are referenced by number, without links, until they exist. None of them may contradict this ADR.
 
 Does **not** touch [ADR-007](ADR-007-execution-plan-runtime-contract.md) (execution plan as the playback runtime contract) or [ADR-036](ADR-036-google-home-execution-model.md) (Google Home execution model), both reaffirmed in §7. Does **not** decide the player's internals (ADR-040), the UI (ADR-039) or the state contract (ADR-041).
 
-Implements the direction approved by the PO on 2026-09-24 and recorded in [`kmp-migration-plan.md`](../architecture/mobile/kmp-migration-plan.md) §0 (decisions D1–D5).
+Implements the direction approved by the PO and recorded in [`kmp-migration-plan.md`](../architecture/mobile/kmp-migration-plan.md) §0 (decisions D1–D5).
 
 ## Date
 
-2026-09-24
+2026-09-23
 
 ---
 
@@ -186,9 +188,9 @@ The cost of keeping `commonMain` iOS-clean while Android is the only target is s
 
 ---
 
-## 9. What acceptance means
+## 9. What acceptance meant
 
-Accepting this ADR means accepting, specifically:
+Accepted by the PO on 2026-09-23. Acceptance covered, specifically:
 
 1. The three-condition SHARED test and its tie-breaker (Decision 1) as the standing rule for classification.
 2. The responsibility matrix (Decision 2) as binding on ADR-039 to ADR-042 and on every implementation card.
@@ -196,7 +198,7 @@ Accepting this ADR means accepting, specifically:
 4. A single `shared` module, splittable only under the three measured conditions (Decision 4).
 5. That the boundary is enforced by an automated test with a sentinel (Decision 5), accepting that without a Mac this reduces but does not eliminate the iOS risk.
 
-No open questions block acceptance. The plan's remaining open items — timeline, `minSdk`, the phase in which telemetry instrumentation lands — do not affect this boundary.
+No open questions blocked acceptance, and no pre-acceptance corrections were requested. The plan's remaining open items — timeline, `minSdk`, the phase in which telemetry instrumentation lands — do not affect this boundary.
 
 ## Consequences
 
