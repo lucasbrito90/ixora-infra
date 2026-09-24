@@ -21,7 +21,7 @@ Estas decisões são **posteriores ao corpo original deste documento e prevalece
 
 ### 0.1 Questões do §15 ainda em aberto
 
-Fechadas por estas decisões: 1, 4, 6, 7 e 9. **Permanecem em aberto:** 2 (prazo ou projeto de fundo), 3 (`minSdk` alvo), 5 (em que fase entra a instrumentação de telemetria — o *se* foi fechado por §16.13) e 8 (portar os tokens de tema ou redesenhar). Nenhuma das quatro bloqueia o K07.
+Fechadas por estas decisões: 1, 4, 6, 7 e 9. **Permanecem em aberto:** 2 (prazo ou projeto de fundo), 3 (`minSdk` alvo) e 5 (em que fase entra a instrumentação de telemetria — o *se* foi fechado por §16.13). A questão 8 foi fechada por §16.14: os tokens existentes são portados, sem redesenho. Nenhuma das três restantes bloqueia o K07.
 
 Os requisitos transversais do projeto (multilinguagem, acessibilidade, deep links, armazenamento seguro e outros) estão consolidados em **§16**.
 
@@ -157,7 +157,9 @@ Legenda: ● implementa · ○ consome · — não participa
 | Analytics / Telemetria | ○ | ● | ● | Interface compartilhada, SDK nativo. Critérios e escopo em §16.13. |
 | Logging | ● | ○ | ○ | Abstração barata; saída por plataforma. |
 | Tratamento de erros | ● | ○ | ○ | Tipos de erro de domínio compartilhados — ver §8. |
-| UI | — | ● | ● | Decisão explícita do PO: sem Compose Multiplatform. |
+| UI | — | ● | ● | Decisão explícita do PO: sem Compose Multiplatform. A **linguagem visual** é comum e a implementação é nativa — detalhamento em §16.14. |
+| Design language (tokens, princípios) | conceito | conceito | conceito | Regra única, mas **não é código no `shared`**. Sem módulo `design-system` KMP (§16.14.4). |
+| Theme, componentes e telas | — | ● | ● | Compose e SwiftUI implementam separadamente a mesma linguagem (§16.14.6). |
 
 Nenhuma responsabilidade foi marcada como compartilhada apenas por ser tecnicamente possível. Os três casos em que resistimos à tentação: transporte de áudio, navegação e UI.
 
@@ -254,13 +256,17 @@ ixora-app/
 │
 ├── androidApp/
 │   └── src/main/kotlin/app/ixora/android/
-│       ├── ui/                        # Compose por feature
+│       ├── ui/
+│       │   ├── theme/                 # Colors · Typography · Dimensions · IxoraTheme (§16.14.3)
+│       │   ├── components/            # componentes Compose do Design System
+│       │   └── screens/               # telas por feature
 │       ├── player/                    # Media3 + MediaSessionService
 │       ├── googlehome/                # SDK Google Home (migrado do plugin atual)
 │       ├── push/
 │       └── platform/                  # actuals que precisam de Context
 │
 ├── iosApp/                            # esqueleto Xcode, inerte até o Mac
+│   └── UI/                            # Theme · Components · Screens — simétrico ao Android
 │
 └── contracts/smart-home/capability.v1.schema.json   # cópia vendorizada
 ```
@@ -611,14 +617,14 @@ Apenas decisões com impacto arquitetural real. Numeração seguindo a sequênci
 | ADR | Assunto | Bloqueia implementação? |
 | --- | --- | --- |
 | **ADR-038** | KMP como camada compartilhada do mobile: o que vai, o que não vai e por quê | **Sim** |
-| **ADR-039** | UI nativa (Compose + SwiftUI) sem Compose Multiplatform, e o custo aceito de reescrever a UI duas vezes | **Sim** |
+| **ADR-039** | UI nativa (Compose + SwiftUI) sem Compose Multiplatform, o custo aceito de reescrever a UI duas vezes, **e a estratégia de Design System de §16.14** (linguagem comum, implementação nativa, sem módulo `design-system`) | **Sim** |
 | **ADR-040** | Arquitetura do player: plano e scheduler compartilhados, transporte nativo | **Sim** — condiciona a Fase 4 |
 | **ADR-041** | Contrato de estado e interop Kotlin↔Swift: StateFlow, `Result` selado, SKIE | **Sim** |
 | **ADR-042** | Estratégia de migração e destino do repositório (construção paralela em `ixora-app`, feature freeze do `front_vibes`) | **Sim** — altera `repo-responsibilities.md`, `architecture-map.md` e o `CLAUDE.md` da raiz |
 | **ADR-043** | Persistência mobile: SQLDelight, DataStore e armazenamento seguro do token | Não — pode ser decidido na Fase 3 |
 | **ADR-044** | Autenticação Firebase em KMP via `expect/actual` | Não — pode ser decidido na Fase 2 |
 
-Não recomendo ADR para DI nem para testes: são escolhas reversíveis de baixo acoplamento, que cabem no próprio plano.
+Não recomendo ADR para DI nem para testes: são escolhas reversíveis de baixo acoplamento, que cabem no próprio plano. **Nem para o Design System:** ele não é uma decisão independente da ADR-039 — decidir "UI nativa nas duas plataformas" e "linguagem visual única com implementação separada" é a mesma decisão vista de dois ângulos. Separá-las criaria duas ADRs que precisariam ser lidas juntas para fazer sentido.
 
 **Impacto documental fora dos ADRs:** `repo-responsibilities.md`, `architecture-map.md`, `contracts/README.md` (novo consumidor vendorizado) e `quality-harness.md` (novo baseline) precisam ser atualizados. A ADR-007 e a ADR-008 (execução device-side e contrato do plano) **continuam válidas** — a migração as reafirma, não as revoga.
 
@@ -652,7 +658,7 @@ Risco 1 é o dominante. Toda a estrutura de fases existe para contê-lo.
 5. **Telemetria OTel: em que fase entra a instrumentação mínima?** §16.13 já decidiu que a nova arquitetura preserva e se integra ao OTel/Grafana/Loki/Tempo existentes — o *se* está fechado. Resta o *quando*: reimplementar cedo atrasa, e tarde cria ponto cego. *(aberta — decidir até a Fase 2)*
 6. ~~Dados existentes no aparelho migram?~~ **Fechada por D3** — sem migração; reconstrução por download e sincronização.
 7. ~~Fade entra no escopo do player novo?~~ **Fechada por D4** — entra, como parte do K05 / ADR-040. Ver §10.4: o trabalho é especificar a semântica, não copiá-la.
-8. **Design system:** portar os tokens atuais (tema claro, `variables.css`) para um `Theme` Compose, ou redesenhar aproveitando a mudança? *(aberta — decidir até a Fase 6; note que redesenhar tende a colidir com o espírito de D2)*
+8. ~~Design system: portar os tokens atuais ou redesenhar?~~ **Fechada por §16.14** — portar. A linguagem visual existente (tokens do Figma, tema `system`/`light`/`dark`) é reproduzida como paridade; redesenho é mudança de produto e exige decisão própria do PO, fora de D2. A regra de consolidação de valores literais em tokens existentes está em §16.14.8.
 9. ~~O que acontece com `front_vibes`?~~ **Fechada por D1/D2** — referência e histórico em feature freeze; nunca deletado.
 
 ---
@@ -768,7 +774,9 @@ No plano: §9 — interface no `commonMain` com implementação injetada, porque
 - Android: TalkBack e os recursos de acessibilidade do Compose. iOS: VoiceOver e os do SwiftUI.
 - Considerar tamanho de fonte, contraste, labels, navegação por acessibilidade e **Dynamic Type** quando aplicável.
 
-Nota: é trabalho majoritariamente novo — o app atual tem poucos `aria-label`. Por ser transversal, o custo é muito menor quando embutido em cada tela da Fase 6 do que em um mutirão posterior. Recomenda-se que "acessibilidade verificada" faça parte do critério de conclusão de cada área de UI, e não vire um card próprio no fim.
+Nota: é trabalho majoritariamente novo — o app atual tem poucos `aria-label`, e praticamente nenhum estado de foco ou alvo mínimo declarado. Por ser transversal, o custo é muito menor quando embutido em cada tela da Fase 6 do que em um mutirão posterior. Recomenda-se que "acessibilidade verificada" faça parte do critério de conclusão de cada área de UI, e não vire um card próprio no fim.
+
+**O Design System é o ponto central onde isso se sustenta** — um componente acessível por construção resolve o problema em todas as telas que o usam. Ver §16.14.7.
 
 ### 16.11 Localização regional
 
@@ -806,11 +814,159 @@ Nota técnica: não há SDK OpenTelemetry viável em `commonMain` para Kotlin/Na
 
 ### 16.14 Design System / Design Tokens
 
-- Base de Design System utilizável como **referência** tanto no Jetpack Compose quanto no SwiftUI.
-- Considerar desde o início: **cores, tipografia, espaçamento, dimensões, componentes, estados, Light/Dark Mode**.
-- Objetivo: consistência visual entre Android e iOS **sem compartilhar a implementação da UI**.
+Requisito arquitetural com peso próprio: é o que impede Android e iOS de desenvolverem interpretações visuais independentes do produto. Nada aqui autoriza implementação.
 
-Nota: "referência" é a palavra operante — os tokens são a fonte comum, as implementações são independentes. Os tokens atuais (`variables.css`, já com paleta dark) são o ponto de partida natural, o que mantém o item dentro de D2. Ver questão 8 do §15.
+**Princípio, em uma frase:**
+
+> **Mesma linguagem visual e mesmos princípios de design, com implementação nativa em cada plataforma.**
+
+O KMP compartilha **comportamento e domínio**. O Design System compartilha **linguagem e regras visuais**. As plataformas implementam a **UI nativamente**.
+
+```
+                    IXORA
+                      │
+             ┌────────┴────────┐
+        KMP Shared         Design Language
+             │                 │
+      Business Logic       Design Tokens
+      State / Data         UI Principles
+             │                 │
+       ┌─────┴─────┐      ┌────┴─────┐
+    Android       iOS   Compose    SwiftUI
+       │           │      │          │
+     Native      Native  Native    Native
+       UI          UI  Components Components
+```
+
+#### 16.14.1 O que já existe (inventariado no código)
+
+O Design System **não começa do zero** — ele existe, é coerente e tem origem declarada no Figma. `variables.css:3` diz literalmente: *"Ionic design tokens mapped from Figma Design System (node 127:2)"*.
+
+| Categoria | Estado atual | Origem |
+| --- | --- | --- |
+| Cores semânticas | `--app-color-bg`, `surface`, `surface-subtle`, `border`, `text-primary/secondary/muted` | `variables.css` |
+| Escalas de cor | `primary-100…600`, `secondary-100…500` | `variables.css` |
+| Marca | primária `#1dac92`, secundária `#252d41`, gradiente primário | `variables.css` |
+| Tipografia | `h1…h6` (48→18px), `body-lg/md/sm/xs` (16→10px), 3 line-heights, 3 pesos | `variables.css` |
+| Espaçamento | escala `--app-space-1…11` (4px → 60px) | `variables.css` |
+| Raio | `sm 8px`, `md 12px`, `lg 20px` | `variables.css` |
+| Sombras | `--app-shadow-card`, `--app-shadow-soft`, com valores próprios no dark | `variables.css` |
+| Movimento | `fast 140ms`, `base 240ms`, `slow 360ms`, 2 curvas de easing, stagger 48ms | `motion.css` |
+| Tema | `system` / `light` / `dark`, com paleta dark completa | `variables.css` + `useThemeMode.ts` |
+| Redução de movimento | `prefers-reduced-motion` zera as durações | `motion.css` |
+| Componentes reutilizáveis | `AppEmptyState`, `AppErrorState`, `AppLoadingState`, `AppAutomationBadge`, `MiniPlayer`, `CoverBundlePickerModal` | `components/` |
+| Estados visuais | `:disabled` (81 usos), `:active` (18), `:hover` (2), `:focus` (1) | telas e CSS |
+
+**Conclusão:** portar este conjunto para Compose é **paridade**, não criação de Design System novo.
+
+#### 16.14.2 Compartilhado como conceito, nunca como UI
+
+**Pode ser compartilhado conceitualmente:** design tokens, cores, tipografia, espaçamentos, dimensões, border radius, elevações/sombras, estados visuais, regras de componentes, princípios de acessibilidade, convenções de nomenclatura, regras gerais de interação e o design language do Ixora.
+
+**Não deve existir como abstração de UI compartilhada.** Explicitamente proibido criar no `shared`:
+
+```
+SharedButton      SharedTextField     SharedCard
+SharedNavigationBar   SharedPlayerView    SharedScreen
+```
+
+Nem transformar Compose e SwiftUI em camada visual comum. Isso reafirma a decisão de UI nativa (§3, K03/ADR-039) e mantém **Compose Multiplatform fora de escopo**.
+
+A UI permanece:
+
+```
+Android → Jetpack Compose → Theme · Components · Screens
+iOS     → SwiftUI          → Theme · Components · Screens
+```
+
+#### 16.14.3 Estrutura de referência
+
+Referência arquitetural, **não uma ordem para criar estes arquivos agora**. Complementa §5.2.
+
+```
+shared/            domain/ · data/ · presentation/ · platform/
+
+androidApp/ui/
+    theme/         Colors.kt · Typography.kt · Dimensions.kt · IxoraTheme.kt
+    components/
+    screens/
+
+iosApp/UI/
+    Theme/         Colors.swift · Typography.swift · Dimensions.swift · IxoraTheme.swift
+    Components/
+    Screens/
+```
+
+A simetria entre as duas árvores é deliberada: garante que a implementação SwiftUI futura tenha onde encaixar sem redesenhar a arquitetura.
+
+#### 16.14.4 Sem módulo `design-system` no KMP
+
+**Não criar um módulo KMP `design-system/`.** Criar essa abstração exige justificativa por necessidade real, medida — não por simetria.
+
+A estratégia preferencial é:
+
+- `shared` KMP → lógica de negócio, estado, dados e contratos;
+- Android → implementação do Design System em Compose;
+- iOS → implementação do Design System em SwiftUI;
+- documentação e decisões → definem a linguagem visual comum.
+
+Se no futuro algum token fizer sentido ser compartilhado **tecnicamente** (por exemplo, um valor que a lógica de domínio precise conhecer), isso é avaliado na hora, com o caso concreto na mão. Não é presumido agora. Coerente com §5.1: módulo novo só com motivo medido.
+
+#### 16.14.5 Figma como origem visual
+
+```
+Figma  →  Design Tokens / Design Language  →  Android (Compose)
+                                           →  iOS (SwiftUI)
+```
+
+O Figma é a **referência e origem** da linguagem visual, e já é assim hoje (`variables.css:3` cita o nó de origem). O objetivo é impedir que cada plataforma derive sua própria interpretação do produto.
+
+**Não construir agora infraestrutura de sincronização automática Figma → código.** Se um dia isso se justificar, será por volume de mudança visual, não por elegância.
+
+#### 16.14.6 Responsabilidade por plataforma
+
+Detalha a linha "UI" de §3 sem contradizê-la.
+
+| Responsabilidade | Shared | Android | iOS |
+| --- | --- | --- | --- |
+| Business rules | ✅ | | |
+| Domain models | ✅ | | |
+| Application state | ✅ | | |
+| Design language | conceito | conceito | conceito |
+| Design tokens | possível avaliação futura (§16.14.4) | implementação | implementação |
+| Theme | | Compose | SwiftUI |
+| UI Components | | Compose | SwiftUI |
+| Screens | | Compose | SwiftUI |
+| Navigation UI | | Compose | SwiftUI |
+| Player UI | estado compartilhado quando aplicável | Compose | SwiftUI |
+
+"Conceito" significa: a regra existe e é única, mas não é código no `shared`.
+
+#### 16.14.7 Acessibilidade é responsabilidade do Design System
+
+O Design System é o **ponto central** onde a acessibilidade (§16.10) se sustenta — um componente acessível por construção resolve o problema em todas as telas que o usam.
+
+Quando aplicável: contraste, tamanho mínimo de área interativa, estados de foco, estados disabled, labels, suporte a Dynamic Type e escalabilidade de fonte, semântica e tecnologias assistivas nativas (TalkBack e VoiceOver).
+
+Base atual: 24 `aria-label`, 18 `role`, 33 `aria-hidden`, apenas 4 declarações de alvo mínimo (48px/44px) e **um único** `:focus` em todo o app. Ou seja: estado de foco e alvo mínimo são essencialmente ausentes hoje e devem nascer no componente, não na tela.
+
+Nada a implementar agora — apenas a responsabilidade arquitetural estabelecida.
+
+#### 16.14.8 Paridade e a regra de consolidação de tokens
+
+Distinção que precisa ficar rígida:
+
+- **Reproduzir o sistema visual existente → paridade.** É o escopo da migração.
+- **Criar experiência visual nova → mudança de produto.** Precisa de decisão explícita do PO e está fora de D2.
+
+**Não introduzir redesenho durante a migração.** `system`/`light`/`dark` é **paridade** (§16.0, item 3), não feature nova.
+
+Há um detalhe real a tratar. O sistema de tokens existe, mas **convive com valores literais**: `border-radius: 12px` aparece 14 vezes enquanto `--app-radius-md` vale exatamente 12px; `font-size: 18px` aparece 21 vezes enquanto `--app-font-size-h6` vale 18px. A regra ao portar:
+
+1. Valor literal que **coincide** com um token existente → usar o token. Mesmo resultado visual, nome recuperado. Isso é consolidação, não redesenho.
+2. Valor literal **sem** token correspondente → manter o valor e **registrar a divergência**, sem inventar token novo nem arredondar para o token mais próximo. Arredondar muda pixel, e mudar pixel é redesenho.
+
+Ver questão 8 do §15, agora fechada.
 
 ### 16.15 Feature Flags / Remote Configuration
 
@@ -883,7 +1039,7 @@ Fatias pequenas o bastante para execução assistida, cada uma com resultado ver
 | --- | --- | --- | --- |
 | K01 | **Consolidar decisões arquiteturais** | 0 | ✅ **Concluído em 2026-09-24** por esta revisão: §0 registra D1–D5; questões 1, 4, 6, 7 e 9 do §15 fechadas; §5.3, §10.4, §11, §14 e §15 atualizados. Restam abertas as questões 2, 3, 5 e 8, nenhuma bloqueante. |
 | K02 | **ADR-038 — KMP Shared Layer** | 0 | ADR Accepted: o que vai para `commonMain`, o que não vai, e o critério de decisão (a matriz do §3) |
-| K03 | **ADR-039 — Native UI: Compose + SwiftUI** | 0 | ADR Accepted: sem Compose Multiplatform; custo aceito de reescrever a UI duas vezes |
+| K03 | **ADR-039 — Native UI: Compose + SwiftUI** | 0 | ADR Accepted: sem Compose Multiplatform; custo aceito de reescrever a UI duas vezes; estratégia de Design System de §16.14 registrada como decisão (linguagem comum, implementação nativa, sem módulo `design-system`, Figma como origem) |
 | K04 | **ADR-042 — Migration / Repository Strategy** | 0 | ADR Accepted + `repo-responsibilities.md`, `architecture-map.md` e `CLAUDE.md` da raiz refletindo o quinto repositório (`ixora-app`) e o feature freeze |
 | K05 | **ADR-040 — Native Player Architecture** | 0 | ADR Accepted cobrindo: plano e scheduler compartilhados, transporte nativo, **e a especificação da semântica de fade (§10.4)**. Deve declarar explicitamente que supersede a proibição de fade da ADR-008 |
 | K06 | **ADR-041 — State Management / Swift Interop** | 0 | ADR Accepted: StateFlow, `Result` selado, efeitos por `Channel`, SKIE |
