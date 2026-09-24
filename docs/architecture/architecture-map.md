@@ -12,16 +12,19 @@
 
 ## Purpose
 
-Provide a **single aerial view** of the Ixora platform: four code repositories, managed data stores, Firebase identity, DigitalOcean staging footprint, and mobile playback/offline boundaries — so engineers, reviewers, and AI tooling can route questions to the right document without reading the entire tree.
+Provide a **single aerial view** of the Ixora platform: five code repositories, managed data stores, Firebase identity, DigitalOcean staging footprint, and mobile playback/offline boundaries — so engineers, reviewers, and AI tooling can route questions to the right document without reading the entire tree.
 
 ---
 
 ## Platform at a glance
 
+> **Mobile layer in transition.** The mobile application is being rebuilt from Ionic/Capacitor into Kotlin Multiplatform in a parallel repository, `ixora-app` ([ADR-042](../decisions/ADR-042-migration-repository.md)). Every flow below still shows `front_vibes`, because **`front_vibes` is still the installable application**. `ixora-app` takes these responsibilities over at cutover, and this map is revised then — not before.
+
 ```mermaid
 flowchart TB
   subgraph clients["Clients"]
-    MV[front_vibes<br/>Ionic + Capacitor]
+    MV[front_vibes<br/>Ionic + Capacitor<br/>shipping · feature-frozen]
+    KA[ixora-app<br/>KMP + Compose<br/>under construction]
     AD[ixora-admin<br/>Nuxt static site]
   end
 
@@ -52,6 +55,7 @@ flowchart TB
   SP --> CDN
   MV -->|GET assets| CDN
   AD -->|GET assets| CDN
+  KA -.->|same contracts, at cutover| AP_API
   TF -.->|tofu apply| AP_API
   TF -.->|tofu apply| AP_Q
   TF -.->|tofu apply| AP_AD
@@ -67,7 +71,8 @@ flowchart TB
 
 | Component | Repository / service | Primary responsibility | Does **not** do |
 | --- | --- | --- | --- |
-| **`front_vibes`** | Mobile app repo | Browse/play vibes, **execution plan**, **playback runtime**, **offline download**, user vibe CRUD via API | Spaces writes, catalog sound create, server-side play |
+| **`front_vibes`** | Mobile app repo (**shipping today, feature-frozen**) | Browse/play vibes, **execution plan**, **playback runtime**, **offline download**, user vibe CRUD via API | Spaces writes, catalog sound create, server-side play |
+| **`ixora-app`** | Mobile app repo (**under construction**) | Kotlin Multiplatform rebuild of the mobile layer — same responsibilities as `front_vibes`, taken over at cutover | Everything `front_vibes` must not do, plus shared UI abstractions and Compose Multiplatform |
 | **`ixora-admin`** | Admin repo | Catalog UI (sounds, covers, presets), multipart **upload via API**, static admin site | Business rules, Spaces credentials, JWT verification logic |
 | **`back_vibes`** | Laravel API repo | Domain model, policies, **Firebase JWT verify**, **Spaces I/O**, REST JSON, **queue jobs** | Mobile/admin UI, IaC, CDN edge config |
 | **`ixora-infra`** | Infra + docs repo | **OpenTofu** staging stack, central specs/architecture/ADRs, Git Flow standard | Application runtime code |
