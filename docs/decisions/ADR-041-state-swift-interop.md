@@ -214,7 +214,7 @@ The Android UI:
 
 The state holder's `CoroutineScope` is owned and cancelled by the platform. On Android it is anchored to a `ViewModel`, which keeps ownership where the lifecycle actually is and keeps `commonMain` free of a lifecycle framework.
 
-**Unvalidated claim, carried from the plan.** Plan §7 notes that `androidx.lifecycle.ViewModel` is itself multiplatform, which would allow the state holder to *be* a `ViewModel` inside `shared`. **That has not been verified in this project** — there is no version catalog, no Gradle build and no test to confirm it, and this ADR does not confirm it from outside knowledge. The decision above does not depend on the claim being true: anchoring on the Android side is chosen for lifecycle ownership, not because the multiplatform route is unavailable. Verification belongs to K07, when a real version catalog exists.
+**Validated by K07 (2026-09-25).** Plan §7 notes that `androidx.lifecycle.ViewModel` is itself multiplatform, which would allow the state holder to *be* a `ViewModel` inside `shared`. This was confirmed in a scratch probe: `lifecycle-viewmodel:2.9.4` published `darwinMain` and `nativeMain` klibs, confirming the route exists for iOS targets. The decision above does not depend on this being available: anchoring on the Android side is chosen for lifecycle ownership. The probe is recorded in the post-acceptance addendum at the bottom of this document.
 
 This ADR formalizes the pattern; it does not implement it.
 
@@ -252,7 +252,7 @@ Domain / UseCase / StateHolder
 - The shared module is **not designed around SwiftUI**. If a SwiftUI convenience would require bending the domain API, the answer is a Swift-side adapter in `iosApp`, not a change in `shared`.
 - SKIE is a third-party, community-maintained tool. That risk is bounded by this decision: it is confined to the iOS platform layer, and the fallback — hand-written `Flow` wrappers — is a known alternative that would not touch the domain.
 
-**Unvalidated, and recorded as such.** The migration plan adopts SKIE for Kotlin/Swift interoperability, and this ADR keeps that adoption. But its exact Gradle and build impact, and the generated Swift interop behaviour, **remain unvalidated until a real KMP/iOS toolchain exists**. Specifically: the expectation is that a plugin applied at the iOS framework boundary does not affect the Android build, and therefore does not impede Android-first work — that is an expectation, not a verified fact. Validation belongs to K07 and the first real build, not to this ADR. SKIE is not removed for lacking validation; the plan recommends it and no better-supported alternative is available.
+**Partially validated by K07 (2026-09-25).** The SKIE plugin (`co.touchlab.skie` 0.10.14) was applied in a scratch probe; `:shared:build` stayed green and Android host tests were unaffected on Windows — confirming that the plugin does not impede Android-first work. The generated Swift interop behaviour and any behaviour requiring an Apple toolchain (framework link, Swift consumption) remain unverified until a Mac is available. SKIE re-enters with `iosApp`. The probe is recorded in the post-acceptance addendum at the bottom of this document.
 
 ### Decision 9 — Boundary rules
 
@@ -297,7 +297,7 @@ Accepted by the PO on 2026-09-23. Acceptance covered, specifically:
 5. That `shared` exposes `hasPresentableSession` — the product rule, under a domain name — and that each platform decides whether it becomes a mini player (Decision 4).
 6. `Result<T, DomainError>` as the domain-layer return contract inside `commonMain`, **not** as the presentation API exposed to Swift, which sees concrete `UiState` and `Effect` types (Decisions 5 and 7). This specializes the scope of plan §7's wording; it does not retract it.
 7. That the enforcement of Decision 9 is **partial**: two rules are mechanically checked, the rest are binding by review, and the listed scanner extensions are possibilities rather than existing capability.
-8. SKIE as the interop bridge, confined to the boundary, accepting a third-party dependency in the iOS platform layer only — with its build impact and interop behaviour **unvalidated** until a real toolchain exists (Decision 8).
+8. SKIE as the interop bridge, confined to the boundary, accepting a third-party dependency in the iOS platform layer only — with its Android build impact **validated in K07** and its Swift interop behaviour unverified until a Mac is available (Decision 8).
 9. That the interop rules in Decision 7, and the multiplatform-`ViewModel` claim in Decision 6, are reasoned or inherited rather than verified, because no Mac and no Gradle build exist yet (§2.4).
 
 ## Consequences
@@ -319,7 +319,7 @@ Accepted by the PO on 2026-09-23. Acceptance covered, specifically:
 
 - **Interop rules unverified.** Reasoned from documented Kotlin/Native behaviour, not from a build. The first iOS compilation is still expected to surface problems; this ADR reduces their number, not their existence.
 - **Boundary erosion under deadline.** A screen calling a repository directly is a one-line shortcut that is easy to miss in review. Decision 6 makes it a rule, and Decision 9 is explicit that nothing mechanical catches it today — the current boundary test does not scan `androidApp`.
-- **SKIE dependency, and unvalidated.** Bounded by Decision 8 to the iOS platform layer, with hand-written `Flow` wrappers as a known alternative. Its build impact and interop behaviour are expectations, not verified facts, until a real toolchain exists (K07).
+- **SKIE dependency, partially validated.** Bounded by Decision 8 to the iOS platform layer, with hand-written `Flow` wrappers as a known alternative. Its Android build impact is confirmed (K07 probe: `:shared:build` stayed green). The Swift interop behaviour remains unverified until a Mac is available.
 - **Over-sharing of UI state.** The opposite failure to boundary erosion: pushing scroll position or animation state into `shared` because "state lives in shared". Decision 4 exists specifically to prevent that reading.
 
 ## Relationship to other ADRs
@@ -334,3 +334,17 @@ Accepted by the PO on 2026-09-23. Acceptance covered, specifically:
 Code inspected 2026-09-23 in `front_vibes` @ `1cf858e`: `src/stores/player.store.ts` (623 lines — `PlaybackState`, elapsed clock outside the reactive tree, `showMiniPlayer` derived value), `src/composables/` (20 files — `useVibes`, `useAuth`, `usePlayerEngine`, `useSchedules`, `useDevices`, …), `src/services/player-engine.service.ts`.
 
 Internal: [`kmp-migration-plan.md`](../architecture/mobile/kmp-migration-plan.md) (§6.5 state, §7 state architecture and data flow, §8 Kotlin↔Swift interop, §16.19 session state), [ADR-038](ADR-038-kmp-shared-layer.md), [ADR-039](ADR-039-native-ui.md), [ADR-042](ADR-042-migration-repository.md).
+
+---
+
+## Post-acceptance addendum (2026-09-25) — K07 probe results
+
+Phase 1 (K07) produced concrete evidence on the two unvalidated claims noted in Decision 6 and Decision 8. No decision is reopened. Status remains Accepted.
+
+### K07 result for Decision 6 — `androidx.lifecycle.ViewModel` multiplatform claim
+
+**Verified (K07, 2026-09-25).** In a scratch build, `androidx.lifecycle:lifecycle-viewmodel:2.9.4` was added to the `commonMain` dependencies; `kotlinTransformedMetadataLibraries` listed `commonMain`, `darwinMain` and `nativeMain` klibs for it, confirming that the library publishes Kotlin/Native (Apple) variants and that the multiplatform `ViewModel` route exists for the iOS targets. The dependency was removed after the probe and nothing from it was committed. Decision 6 is **unchanged**: anchoring the state holder's scope on the Android `ViewModel` remains the chosen approach; the probe only resolves the "unverified" status of the claim. Whether a `commonMain` source importing `androidx.lifecycle.ViewModel` passes the iOS compilation is recorded in the ADR-038 addendum, not here.
+
+### K07 result for Decision 8 — SKIE build-impact expectation
+
+**Partially validated (K07, 2026-09-25).** The SKIE plugin (`co.touchlab.skie` 0.10.14) was applied to the `shared` module without `binaries.framework` and without extra configuration, and `:shared:build` stayed green: the Android compilation and the Android host tests were unaffected, and the Apple tasks were skipped on Windows. This confirms the expectation recorded in Decision 8 — a plugin applied at the iOS boundary does not impede Android-first work — for Kotlin 2.3.20, AGP 8.13.0 and a Windows host. **Not verified:** the Swift code SKIE generates and any behaviour that needs an Apple toolchain (framework link, Swift consumption). SKIE was removed after the probe because it has no consumer until `iosApp` exists; it re-enters with `iosApp`.
