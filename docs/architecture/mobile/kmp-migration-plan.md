@@ -70,7 +70,7 @@ Contagens obtidas em `front_vibes` @ `develop` (`1cf858e`), excluindo arquivos d
 | `telemetry/` | 3 | 541 | OpenTelemetry web |
 | `types/` | 2 | 45 | |
 | **Total `src/`** | **129** | **27.590** | |
-| Testes Vitest | 48 | 9.064 | 515 testes |
+| Testes Vitest | 48 | 9.064 | 515 testes. Medido em 2026-09-25 com `node node_modules/vitest/vitest.mjs run` (`npx vitest` não funciona nesta máquina): 48 arquivos (45 `*.test.ts` + 3 `*.spec.ts` dentro de `src/`; `tests/e2e`, `tests/smoke` e `qa-android-native/` excluídos pelo `vite.config.ts`), todos passando. |
 | Kotlin nativo (`android/`) | 3 | 493 | Plugin Google Home |
 | Testes Kotlin | 4 | 330 | |
 
@@ -226,7 +226,7 @@ Recomendação: **UDF (fluxo unidirecional) com StateHolders no shared, sobre Re
 
 Dividir em módulos Gradle depois, quando houver **motivo medido**: tempo de build incômodo, ou um domínio que precise de targets diferentes. Modularizar antes disso é otimização prematura que um desenvolvedor solo paga todo dia no Gradle sync.
 
-**Resultado da Fase 1 (K12, 2026-09-25):** a Opção A foi executada e validada em K07–K11. O módulo `shared` compila para `commonMain`, `androidHostTest` e os dois targets iOS (`iosArm64`, `iosSimulatorArm64`) no Windows, com Kotlin 2.3.20 / AGP 8.13.0 / Gradle 8.14.3 / JDK 21. O teste de fronteira (`CommonMainBoundaryTest`) rejeita `java.*`, `javax.*`, `android.*`, `androidx.*` e passa em `androidHostTest`; o sentinela (`CommonMainBoundarySentinelTest`) detecta violações deliberadas. Nenhuma pressão surgiu para dividir módulos durante a Fase 1; a recomendação de módulo único permanece válida para a Fase 2.
+**Resultado da Fase 1 (K12, 2026-09-25):** a Opção A foi executada e validada em K07–K11. O módulo `shared` compila para `commonMain`, `androidHostTest` e os dois targets iOS (`iosArm64`, `iosSimulatorArm64`) no Windows, com Kotlin 2.3.20 / AGP 8.13.0 / Gradle 8.14.3 / JDK 21 (compilação para klib; link e execução de testes iOS exigem Mac). O `CommonMainBoundaryTest` (rejeita `java.*`, `javax.*`, `android.*`, `androidx.*`; inclui sentinelas de detecção e de não-detecção, 20 testes) verde em `androidHostTest`. Nenhuma pressão surgiu para dividir módulos durante a Fase 1; a recomendação de módulo único permanece válida para a Fase 2.
 
 ### 5.2 Estrutura de diretórios recomendada
 
@@ -303,8 +303,7 @@ Cada escolha abaixo tem alternativa documentada. Nenhuma foi feita por popularid
 | Gradle (wrapper) | 8.14.3 | |
 | JDK (compilação) | 21 | |
 | `kotlinx-serialization-json` | 1.11.0 | |
-| `kotlinx-coroutines-core` | — | Não adicionado na Fase 1; entra na Fase 2 |
-| `kotlinx-datetime` | — | Não adicionado na Fase 1; entra quando o scheduler precisar |
+| `org.jetbrains.kotlin.plugin.serialization` | 2.3.20 | Plugin do compilador; versão igual à do Kotlin |
 
 O plugin AGP usado é `com.android.kotlin.multiplatform.library` (não o par `com.android.library` + `androidTarget()` descrito na documentação mais antiga do KMP). Esse plugin expõe o target Android como `android { }` dentro do bloco `kotlin { }`, não como `androidTarget()`. Ver addendum do ADR-038, ponto 3.
 
@@ -560,8 +559,8 @@ Critério corrigido (K12, 2026-09-25): **paridade de comportamento do `player-en
 Testável: paridade do plano de execução entre TS e Kotlin.
 
 ✅ **Concluído em 2026-09-25 (K07–K11).** Saídas verificáveis produzidas:
-- K07: `./gradlew :shared:build` verde; iOS targets declarados e compilando no Windows (`compileKotlinIosArm64` executado); Git Flow configurado.
-- K08: `CommonMainBoundaryTest` + `CommonMainBoundarySentinelTest` verdes; sentinela detecta violação deliberada.
+- K07: `./gradlew :shared:build` verde; targets iOS declarados; `compileTestKotlinIosArm64` executa no Windows; `compileKotlinIosArm64` fica `NO-SOURCE` até haver código em `commonMain` (K09) e passa a executar de fato a partir daí. Git Flow configurado.
+- K08: `CommonMainBoundaryTest` (rejeita `java.*`, `javax.*`, `android.*`, `androidx.*`; inclui sentinelas de detecção e de não-detecção, 20 testes) verde em `androidHostTest`.
 - K09: `VibeSound` (15 campos, `@Serializable`), `PlayMode` (enum `@Serializable`) e `VibeExecutionLayer` em `commonMain`; fixture de staging real capturada (`back_vibes` @ `73f23d1c`); 5 testes de serialização em `commonTest`.
 - K10: `buildVibeExecutionPlan`, `formatDuration` e `buildSummary` em `commonMain`; 17 casos manuais de golden-master em `commonTest`; prova de mutação.
 - K11: 384 combinações de 1 som (3×4×4×4×2 matrix), 30 planos multi-som (PRNG seed 20260925), 3713 entradas de `formatDuration` (0..3700 + 12 pontos de borda); seção "Player engine parity" no `README.md` do `ixora-app`.
@@ -662,7 +661,7 @@ Não recomendo ADR para DI nem para testes: são escolhas reversíveis de baixo 
 | --- | --- | --- | --- | --- |
 | 1 | **Migração abandonada no meio**, deixando o `front_vibes` congelado e o `ixora-app` incompleto | Alta | Alto | Com a construção paralela (D1) o strangler não protege mais. Mitigação: `ixora-app` instalável no aparelho desde a Fase 4, ainda que com UI mínima; cada fase termina com algo demonstrável no celular. |
 | 2 | **Regressão no player** — a semântica de `interval` e pausa é sutil, e o fade (D4) não tem comportamento de origem para copiar (§10.4) | Alta | Alto | Scheduler determinístico com testes de tabela; comparação lado a lado com o `front_vibes` congelado, no mesmo aparelho, antes de considerar a Fase 4 concluída. |
-| 3 | **iOS revela problemas em série na primeira compilação** | Alta | Médio | Assumido explicitamente. Teste de fronteira reduz, não elimina. Não escrever muito `iosMain` "no escuro". |
+| 3 | **iOS revela problemas em série na primeira compilação** | Alta | Médio | Assumido explicitamente. Teste de fronteira reduz, não elimina. Não escrever muito `iosMain` "no escuro". Parcialmente mitigado desde o K09: `compileKotlinIosArm64` executa no Windows e rejeita `java.*`/`android.*` em `commonMain` (ver addendum da ADR-038). Continuam não verificados: link do framework e qualquer código Swift/iOS. |
 | 4 | **Retorno do KMP não chega** se o Mac não vier | Média | Médio | Recomendação já entrega valor só com Android; o KMP é custo marginal, não aposta. |
 | 5 | **Perda da rede de testes** — 515 testes Vitest (48 arquivos, confirmado em 2026-09-25) e todos os specs WDIO do WebView | Certa | Alto | Paridade de lógica pura em `commonTest` como golden-master nomeado (player-engine já concluído na Fase 1 — K10/K11); demais `utils/` e `canonical-capabilities` portados na Fase 3. E2E refeito com seletores nativos. A perda dos testes Vitest é gerenciada, não eliminada — a rede de segurança é reconstruída gradualmente pelas fases. |
 | 6 | **Quebra de atualização na Play Store** por `applicationId` ou chave diferente | Baixa | Crítico | Tratar como critério de aceite da Fase 8. |
@@ -678,7 +677,7 @@ Risco 1 é o dominante. Toda a estrutura de fases existe para contê-lo.
 ## 15. Questões a decidir antes de começar
 
 1. ~~O app continua recebendo features durante a migração?~~ **Fechada por D2** — feature freeze durante toda a migração.
-2. **Existe prazo ou é projeto de fundo?** Muda o tamanho das fatias, não a ordem. *(aberta — não bloqueia a Fase 2; PO decide antes de iniciar K13)*
+2. **Existe prazo ou é projeto de fundo?** Muda o tamanho das fatias, não a ordem. *(aberta — não bloqueia a Fase 2; PO decide antes do primeiro card da Fase 2)*
 3. ~~`minSdk` alvo do app novo?~~ **Fechada em 2026-09-24 pelo PO: `minSdk` 24**, mantendo o piso atual do `front_vibes` (`android/variables.gradle`: `minSdkVersion 24`, `compileSdkVersion 36`, `targetSdkVersion 36`).
 
    O raciocínio, porque a conclusão não é a óbvia. **Não há base instalada a preservar** — o aplicativo nunca foi publicado, o que é a mesma premissa que sustenta o gate de keystore da ADR-042 Decisão 6. Logo, a pergunta não é quantos aparelhos se perde, e sim quanto código de compatibilidade se evita.
@@ -741,7 +740,7 @@ A coluna decisiva é a última: distingue o que é **paridade** (reproduzir algo
 
 Nota de implementação: o catálogo de strings pode viver no `shared` (uma fonte só) ou nos recursos nativos de cada plataforma (`strings.xml` e `.strings`/String Catalog). A segunda opção entrega pluralização, Dynamic Type e ferramentas de tradução nativas de graça; a primeira garante texto idêntico. A escolha pertence ao card de multilinguagem, não a este plano. Ver §3 (matriz) quando essa decisão for tomada.
 
-**Nota da Fase 1 (K12):** este documento é escrito em português — o idioma de trabalho do time. O inglês é o *idioma padrão do produto* (interface do usuário); o português é a língua das decisões, planos e documentação interna. Nenhum item aqui estabelece que a documentação interna deva ser escrita em inglês.
+**Nota da Fase 1 (K12):** `VibeExecutionLayer.humanReadableSummary` é gerado no `shared` com inglês fixo (`Loop`, `Plays once`, `Every …`, `Starts after …`, `Plays for …`). Foi portado fielmente do TypeScript (migração não é redesenho), mas é texto de apresentação dentro do domínio e conflita com este requisito de multilinguagem. Decidir na Fase 6 (UI) se o texto sai do `shared`.
 
 ### 16.2 Autenticação
 
@@ -1077,12 +1076,12 @@ Fatias pequenas o bastante para execução assistida, cada uma com resultado ver
 | K04 | **ADR-042 — Migration / Repository Strategy** | 0 | ✅ **Concluído em 2026-09-23.** ADR Accepted + `repo-responsibilities.md`, `architecture-map.md` e `CLAUDE.md` da raiz refletindo o quinto repositório (`ixora-app`) e o feature freeze. |
 | K05 | **ADR-040 — Native Player Architecture** | 0 | ✅ **Concluído em 2026-09-23.** ADR Accepted cobrindo: plano e scheduler compartilhados, transporte nativo, **e a especificação da semântica de fade (§10.4)**. Declara explicitamente que supersede a proibição de fade da ADR-008. |
 | K06 | **ADR-041 — State Management / Swift Interop** | 0 | ✅ **Concluído em 2026-09-23.** ADR Accepted: StateFlow, `Result` selado, efeitos por `Channel`, SKIE. Addendum pós-aceitação com resultados K07 registrado em K12. |
-| K07 | **Criar módulo `shared` KMP** no repositório `ixora-app`, com version catalog e targets android + iOS declarados | 1 | ✅ **Concluído em 2026-09-24.** `./gradlew :shared:build` verde; `compileKotlinIosArm64` e `compileTestKotlinIosArm64` executados no Windows (Kotlin 2.3.20 / AGP 8.13.0 / Gradle 8.14.3 / JDK 21); Git Flow configurado; `gradle/verification-metadata.xml` gerado. |
-| K08 | **Criar boundary tests** do `commonMain` (sem API JVM-only nem Android-only), com sentinela que prova a falha | 1 | ✅ **Concluído em 2026-09-24.** `CommonMainBoundaryTest` (rejeita `java.*`, `javax.*`, `android.*`, `androidx.*`) e `CommonMainBoundarySentinelTest` (detecta violação deliberada) verdes em `androidHostTest`. |
+| K07 | **Criar módulo `shared` KMP** no repositório `ixora-app`, com version catalog e targets android + iOS declarados | 1 | ✅ **Concluído em 2026-09-24.** `./gradlew :shared:build` verde; targets iOS declarados; `compileTestKotlinIosArm64` executa no Windows; `compileKotlinIosArm64` fica `NO-SOURCE` até haver código em `commonMain` (K09) e passa a executar de fato a partir daí. Git Flow configurado; `gradle/verification-metadata.xml` gerado. |
+| K08 | **Criar boundary tests** do `commonMain` (sem API JVM-only nem Android-only), com sentinelas que provam detecção e não-detecção | 1 | ✅ **Concluído em 2026-09-24.** `CommonMainBoundaryTest` (rejeita `java.*`, `javax.*`, `android.*`, `androidx.*`; inclui sentinelas de detecção e de não-detecção, 20 testes) verde em `androidHostTest`. |
 | K09 | **Migrar `VibeSound` e `VibeExecutionLayer`** com kotlinx.serialization | 1 | ✅ **Concluído em 2026-09-24.** `VibeSound` (15 campos, `@Serializable`), `PlayMode` (enum) e `VibeExecutionLayer` em `commonMain`; `kotlinx-serialization-json 1.11.0` adicionado; fixture de staging real capturada (`back_vibes` @ `73f23d1c`); 5 testes de serialização em `commonTest`, incluindo falha por campo ausente e `PlayMode` desconhecido. |
 | K10 | **Migrar `buildVibeExecutionPlan`** para `commonMain` | 1 | ✅ **Concluído em 2026-09-25.** `buildVibeExecutionPlan`, `formatDuration` e `buildSummary` em `commonMain`; oracle esbuild + Node (player-engine não possui Vitest — ver §2.2 correção); 17 casos de golden-master em `commonTest`; prova de mutação. |
 | K11 | **Expandir paridade do player engine** em `commonTest` com cobertura exaustiva | 1 | ✅ **Concluído em 2026-09-25.** 384 combinações de 1 som (3×4×4×4×2), 30 planos multi-som (PRNG seed 20260925), 3713 entradas de `formatDuration` (0..3700 + 12 pontos de borda); fixtures divididas em partes ≤50 KB (limite JVM `const val`); anti-vacuidade guards (≥17 casos, ≥14 formatDuration entries); seção "Player engine parity" no `README.md`; 5 mutações provadas. |
-| K12 | **Documentar o resultado da Fase 1** e revisar este plano com o aprendizado | 1 | ✅ **Concluído em 2026-09-25 (este documento).** ADR-038 e ADR-041 com addenda pós-aceitação; `kmp-migration-plan.md` revisado com aprendizado real; `quality-harness.md` com seção `ixora-app`. |
+| K12 | **Documentar o resultado da Fase 1** e revisar este plano com o aprendizado | 1 | **Em revisão (PR #65); concluído com o merge.** ADR-038 e ADR-041 com addenda pós-aceitação; `kmp-migration-plan.md` revisado com aprendizado real; `quality-harness.md` com seção `ixora-app`. |
 
 Ordem de execução: K01 → K02–K06 (as cinco ADRs, que podem ser escritas em qualquer ordem entre si) → K07 → K08 → K09 → K10 → K11 → K12. O K05 é o mais denso das ADRs, porque acumula a especificação de fade.
 
@@ -1095,12 +1094,16 @@ K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP 
 **Fase 1 concluída:** K07–K12 concluídos em 2026-09-24 e 2026-09-25. O módulo `shared` existe, compila para Android e iOS no Windows, é protegido por teste de fronteira automatizado, e contém `VibeSound`, `PlayMode`, `VibeExecutionLayer`, `buildVibeExecutionPlan`, `formatDuration` e `buildSummary` com cobertura golden-master exaustiva (3713 + 384 + 30 casos). A Fase 1 entregou o que foi prometido.
 
 **Aprendizados que corrigem estimativas do plano:**
-1. `player-engine` não tinha testes Vitest — a paridade foi construída via oracle externo, não por port de testes existentes. Isso muda a estimativa de esforço para `utils/` e `canonical-capabilities` na Fase 3: não é um port direto, é uma tradução de comportamento.
+1. `player-engine` não tinha testes Vitest — a paridade foi construída por golden master contra o TS real, não por port de testes existentes. **Isso não vale para os demais módulos de lógica pura:** `utils/` e `canonical-*` **têm** testes Vitest (por exemplo `canonical-capabilities`, `capability-contract-coherence`, `canonical-boundary`, `device-action`, `device-status`, `schedule-format`, `schedule-datetime` — confirmado com `git ls-files | Select-String "\.test\.ts$" | Select-String "canonical|device-|schedule-"` em `front_vibes` @ `develop`), a serem portados como paridade nomeada conforme §6.8. A estimativa da Fase 3 para esses módulos não muda por causa do achado do `player-engine`.
 2. A compilação iOS executa no Windows com Kotlin 2.3.20. O teste de fronteira não é o único mecanismo de proteção da fronteira — ver addendum do ADR-038.
 3. O limite JVM de `const val` (65.535 bytes UTF-8) emerge quando fixtures de teste são grandes. A solução (split em partes + `listOf(...).joinToString("")`) é conhecida; cabe lembrar disso na Fase 3 quando o CSDM e os testes de scheduling forem portados.
 4. O AGP 8.13.0 com `com.android.kotlin.multiplatform.library` não usa `androidTarget()` — ver addendum do ADR-038.
 
-**A decisão de iniciar a Fase 2 pertence ao PO.** Este documento não autoriza implementação; registra apenas que a pré-condição técnica da Fase 2 (Fase 1 concluída) está satisfeita. As questões 2 e 5 devem ser respondidas pelo PO antes do primeiro card da Fase 2 (K13).
+**Recomendação para a Fase 2** (Ktor, autenticação Firebase por `expect/actual`, armazenamento seguro): iniciar. A pré-condição técnica está satisfeita: módulo `shared` compilando, guards ativos e comportamento do plano de execução provado contra o TypeScript real. Condições: (1) responder as questões 2 e 5 do §15 antes do primeiro card da Fase 2 (a 5 tem prazo declarado: até a Fase 2); (2) decidir na Fase 2 ou na Fase 4 como validar URLs de arquivo de áudio, já que `hasValidExecutionFileUrl` e `isExecutionLayerPlayable` não foram portados (dependem do parser WHATWG, sem equivalente em `commonMain` sem Ktor); (3) a tensão entre `androidx.datastore` e a Decision 5 da ADR-038 fica para a ADR-043 (Fase 3) e não bloqueia a Fase 2; (4) a paridade de `utils/` e `canonical-*` na Fase 3 parte de testes Vitest existentes.
+
+Este documento não autoriza implementação; registra apenas que a pré-condição técnica da Fase 2 (Fase 1 concluída) está satisfeita.
+
+**Decisão do PO sobre iniciar a Fase 2:** _pendente — a registrar pelo PO._
 
 ---
 
@@ -1113,4 +1116,4 @@ K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP 
 - [`playback-runtime.md`](../audio/playback-runtime.md) e [`audio-engine-fade-limitations.md`](../audio/audio-engine-fade-limitations.md) — descrevem o runtime que este plano substitui; devem ser marcados como histórico quando a Fase 5 concluir.
 - [`contracts/README.md`](../../../contracts/README.md) — o app novo vira consumidor vendorizado do schema canônico.
 - [`repo-responsibilities.md`](../repo-responsibilities.md) — precisa refletir o novo repositório, se a Opção A do §5.3 for confirmada.
-- [`quality-harness.md`](../../quality-harness.md) — atualizado em K12 com a seção `ixora-app`: baseline de 33 testes (`androidHostTest`), gates de qualidade da Fase 1 e instruções de execução.
+- [`quality-harness.md`](../../quality-harness.md) — atualizado em K12 com a seção `ixora-app`: baseline de 33 testes (`androidHostTest`), gates de qualidade da Fase 1 e instruções de execução. O backlog da Fase 2 é escrito no primeiro card da Fase 2, não aqui.
