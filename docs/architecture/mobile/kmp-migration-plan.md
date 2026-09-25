@@ -21,7 +21,7 @@ Estas decisões são **posteriores ao corpo original deste documento e prevalece
 
 ### 0.1 Questões do §15 ainda em aberto
 
-Fechadas por estas decisões: 1, 4, 6, 7 e 9. **Permanecem em aberto:** 2 (prazo ou projeto de fundo), 3 (`minSdk` alvo) e 5 (em que fase entra a instrumentação de telemetria — o *se* foi fechado por §16.13). A questão 8 foi fechada por §16.14: os tokens existentes são portados, sem redesenho. Nenhuma das três restantes bloqueia o K07.
+Fechadas por estas decisões: 1, 4, 6, 7 e 9. **Permanecem em aberto:** 2 (prazo ou projeto de fundo) e 5 (em que fase entra a instrumentação de telemetria — o *se* foi fechado por §16.13). A questão 8 foi fechada por §16.14 (portar os tokens, sem redesenho) e a questão 3 foi fechada em 2026-09-24: **`minSdk` 24**. Nenhuma das duas restantes bloqueia o K07.
 
 Os requisitos transversais do projeto (multilinguagem, acessibilidade, deep links, armazenamento seguro e outros) estão consolidados em **§16**.
 
@@ -653,7 +653,13 @@ Risco 1 é o dominante. Toda a estrutura de fases existe para contê-lo.
 
 1. ~~O app continua recebendo features durante a migração?~~ **Fechada por D2** — feature freeze durante toda a migração.
 2. **Existe prazo ou é projeto de fundo?** Muda o tamanho das fatias, não a ordem. *(aberta — não bloqueia o K07)*
-3. **`minSdk` alvo do app novo.** Media3 e Compose permitem subir o piso; vale verificar a base instalada antes. *(aberta — decidir até o K07)*
+3. ~~`minSdk` alvo do app novo?~~ **Fechada em 2026-09-24 pelo PO: `minSdk` 24**, mantendo o piso atual do `front_vibes` (`android/variables.gradle`: `minSdkVersion 24`, `compileSdkVersion 36`, `targetSdkVersion 36`).
+
+   O raciocínio, porque a conclusão não é a óbvia. **Não há base instalada a preservar** — o aplicativo nunca foi publicado, o que é a mesma premissa que sustenta o gate de keystore da ADR-042 Decisão 6. Logo, a pergunta não é quantos aparelhos se perde, e sim quanto código de compatibilidade se evita.
+
+   Medido no código atual, existem exatamente duas ramificações por nível de API: o canal de notificação obrigatório antes do `startForegroundService` em **API 26+** (`backgroundAudio.service.ts:119`), e o SDK do Google Home, que exige **API 29** e se recusa a operar abaixo disso (`GoogleHomePlugin.kt:55-56`, `:367-368`). Nem Media3 nem Compose exigem mais do que 21.
+
+   Portanto o único degrau que removeria alguma coisa é **26**, não 28 — e o que ele remove é uma ramificação de uma linha. Subir o piso não destrava nenhuma capacidade, e manter 24 preserva paridade com o `front_vibes`, o que facilita a comparação de comportamento da Fase 6. Se um dia houver motivo para subir, 26 é o degrau que paga; 28 não acrescenta nada sobre 26 para este aplicativo.
 4. ~~Repositório novo confirmado?~~ **Fechada por D1** — `ixora-app`, já criado.
 5. **Telemetria OTel: em que fase entra a instrumentação mínima?** §16.13 já decidiu que a nova arquitetura preserva e se integra ao OTel/Grafana/Loki/Tempo existentes — o *se* está fechado. Resta o *quando*: reimplementar cedo atrasa, e tarde cria ponto cego. *(aberta — decidir até a Fase 2)*
 6. ~~Dados existentes no aparelho migram?~~ **Fechada por D3** — sem migração; reconstrução por download e sincronização.
