@@ -334,3 +334,19 @@ Accepted by the PO on 2026-09-23. Acceptance covered, specifically:
 Code inspected 2026-09-23 in `front_vibes` @ `1cf858e`: `src/stores/player.store.ts` (623 lines — `PlaybackState`, elapsed clock outside the reactive tree, `showMiniPlayer` derived value), `src/composables/` (20 files — `useVibes`, `useAuth`, `usePlayerEngine`, `useSchedules`, `useDevices`, …), `src/services/player-engine.service.ts`.
 
 Internal: [`kmp-migration-plan.md`](../architecture/mobile/kmp-migration-plan.md) (§6.5 state, §7 state architecture and data flow, §8 Kotlin↔Swift interop, §16.19 session state), [ADR-038](ADR-038-kmp-shared-layer.md), [ADR-039](ADR-039-native-ui.md), [ADR-042](ADR-042-migration-repository.md).
+
+---
+
+## Post-acceptance addendum (2026-09-25) — K07 probe results
+
+Phase 1 (K07) produced concrete evidence on the two unvalidated claims noted in Decision 6 and Decision 8. No decision is reopened. Status remains Accepted.
+
+### K07 result for Decision 6 — `androidx.lifecycle.ViewModel` multiplatform claim
+
+**Verified (F2).** `androidx.lifecycle:lifecycle-viewmodel:2.9.4` was added to the `shared` module in the K07 build. The dependency resolved `darwinMain`/`iosArm64`/`iosSimulatorArm64` klibs alongside the Android one — confirming that `lifecycle-viewmodel` publishes native KMP variants and is therefore importable from `commonMain` without breaking iOS compilation. Decision 6's "anchoring on the Android side is more predictable" remains the *chosen* approach (and was not changed by the probe), but the original framing that this was "unverified" is now resolved: the multiplatform `ViewModel` route is architecturally available if a future decision calls for it.
+
+**Boundary interaction (F4, recorded in ADR-038 addendum point 2).** The probe also showed that `androidx.lifecycle` in `shared`'s Gradle dependency set is technically compatible with `commonMain` compilation; it does not violate the ADR-038 Decision 5 boundary *mechanically* (the iOS compiler accepted it). However, ADR-038 Decision 5 prohibits `androidx.*` imports from `commonMain` as a rule, not only when the compiler rejects them. The K07 probe used this dependency only for the probe, then discarded the clone — no `androidx.*` import was committed to `ixora-app`. The observed tension between Decision 5 and the DataStore recommendation is attributed to ADR-043 for resolution, as recorded in the ADR-038 addendum.
+
+### K07 result for Decision 8 — SKIE build impact claim
+
+**Not validated in K07, for a precise reason (F3).** The K07 build established the `shared` module with `commonMain`/`androidHostTest`/iOS compilation targets but did **not** apply the SKIE Gradle plugin. The K07 goal was bounded: create the module, validate the boundary test, and compile for iOS on Windows. Adding SKIE requires an iOS framework link step (`./gradlew :shared:assembleXCFramework`) which cannot succeed on Windows — there is no linker for the Apple targets. The expectation recorded in Decision 8 — that the SKIE plugin does not affect the Android build — therefore **remains an expectation, not a verified fact**. Validation is deferred to when a Mac with Xcode is available. Nothing in K07 contradicts the expectation; the plugin was simply not exercised.
