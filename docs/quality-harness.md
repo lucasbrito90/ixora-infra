@@ -2,7 +2,7 @@
 
 **Status:** Active engineering baseline  
 **Scope:** Minimal **local validation commands** per repository before PR / staging promotion  
-**Applies to:** `back_vibes`, `ixora-admin`, `front_vibes`
+**Applies to:** `back_vibes`, `ixora-admin`, `front_vibes`, `ixora-app`
 
 > **Baseline only.** No Playwright, no Cypress in CI harness, no Android instrumented tests, no PHPStan/Larastan install (unless added later by ADR). Commands verified against the workspace **May 2026**.
 
@@ -25,6 +25,7 @@ Run harness checks on **`feature/*`** before opening PR → `develop`.
 | **back_vibes** | `composer test && composer lint:pint` |
 | **ixora-admin** | `npm run typecheck && npm run build && npm run test` |
 | **front_vibes** | `npm run lint && npm run typecheck && npm run test:unit && npm run build` |
+| **ixora-app** | `cd ixora-app && ./gradlew :shared:build :shared:testDebugUnitTest` (Windows: `gradlew.bat`) |
 | **Native sync (mobile, when plugins change)** | `cd front_vibes && npm run cap:sync:android` |
 
 **Staging deploy** still follows [deploy-pipeline](architecture/backend/deploy-pipeline.md) — harness does **not** replace homologation QA.
@@ -206,6 +207,89 @@ npx cap sync android
 
 ---
 
+---
+
+## `ixora-app` (Kotlin Multiplatform)
+
+**Path:** [`ixora-app/`](../../ixora-app) — repositório `ixora-app` no workspace Ixora (quinto repositório, criado em K07).
+
+**Status:** Fase 1 concluída (K07–K11, 2026-09-24/25). Apenas módulo `shared` (KMP). Nenhum `androidApp/` nem `iosApp/` ainda.
+
+### Prerequisites
+
+| Tool | Version | Nota |
+| --- | --- | --- |
+| JDK | **21** | JAVA_HOME deve apontar para JDK 21 |
+| Android SDK / NDK | compileSdk 36 / NDK 27.2.12479018 | `local.properties` com `sdk.dir` |
+| Gradle | 8.14.3 (wrapper) | Usar `./gradlew` (PowerShell: `gradlew.bat`) |
+| Kotlin | 2.3.20 | Fixado no version catalog |
+| AGP | 8.13.0 | Plugin `com.android.kotlin.multiplatform.library` |
+
+```powershell
+cd ixora-app
+# first time: criar local.properties com sdk.dir=C:\Users\...\AppData\Local\Android\Sdk
+```
+
+### Commands (verificados — Fase 1)
+
+| Check | Comando | Pass | Verificado |
+| --- | --- | --- | --- |
+| **Build completo** | `./gradlew :shared:build` | Exit `0` | ✅ Build SUCCESS (K07, 2026-09-24) |
+| **Testes (androidHostTest — JVM)** | `./gradlew :shared:testDebugUnitTest` | Exit `0` | ✅ **33** testes (K11, 2026-09-25) |
+| **Compilação iOS (cross, sem link)** | `./gradlew :shared:compileKotlinIosArm64` | Exit `0` | ✅ executa no Windows com Kotlin 2.3.20 |
+| **Compilação iOS Simulator** | `./gradlew :shared:compileKotlinIosSimulatorArm64` | Exit `0` | ✅ executa no Windows |
+| **Verificação de dependências** | Automática no build | — | ✅ `gradle/verification-metadata.xml` mantido |
+
+**Gate de PR para `feature/*` → `develop` no `ixora-app`:**
+
+```powershell
+cd ixora-app
+./gradlew :shared:build :shared:testDebugUnitTest
+```
+
+Ambos devem retornar `BUILD SUCCESSFUL`. Não é necessário compilar iOS separadamente — o `:shared:build` já inclui `compileKotlinIosArm64` e `compileKotlinIosSimulatorArm64`.
+
+### Distribuição dos 33 testes (baseline K11)
+
+| Suite | Arquivo | Testes | Conteúdo |
+| --- | --- | --- | --- |
+| `VibeSoundSerializationTest` | `domain/vibe/` | 5 | Round-trip, campo ausente, PlayMode desconhecido |
+| `ExecutionPlanGoldenMasterTest` | `domain/vibe/` | 2 | 17 casos manuais + formatDuration 17 entradas |
+| `ExecutionPlanCombinatorialParityTest` | `domain/vibe/` | 2 | 384 combinações 1-som + 30 planos multi-som |
+| `FormatDurationExhaustiveParityTest` | `domain/vibe/` | 1 | 3713 entradas 0..3700 + 12 pontos de borda |
+| `CommonMainBoundaryTest` | `boundary/` | 22 | Rejeita `java.*`, `javax.*`, `android.*`, `androidx.*` |
+| `CommonMainBoundarySentinelTest` | `boundary/` | 1 | Prova que a sentinela detecta violação deliberada |
+
+### iOS tests (não executáveis no Windows)
+
+O target `iosTest/` compila (`compileTestKotlinIosArm64` funciona), mas os testes não executam sem Mac/Xcode/simulador. O gate de PR acima não requer execução iOS; ela é um artefato da chegada do Mac.
+
+### Verificação de dependências
+
+`gradle/verification-metadata.xml` é mantido. Ao adicionar dependências novas, regenerar com:
+
+```powershell
+./gradlew --write-verification-metadata sha256 help --dependency-verification=lenient
+```
+
+Após a geração, fazer `./gradlew :shared:build` normal (sem `--write-verification-metadata`) para confirmar que o build passa com a metadata nova.
+
+### Explicitly out of scope (today)
+
+- `androidApp/` (ainda não existe — Fase 5 do plano)
+- `iosApp/` (Xcode, aguarda Mac — Fase 6+)
+- Testes instrumentados Android (Fase 5+)
+- SKIE / interop iOS (Fase 2+ com Mac)
+- CI (GitHub Actions) — não definido ainda
+
+### Notas
+
+- Não há `ios/` — o `iosApp/` é esqueleto e está vazio na Fase 1.
+- `dependency-verification=strict` é o padrão; nunca desabilitar permanentemente.
+- Windows: usar `gradlew.bat` ou `./gradlew` no PowerShell (o wrapper PowerShell funciona com `./gradlew`).
+
+---
+
 ## CSDM boundary tests (baseline)
 
 Permanent source-scan guards for the canonical Smart Home model (ADR-037). Run as part of each repo’s normal unit suite — **not** a separate command.
@@ -281,6 +365,15 @@ Commands executed in workspace **2026-05-23**:
 | front_vibes | `npm run test:unit` | **515** passed, **48** files |
 | front_vibes | `cd android && ./gradlew testDebugUnitTest` | BUILD SUCCESSFUL, **26** JVM unit tests |
 
+**K12 — ixora-app Fase 1 (2026-09-25):**
+
+| Repo | Command | Result |
+| --- | --- | --- |
+| ixora-app | `./gradlew :shared:build` | BUILD SUCCESSFUL (Kotlin 2.3.20 / AGP 8.13.0 / Gradle 8.14.3 / JDK 21) |
+| ixora-app | `./gradlew :shared:testDebugUnitTest` | **33** tests passed |
+| ixora-app | `./gradlew :shared:compileKotlinIosArm64` | BUILD SUCCESSFUL (cross-compile no Windows, sem linker) |
+| front_vibes | `node node_modules/vitest/vitest.mjs run` | **515** tests / **48** files — confirmado (sem alteração no repositório) |
+
 ---
 
 ## Related documentation
@@ -291,5 +384,6 @@ Commands executed in workspace **2026-05-23**:
 | [onboarding/onboarding.md](onboarding/onboarding.md) | New engineer setup |
 | [architecture/repo-responsibilities.md](architecture/repo-responsibilities.md) | Where logic belongs |
 | [standards/git-flow.md](standards/git-flow.md) | Branch promotion |
+| [architecture/mobile/kmp-migration-plan.md](architecture/mobile/kmp-migration-plan.md) | Fase 1 concluída; backlog da Fase 2 |
 
 When harness commands change, update **this file first**, then repo README pointers.
