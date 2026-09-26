@@ -1,8 +1,8 @@
 # Plano de migração do front_vibes para Kotlin Multiplatform
 
 **Status:** Direção aprovada pelo PO em 2026-09-23 (§0). Fase 1 concluída em 2026-09-25 (K07–K11). O restante do documento é o plano de execução dessa direção; nenhuma implementação é autorizada por este documento.
-**Data:** 2026-09-23 · **Revisado:** 2026-09-23 (decisões definitivas do PO) · 2026-09-25 (K12 — resultado da Fase 1) · 2026-09-25 (D6 — visual novo, Design System v1)
-**Escopo:** camada mobile do Ixora. Não altera `back_vibes`, `ixora-admin` nem contratos de API.
+**Data:** 2026-09-23 · **Revisado:** 2026-09-23 (decisões definitivas do PO) · 2026-09-25 (K12 — resultado da Fase 1) · 2026-09-25 (D6 — visual novo, Design System v1) · 2026-09-26 (D7 — categorias de vibe)
+**Escopo:** camada mobile do Ixora. Não altera `back_vibes`, `ixora-admin` nem contratos de API, **exceto a mudança aditiva de categorias de vibe da D7** (§0), que tem cards próprios (CAT-01 a CAT-04) e spec própria.
 **Premissas confirmadas com o PO:** iOS depende da compra de um Mac (sem data); os motivadores são qualidade do player de áudio, experiência nativa de UI e consolidação em Kotlin; execução solo com apoio do Cursor.
 
 ---
@@ -19,6 +19,7 @@ Estas decisões são **posteriores ao corpo original deste documento e prevalece
 | **D4** | **Fade deve ser recuperado** na nova arquitetura, como parte do K05 / ADR-040. | Resolve a questão 7 do §15 e amplia deliberadamente o escopo do player. Ver §10.4 para o que isso significa de fato. |
 | **D5** | **Android primeiro**, com o `shared` nascendo KMP e o target iOS declarado. Sem Compose Multiplatform. | Já era a recomendação central do §1.2; agora é decisão. |
 | **D6** | **Visual novo.** O PO decidiu (2026-09-25) uma nova identidade visual, moderna e relaxante, inspirada no clima, nas formas e na tipografia de um kit de referência licenciado (Sleepie), com paleta, fontes e voz próprias do Ixora e sem reproduzir telas, ilustrações nem assets do kit. Resultado: **Design System v1 do Ixora**, aprovado em 2026-09-25 (tokens em claro e escuro, brand book, componentes, ícones Lucide, guia de movimento e telas-chave: Home, Player, My Vibes, Settings e autenticação). | Substitui a paridade visual (questão 8, §16.14.8 e critérios das Fases 5 e 6). **D2 continua valendo para comportamento e funcionalidade**: nenhuma feature ou tela nova além das que o `front_vibes` já tem. Detalhe em §16.14 e na addendum da ADR-039. |
+| **D7** | **Categorias de vibe (exceção pontual à D2).** O PO decidiu (2026-09-26) manter no Home os chips de categoria do Design System e adaptar o backend: uma vibe pode ter **várias categorias**, escolhidas de um **catálogo fixo definido pelo admin**. O admin atribui categorias aos presets; a vibe do usuário **herda as categorias no import do preset** (cópia única, ADR-003/005); vibe criada do zero fica **sem categoria** e aparece apenas em "Tudo". | **Única exceção à D2**: é funcionalidade nova em relação ao `front_vibes`, que **não recebe** a mudança (continua congelado; os clientes ignoram campos desconhecidos, então a mudança é aditiva e não o quebra). **Não abre precedente:** qualquer outro item novo continua exigindo decisão própria do PO. Sequência obrigatória: contrato e spec (CAT-01) → `back_vibes` (CAT-02) → `ixora-admin` (CAT-03) → `ixora-app` (CAT-04); o chip do Home só é implementado depois do contrato. Substitui a proposta de "remover os chips do Home" em `reconciliacao-d2.md` do Design System (item 2). |
 
 ### 0.1 Questões do §15 ainda em aberto
 
