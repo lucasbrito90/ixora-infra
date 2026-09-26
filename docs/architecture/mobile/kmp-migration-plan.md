@@ -1,7 +1,7 @@
 # Plano de migração do front_vibes para Kotlin Multiplatform
 
 **Status:** Direção aprovada pelo PO em 2026-09-23 (§0). Fase 1 concluída em 2026-09-25 (K07–K11). O restante do documento é o plano de execução dessa direção; nenhuma implementação é autorizada por este documento.
-**Data:** 2026-09-23 · **Revisado:** 2026-09-23 (decisões definitivas do PO) · 2026-09-25 (K12 — resultado da Fase 1)
+**Data:** 2026-09-23 · **Revisado:** 2026-09-23 (decisões definitivas do PO) · 2026-09-25 (K12 — resultado da Fase 1) · 2026-09-25 (D6 — visual novo, Design System v1)
 **Escopo:** camada mobile do Ixora. Não altera `back_vibes`, `ixora-admin` nem contratos de API.
 **Premissas confirmadas com o PO:** iOS depende da compra de um Mac (sem data); os motivadores são qualidade do player de áudio, experiência nativa de UI e consolidação em Kotlin; execução solo com apoio do Cursor.
 
@@ -18,10 +18,11 @@ Estas decisões são **posteriores ao corpo original deste documento e prevalece
 | **D3** | **Sem migração de dados locais.** Áudio offline, cache de playback e o espelho SQLite são reconstruídos por download ou sincronização. | Resolve a questão 6 do §15 e remove o risco 7 do §14. |
 | **D4** | **Fade deve ser recuperado** na nova arquitetura, como parte do K05 / ADR-040. | Resolve a questão 7 do §15 e amplia deliberadamente o escopo do player. Ver §10.4 para o que isso significa de fato. |
 | **D5** | **Android primeiro**, com o `shared` nascendo KMP e o target iOS declarado. Sem Compose Multiplatform. | Já era a recomendação central do §1.2; agora é decisão. |
+| **D6** | **Visual novo.** O PO decidiu (2026-09-25) uma nova identidade visual, moderna e relaxante, inspirada no clima, nas formas e na tipografia de um kit de referência licenciado (Sleepie), com paleta, fontes e voz próprias do Ixora e sem reproduzir telas, ilustrações nem assets do kit. Resultado: **Design System v1 do Ixora**, aprovado em 2026-09-25 (tokens em claro e escuro, brand book, componentes, ícones Lucide, guia de movimento e telas-chave: Home, Player, My Vibes, Settings e autenticação). | Substitui a paridade visual (questão 8, §16.14.8 e critérios das Fases 5 e 6). **D2 continua valendo para comportamento e funcionalidade**: nenhuma feature ou tela nova além das que o `front_vibes` já tem. Detalhe em §16.14 e na addendum da ADR-039. |
 
 ### 0.1 Questões do §15 ainda em aberto
 
-Fechadas por estas decisões: 1, 4, 6, 7 e 9. A questão 8 foi fechada por §16.14 (portar os tokens, sem redesenho) e a questão 3 foi fechada em 2026-09-24: **`minSdk` 24**. **Permanecem em aberto após a Fase 1:** 2 (prazo ou projeto de fundo) e 5 (em que fase entra a instrumentação de telemetria — o *se* foi fechado por §16.13). Nenhuma das duas bloqueia a Fase 2.
+Fechadas por estas decisões: 1, 4, 6, 7 e 9. A questão 8 foi fechada por §16.14 (portar os tokens, sem redesenho) e **reaberta e refeita em 2026-09-25 pela D6 (visual novo)** e a questão 3 foi fechada em 2026-09-24: **`minSdk` 24**. **Permanecem em aberto após a Fase 1:** 2 (prazo ou projeto de fundo) e 5 (em que fase entra a instrumentação de telemetria — o *se* foi fechado por §16.13). Nenhuma das duas bloqueia a Fase 2.
 
 Os requisitos transversais do projeto (multilinguagem, acessibilidade, deep links, armazenamento seguro e outros) estão consolidados em **§16**.
 
@@ -588,14 +589,14 @@ Não iniciar antes: Fase 3 completa — o scheduler depende do plano e dos model
 **Fase 5 — Shell instalável**
 Objetivo: o `ixora-app` vira um APK instalável e demonstrável: login, lista de vibes e reprodução. UI mínima, sem polimento.
 Dependências: Fase 4.
-Critério: instalar no aparelho, autenticar contra o staging, tocar uma vibe do início ao fim.
+Critério: instalar no aparelho, autenticar contra o staging, tocar uma vibe do início ao fim. Visual: o shell usa o tema do Design System v1 (`Colors.kt`, `Typography.kt`, `Dimensions.kt`, `IxoraTheme.kt`, com fontes embutidas como recursos do app) e confere com o design aprovado nas telas de autenticação, Home e Player.
 Razão de existir: é a mitigação do risco nº 1. Sem o strangler, esta é a primeira prova concreta de que a reconstrução funciona — e o ponto a partir do qual todas as fases seguintes terminam com algo rodando no celular.
 
 **Fase 6 — UI Compose por área**
 Objetivo: telas migradas em ordem de valor: Vibes → Player → Sounds → Scenes/Devices → Schedules → Auth/Settings.
 Dependências: Fase 5.
-Critério por área: tela nativa com paridade funcional contra o `front_vibes`, coberta por Compose UI Test.
-Escopo: reproduzir o comportamento existente (D2). Redesenho não entra aqui.
+Critério por área: tela nativa com paridade **funcional** contra o `front_vibes` e **visual conforme o design aprovado** (Design System v1 e telas-chave), coberta por Compose UI Test. Tela sem desenho aprovado é desenhada com os componentes e tokens do Design System e aprovada pelo PO antes de implementar.
+Escopo: reproduzir o comportamento existente (D2). O visual segue o design aprovado (D6); nenhuma feature ou tela nova além das existentes.
 
 **Fase 7 — Google Home nativo**
 Objetivo: o `GoogleHomePlugin.kt` vira módulo Android direto, sem invólucro Capacitor.
@@ -689,7 +690,7 @@ Risco 1 é o dominante. Toda a estrutura de fases existe para contê-lo.
 5. **Telemetria OTel: em que fase entra a instrumentação mínima?** §16.13 já decidiu que a nova arquitetura preserva e se integra ao OTel/Grafana/Loki/Tempo existentes — o *se* está fechado. Resta o *quando*: reimplementar cedo atrasa, e tarde cria ponto cego. *(aberta — decidir até o início da Fase 2; PO decide)*
 6. ~~Dados existentes no aparelho migram?~~ **Fechada por D3** — sem migração; reconstrução por download e sincronização.
 7. ~~Fade entra no escopo do player novo?~~ **Fechada por D4** — entra, como parte do K05 / ADR-040. Ver §10.4: o trabalho é especificar a semântica, não copiá-la.
-8. ~~Design system: portar os tokens atuais ou redesenhar?~~ **Fechada por §16.14** — portar. A linguagem visual existente (tokens do Figma, tema `system`/`light`/`dark`) é reproduzida como paridade; redesenho é mudança de produto e exige decisão própria do PO, fora de D2. A regra de consolidação de valores literais em tokens existentes está em §16.14.8.
+8. ~~Design system: portar os tokens atuais ou redesenhar?~~ **Fechada por §16.14** — portar. **Refeita em 2026-09-25 pela D6: redesenhar (visual novo, Design System v1).** O texto seguinte é o histórico da primeira resposta. A linguagem visual existente (tokens do Figma, tema `system`/`light`/`dark`) é reproduzida como paridade; redesenho é mudança de produto e exige decisão própria do PO, fora de D2. A regra de consolidação de valores literais em tokens existentes está em §16.14.8.
 9. ~~O que acontece com `front_vibes`?~~ **Fechada por D1/D2** — referência e histórico em feature freeze; nunca deletado.
 
 ---
@@ -717,7 +718,7 @@ A coluna decisiva é a última: distingue o que é **paridade** (reproduzir algo
 | 11 | Localização regional | Parcial (`toLocaleString()` sem locale fixo — correto) | Paridade + formalização |
 | 12 | Timezone | Sim (`schedule-datetime.ts` resolve a IANA do dispositivo) | Paridade |
 | 13 | Observabilidade | Sim (OTel, 541 linhas, coletor de staging) | Paridade |
-| 14 | Design System / tokens | Sim, informal (`variables.css`, com paleta dark) | Paridade + formalização |
+| 14 | Design System / tokens | Sim, informal (`variables.css`, com paleta dark) | **Substituído pela D6:** Design System v1 novo (visual novo, não paridade) |
 | 15 | Feature flags | **Não** | **Acréscimo (avaliar)** |
 | 16 | Testes | Sim (515 testes Vitest) | Paridade |
 | 17 | Versionamento | Parcial (Gradle + `capacitor.config`) | Paridade + centralização |
@@ -846,6 +847,13 @@ Observabilidade:
 Nota técnica: não há SDK OpenTelemetry viável em `commonMain` para Kotlin/Native. O padrão é interface compartilhada com implementação nativa — `opentelemetry-android` no Android e o SDK Swift no iOS — conforme §9. O app atual já sanitiza PII em `telemetry/pii-sanitizer.ts`, comportamento a preservar.
 
 ### 16.14 Design System / Design Tokens
+
+> **Atualização de 2026-09-25 (D6 — visual novo).** O PO decidiu uma nova identidade visual; o resultado é o **Design System v1 do Ixora**, aprovado nessa data. Isto **altera três pontos** desta seção e **mantém o resto**:
+> - **§16.14.1 (o que já existe)** passa a ser o inventário do sistema visual **antigo**, útil como referência de comportamento e como fonte do que a interface precisa cobrir; **não é mais o alvo** de portabilidade.
+> - **§16.14.5 (Figma como origem)**: a origem da linguagem visual passa a ser o Design System v1 (tokens em `tokens.json`, brand book, componentes e guia de movimento), não o nó 127:2 do Figma. O kit de referência é só inspiração de estilo.
+> - **§16.14.8 (paridade e consolidação)**: a paridade **visual** deixa de ser o critério. A regra de consolidação de literais é substituída pela regra de **portar os tokens do Design System v1 exatamente, sem arredondar nem reinterpretar**.
+> - **Mantidos:** §16.14.2 a §16.14.4, §16.14.6 e §16.14.7 (compartilhado só como conceito; estrutura de referência; sem módulo `design-system`; responsabilidade por plataforma; acessibilidade no Design System). Compose Multiplatform continua fora de escopo e o iOS continua SwiftUI, preparado e não construído.
+> - **Novo:** duas fontes livres (Outfit e DM Sans) entram como recursos do app em cada plataforma; ícones da família Lucide como assets vetoriais; contraste WCAG AA medido para todos os pares de tokens em claro e escuro.
 
 Requisito arquitetural com peso próprio: é o que impede Android e iOS de desenvolverem interpretações visuais independentes do produto. Nada aqui autoriza implementação.
 
@@ -1001,6 +1009,8 @@ Há um detalhe real a tratar. O sistema de tokens existe, mas **convive com valo
 
 Ver questão 8 do §15, agora fechada.
 
+**Atualização de 2026-09-25 (D6).** O texto acima descreve a regra original e **deixa de valer para valores visuais**. Regra vigente: (1) o comportamento continua em paridade (D2); (2) os valores visuais vêm do **Design System v1** e são portados **exatamente**: cor, tipografia, espaçamento, raio e sombra, sem arredondar para outro valor nem "melhorar" na tradução; (3) o que o Design System v1 não desenhou é desenhado com seus componentes e tokens e aprovado pelo PO antes de implementar; (4) qualquer necessidade de componente novo volta como mudança ao Design System, não como solução local na tela.
+
 ### 16.15 Feature Flags / Remote Configuration
 
 - Avaliar suporte a feature flags e configuração remota **quando houver necessidade**.
@@ -1081,7 +1091,7 @@ Fatias pequenas o bastante para execução assistida, cada uma com resultado ver
 | K09 | **Migrar `VibeSound` e `VibeExecutionLayer`** com kotlinx.serialization | 1 | ✅ **Concluído em 2026-09-24.** `VibeSound` (15 campos, `@Serializable`), `PlayMode` (enum) e `VibeExecutionLayer` em `commonMain`; `kotlinx-serialization-json 1.11.0` adicionado; fixture de staging real capturada (`back_vibes` @ `73f23d1c`); 5 testes de serialização em `commonTest`, incluindo falha por campo ausente e `PlayMode` desconhecido. |
 | K10 | **Migrar `buildVibeExecutionPlan`** para `commonMain` | 1 | ✅ **Concluído em 2026-09-25.** `buildVibeExecutionPlan`, `formatDuration` e `buildSummary` em `commonMain`; oracle esbuild + Node (player-engine não possui Vitest — ver §2.2 correção); 17 casos de golden-master em `commonTest`; prova de mutação. |
 | K11 | **Expandir paridade do player engine** em `commonTest` com cobertura exaustiva | 1 | ✅ **Concluído em 2026-09-25.** 384 combinações de 1 som (3×4×4×4×2), 30 planos multi-som (PRNG seed 20260925), 3713 entradas de `formatDuration` (0..3700 + 12 pontos de borda); fixtures divididas em partes ≤50 KB (limite JVM `const val`); anti-vacuidade guards (≥17 casos, ≥14 formatDuration entries); seção "Player engine parity" no `README.md`; 5 mutações provadas. |
-| K12 | **Documentar o resultado da Fase 1** e revisar este plano com o aprendizado | 1 | **Em revisão (PR #65); concluído com o merge.** ADR-038 e ADR-041 com addenda pós-aceitação; `kmp-migration-plan.md` revisado com aprendizado real; `quality-harness.md` com seção `ixora-app`. |
+| K12 | **Documentar o resultado da Fase 1** e revisar este plano com o aprendizado | 1 | **Em revisão (PR #65); concluído com o merge.** ADR-038 e ADR-041 com addenda pós-aceitação; `kmp-migration-plan.md` revisado com aprendizado real; `quality-harness.md` com seção `ixora-app`. **Revisão registrada em 2026-09-25:** a D6 (visual novo, Design System v1) foi incorporada ao plano (§0, §11.2 Fases 5 e 6, §15 questão 8, §16.0 item 14, §16.14) e à addendum da ADR-039. |
 
 Ordem de execução: K01 → K02–K06 (as cinco ADRs, que podem ser escritas em qualquer ordem entre si) → K07 → K08 → K09 → K10 → K11 → K12. O K05 é o mais denso das ADRs, porque acumula a especificação de fade.
 
