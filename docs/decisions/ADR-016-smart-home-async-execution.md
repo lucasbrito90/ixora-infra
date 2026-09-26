@@ -134,6 +134,14 @@ Phase 1 (this ADR + spec + ADRs 012–015) is **documentation only**:
 
 ---
 
+## What changed vs prior ADRs (v1.4.0 supersession)
+
+| Prior statement | Fulfilled by |
+| --- | --- |
+| This ADR § "ActionExecutionLog (future)": "A future `action_execution_logs` table (or extended `vibe_device_actions` log column) will record" per-action outcomes | [ADR-034](ADR-034-partial-execution-outcome.md) — `scene_action_executions` table (T21) with aggregate read API at `GET /api/scenes/{scene}/executions/{sceneExecutionId}` (T22). This ADR remains the async execution foundation; outcome persistence is documented in ADR-034. |
+
+---
+
 ## Related Docs
 
 | Document | Relationship |

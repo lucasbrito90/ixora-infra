@@ -2,7 +2,7 @@
 
 **Status:** Active engineering baseline  
 **Scope:** Minimal **local validation commands** per repository before PR / staging promotion  
-**Applies to:** `back_vibes`, `ixora-admin`, `front_vibes`
+**Applies to:** `back_vibes`, `ixora-admin`, `front_vibes`, `ixora-app`
 
 > **Baseline only.** No Playwright, no Cypress in CI harness, no Android instrumented tests, no PHPStan/Larastan install (unless added later by ADR). Commands verified against the workspace **May 2026**.
 
@@ -25,6 +25,7 @@ Run harness checks on **`feature/*`** before opening PR → `develop`.
 | **back_vibes** | `composer test && composer lint:pint` |
 | **ixora-admin** | `npm run typecheck && npm run build && npm run test` |
 | **front_vibes** | `npm run lint && npm run typecheck && npm run test:unit && npm run build` |
+| **ixora-app** | `cd ixora-app && ./gradlew :shared:build` (Windows: `gradlew.bat`) |
 | **Native sync (mobile, when plugins change)** | `cd front_vibes && npm run cap:sync:android` |
 
 **Staging deploy** still follows [deploy-pipeline](architecture/backend/deploy-pipeline.md) — harness does **not** replace homologation QA.
@@ -58,7 +59,7 @@ Firebase / Spaces are **not** required for the default Pest suite (uses fakes / 
 
 | Check | Command | Pass | Verified |
 | --- | --- | --- | --- |
-| **Tests (Pest)** | `composer test` | Exit `0`; JSON line `"result":"passed"` | ✅ 100 tests |
+| **Tests (Pest)** | `composer test` | Exit `0`; JSON line `"result":"passed"` | ✅ **1410** tests (2026-09-23) |
 | **Style (Pint dry-run)** | `composer lint:pint` | Exit `0` | ⚠️ **Currently fails** — 16 files need formatting (run `composer format:pint` when ready) |
 | **Style (Pint fix)** | `composer format:pint` | Rewrites files | ✅ command exists |
 | **Pint (direct)** | `./vendor/bin/pint --test` | Same as `lint:pint` | ✅ |
@@ -181,7 +182,8 @@ npm install
 | **Typecheck** | `npm run typecheck` | Exit `0` | ✅ `vue-tsc --noEmit` |
 | **Build** | `npm run build` | Exit `0` | ✅ includes `vue-tsc` + Vite |
 | **Staging build** | `npm run build:staging` | Same as build with staging env | ✅ (same toolchain) |
-| **Unit tests (Vitest)** | `npm run test:unit` | Exit `0` | ✅ no tests yet (`passWithNoTests`) |
+| **Unit tests (Vitest)** | `npm run test:unit` | Exit `0` | ✅ **515** tests / **48** files (2026-09-23) |
+| **Android unit (Gradle)** | `cd android && ./gradlew testDebugUnitTest` | Exit `0` | ✅ **26** tests (2026-09-23, app module JVM) |
 | **Capacitor Android sync** | `npm run cap:sync:android` | Exit `0` | ✅ wraps `cap sync android` |
 | **E2E (Cypress)** | `npm run test:e2e` | — | ⏸️ **Not in baseline** — exists but not required |
 
@@ -202,6 +204,114 @@ npx cap sync android
 - Cypress in mandatory harness (`test:e2e` remains optional)
 - Android instrumented / Espresso tests
 - iOS sync in baseline (add `cap:sync:ios` when iOS is active)
+
+---
+
+---
+
+## `ixora-app` (Kotlin Multiplatform)
+
+**Path:** [`ixora-app/`](../../ixora-app) — repositório `ixora-app` no workspace Ixora (quinto repositório, criado em K07).
+
+**Status:** Fase 1 concluída (K07–K11, 2026-09-24/25). Apenas módulo `shared` (KMP). Nenhum `androidApp/` nem `iosApp/` ainda.
+
+### Prerequisites
+
+| Tool | Version | Nota |
+| --- | --- | --- |
+| JDK | **21** | JAVA_HOME deve apontar para JDK 21 |
+| Android SDK | compileSdk 36, build-tools 35.0.0 | `local.properties` com `sdk.dir` |
+| Gradle | 8.14.3 (wrapper) | Usar `./gradlew` (PowerShell: `gradlew.bat`) |
+| Kotlin | 2.3.20 | Fixado no version catalog |
+| AGP | 8.13.0 | Plugin `com.android.kotlin.multiplatform.library` |
+
+```powershell
+cd ixora-app
+# first time: criar local.properties com sdk.dir=C:\Users\...\AppData\Local\Android\Sdk
+```
+
+### Commands (verificados — Fase 1)
+
+| Check | Comando | Pass | Verificado |
+| --- | --- | --- | --- |
+| **Build completo** | `./gradlew :shared:build` | Exit `0` | ✅ Build SUCCESS (K07, 2026-09-24) |
+| **Testes (androidHostTest — JVM)** | `./gradlew :shared:testAndroidHostTest` | Exit `0` | ✅ **33** testes (K11, 2026-09-25) |
+| **Compilação iOS (cross, sem link)** | `./gradlew :shared:compileKotlinIosArm64` | Exit `0` | ✅ executa no Windows com Kotlin 2.3.20 |
+| **Compilação iOS Simulator** | `./gradlew :shared:compileKotlinIosSimulatorArm64` | Exit `0` | ✅ executa no Windows |
+| **Verificação de dependências** | Automática no build | — | ✅ `gradle/verification-metadata.xml` mantido |
+
+**Gate de PR para `feature/*` → `develop` no `ixora-app`:**
+
+```powershell
+cd ixora-app
+./gradlew :shared:build
+```
+
+Deve retornar `BUILD SUCCESSFUL`. `:shared:build` já roda `testAndroidHostTest` (incluindo os testes de `commonTest` no host Android) e `compileKotlinIosArm64`, `compileKotlinIosSimulatorArm64`, `compileTestKotlinIosArm64`.
+
+### Distribuição dos 33 testes (baseline K11)
+
+| Suíte | Local | Testes | Conteúdo |
+| --- | --- | --- | --- |
+| `CommonMainBoundaryTest` | `androidHostTest`, `boundary/` | 20 | guard de caminho, sentinelas de detecção/não-detecção (arquivo, diretório, `.kts`) |
+| `VibeSoundSerializationTest` | `commonTest` | 5 | contrato JSON com fixture real do staging e sintética |
+| `VibeExecutionLayerTest` | `commonTest` | 1 | semântica dos nulos |
+| `ExecutionPlanBehaviorTest` | `commonTest` | 2 | imutabilidade da entrada, estabilidade da ordenação |
+| `ExecutionPlanGoldenMasterTest` | `commonTest` | 2 | 17 `case_id` + 14 valores de `formatDuration` contra o TS real |
+| `ExecutionPlanCombinatorialParityTest` | `commonTest` | 2 | 384 combinações de 1 som + 30 planos de 6 sons |
+| `FormatDurationExhaustiveParityTest` | `commonTest` | 1 | 3713 entradas (0..3700 + 12 bordas) |
+| **Total** | | **33** | 0 falhas |
+
+### iOS tests (não executáveis no Windows)
+
+O target `iosTest/` compila (`compileTestKotlinIosArm64` funciona), mas os testes não executam sem Mac/Xcode/simulador. O gate de PR acima não requer execução iOS; ela é um artefato da chegada do Mac.
+
+### Verificação de dependências
+
+`gradle/verification-metadata.xml` é mantido. Ao adicionar dependências novas, regenerar com:
+
+```powershell
+./gradlew --write-verification-metadata sha256 :shared:build
+```
+
+O metadata atual cobre apenas Windows; o único artefato dependente de SO é `kotlin-native-prebuilt-2.3.20-windows-x86_64.zip`. Para outro SO (Linux CI, Mac): rodar o comando nesse SO e **mesclar** as entradas, nunca sobrescrever. Ao adicionar qualquer dependência nova, regenere o metadata depois que ela entra.
+
+### Guards e paridade
+
+O `CommonMainBoundaryTest` (K08) protege a fronteira do `commonMain`: rejeita qualquer import de `java.*`, `javax.*`, `android.*` ou `androidx.*` em fontes de `commonMain`, com sentinelas que provam tanto detecção quanto não-detecção.
+
+As suítes de paridade do player engine (K10/K11) provam comportamento do `buildVibeExecutionPlan`, `formatDuration` e `buildSummary` contra o TypeScript real. O procedimento de oracle (esbuild + Node) e a cobertura dos casos estão documentados na seção "Player engine parity" do `README.md` do `ixora-app`.
+
+### Explicitly out of scope (today)
+
+- `androidApp/` (ainda não existe)
+- `iosApp/` (aguarda Mac; Fase 10 do plano)
+- Testes instrumentados Android (aguarda `androidApp/`)
+- SKIE (entra com o `iosApp`)
+- CI (GitHub Actions) — não definido ainda
+
+### Notas
+
+- `iosApp/` ainda não existe (o projeto Xcode não pode ser criado no Windows); os targets iOS vivem em `shared/build.gradle.kts`.
+- `dependency-verification=strict` é o padrão; nunca desabilitar permanentemente.
+- Windows: usar `gradlew.bat` ou `./gradlew` no PowerShell (o wrapper PowerShell funciona com `./gradlew`).
+
+---
+
+## CSDM boundary tests (baseline)
+
+Permanent source-scan guards for the canonical Smart Home model (ADR-037). Run as part of each repo’s normal unit suite — **not** a separate command.
+
+| Repo | Test file | Verified |
+| --- | --- | --- |
+| `back_vibes` | `tests/Unit/SmartHome/Canonical/CanonicalBoundaryTest.php` | ✅ included in `composer test` (2026-09-23) |
+| `back_vibes` | `tests/Unit/SmartHome/Canonical/CapabilityContractCoherenceTest.php` | ✅ schema ↔ PHP |
+| `back_vibes` | `tests/Unit/SmartHome/ProviderExtensibilityBoundaryTest.php` | ✅ ADR-032 D.1 (domain provider slugs) |
+| `front_vibes` | `src/utils/__tests__/canonical-boundary.test.ts` | ✅ included in `npm run test:unit` |
+| `front_vibes` | `src/utils/__tests__/capability-contract-coherence.test.ts` | ✅ schema ↔ TS constants |
+| `front_vibes` Android | `android/app/src/test/java/app/ixora/googlehome/CanonicalScaleBoundaryTest.kt` | ✅ included in `testDebugUnitTest` |
+
+Contract vendoring: [`contracts/README.md`](../../contracts/README.md).
 
 ---
 
@@ -255,6 +365,23 @@ Commands executed in workspace **2026-05-23**:
 | front_vibes | `npm run test:unit` | Pass (no tests) |
 | front_vibes | `npm run cap:sync:android` | Pass |
 
+**CSDM-07 harness refresh (2026-09-23):**
+
+| Repo | Command | Result |
+| --- | --- | --- |
+| back_vibes | `composer test` | **1410** passed, **6976** assertions |
+| front_vibes | `npm run test:unit` | **515** passed, **48** files |
+| front_vibes | `cd android && ./gradlew testDebugUnitTest` | BUILD SUCCESSFUL, **26** JVM unit tests |
+
+**K12 — ixora-app Fase 1 (2026-09-25):**
+
+| Repo | Command | Result |
+| --- | --- | --- |
+| ixora-app | `./gradlew :shared:build --rerun-tasks --console=plain` | BUILD SUCCESSFUL in 2m 59s (36 tasks executed); Kotlin 2.3.20 / AGP 8.13.0 / Gradle 8.14.3 / JDK 21 |
+| ixora-app | `testAndroidHostTest` (incluído no build acima) | 33 testes — CommonMainBoundaryTest=20, VibeSoundSerializationTest=5, VibeExecutionLayerTest=1, ExecutionPlanBehaviorTest=2, ExecutionPlanGoldenMasterTest=2, ExecutionPlanCombinatorialParityTest=2, FormatDurationExhaustiveParityTest=1; 0 falhas |
+| ixora-app | `compileKotlinIosArm64` (incluído no build acima) | Executado (cross-compile Windows → klib; link iOS exige Mac) |
+| front_vibes | `node node_modules/vitest/vitest.mjs run` | **515** tests / **48** files — confirmado (45 `*.test.ts` + 3 `*.spec.ts` em `src/`; `npx vitest` não funciona nesta máquina — `node_modules/.bin/vitest` ausente —, `node node_modules/vitest/vitest.mjs run` funciona; `tests/e2e`, `tests/smoke`, `qa-android-native/` excluídos pelo `vite.config.ts`; sem alteração no repositório) |
+
 ---
 
 ## Related documentation
@@ -265,5 +392,6 @@ Commands executed in workspace **2026-05-23**:
 | [onboarding/onboarding.md](onboarding/onboarding.md) | New engineer setup |
 | [architecture/repo-responsibilities.md](architecture/repo-responsibilities.md) | Where logic belongs |
 | [standards/git-flow.md](standards/git-flow.md) | Branch promotion |
+| [architecture/mobile/kmp-migration-plan.md](architecture/mobile/kmp-migration-plan.md) | Fase 1 concluída; resultado e aprendizados em §17.1 |
 
 When harness commands change, update **this file first**, then repo README pointers.
