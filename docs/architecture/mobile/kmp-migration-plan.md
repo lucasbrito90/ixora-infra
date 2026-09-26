@@ -1079,7 +1079,7 @@ No plano: §10 e §3. A divisão vale também aqui: o `shared` decide o que deve
 
 ## 17. Backlog inicial de tarefas arquiteturais
 
-Fatias pequenas o bastante para execução assistida, cada uma com resultado verificável. Fases 0 e 1 apenas — o backlog seguinte se escreve depois da Fase 1, com aprendizado real.
+Fatias pequenas o bastante para execução assistida, cada uma com resultado verificável. O quadro a seguir cobre as Fases 0 e 1. O backlog da Fase 2 (K13–K17) está na seção seguinte, escrito no K13 depois da Fase 1.
 
 | # | Tarefa | Fase | Saída verificável |
 | --- | --- | --- | --- |
@@ -1105,9 +1105,9 @@ K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP 
 | # | Tarefa | Fase | Saída verificável |
 | --- | --- | --- | --- |
 | K13 | **ADR-044 — Firebase Auth no KMP** — interface `AuthTokenProvider` no `commonMain`, implementação nativa injetada; contrato de 401 e single-flight | 2 | ADR-044 Proposed; nota no §6.7 e linha do §13 atualizadas; backlog K14–K17 registrado neste plano |
-| K14 | **Cliente HTTP Ktor no `shared`** — plugin de autenticação que chama `AuthTokenProvider`, regra de 401 (renova uma vez → retry → `DomainError.Unauthorized`), single-flight de renovação concorrente | 2 | `./gradlew :shared:build` verde; testes com `FakeAuthTokenProvider` e `MockEngine` do Ktor; prova do single-flight |
-| K15 | **Repositórios de leitura** — sincronização de usuário (`POST /api/auth/sync`), listagem de vibes, listagem de sons; DTOs de resposta em `commonMain`; `StateHolder` por tela consumindo cada repositório | 2 | Testes com `MockEngine` para cada repositório; DTOs validados contra fixture real de staging |
-| K16 | **Prova de integração contra o staging** — implementação de teste de `AuthTokenProvider` via Firebase Auth REST API (token real, sem SDK, descartada após o card); chamar `/api/auth/sync` e `GET /api/vibes` contra o staging com token válido | 2 | Saída da chamada real colada no relatório final do K16; credenciais fora do repositório |
+| K14 | **Cliente HTTP Ktor no `shared`** — plugin de autenticação que chama `AuthTokenProvider`, regra de 401 (renova uma vez → retry → `DomainError.Unauthorized`), single-flight de renovação concorrente. Depende de K13 | 2 | `./gradlew :shared:build` verde; testes com `FakeAuthTokenProvider` e `MockEngine` do Ktor; prova do single-flight |
+| K15 | **Repositórios de leitura** — sincronização de usuário (`POST /api/auth/sync`), listagem de vibes e listagem de sons; DTOs de resposta em `commonMain`. Sem `StateHolder`. Depende de K14 | 2 | Fixture do sync somente sintética; fixtures reais somente para `GET /api/vibes` |
+| K16 | **Prova de integração contra o staging** — teste **opt-in** em `androidHostTest` com três fluxos: token válido → `syncUser` → `listVibes` → `listSounds`; primeiro token inválido → 401 → renovação → sucesso; 401 real mapeia para `Unauthorized` quando a renovação também falha. Credenciais só por variável de ambiente. Um sync por execução (limite de 10/min em `POST /api/auth/sync`). Depende de K14 e K15 | 2 | Token nunca no relatório |
 | K17 | **Documentar o resultado da Fase 2** e revisar este plano com o aprendizado | 2 | Plano atualizado; ADR-044 promovida para Accepted pelo PO; quality-harness com baseline de testes da Fase 2 |
 
 Ordem de execução da Fase 2: K13 → K14 → K15 → K16 → K17. **A Fase 3 não começa antes do K17.**
