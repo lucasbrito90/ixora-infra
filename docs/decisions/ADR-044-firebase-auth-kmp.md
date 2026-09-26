@@ -39,8 +39,8 @@ Verified in `front_vibes` @ `1cf858e`:
 | --- | --- | --- |
 | Google Sign-In, email/password sign-in, sign-up | Firebase Auth SDK | `auth.service.ts` — `GoogleAuth.signIn()`, `createUserWithEmailAndPassword`, `signInWithEmailAndPassword` |
 | ID token issuance and automatic refresh | Firebase Auth SDK | `user.getIdToken()` (line 112), `user.getIdToken(true)` for force-refresh (line 213) |
-| Token persistence | `@capacitor/preferences` (`firebase_id_token` key) | `useAuth.ts` line 58 (`Preferences.set`), line 54 (`Preferences.remove`); `auth.service.ts` line 297 (`Preferences.remove`) |
-| Token read-back | **None found** | `grep -rn "Preferences.get" front_vibes/src` returns no result for the `firebase_id_token` key; the token is written and removed but never read back from Preferences. The Firebase SDK is the source of truth for the current token. |
+| Token persistence | `@capacitor/preferences` (`firebase_id_token` key) | `persistToken` (`useAuth.ts` lines 52–58) is called by `loginWithGoogle` (line 118), `loginWithEmail` (line 139) and `signUpWithEmail` (line 162). `Preferences.set` is line 58. `Preferences.remove` is line 54 (null token) and `auth.service.ts` line 297 (`logout`) |
+| Token read-back | **No reader found** | `rg` for `firebase_id_token` and `CapacitorStorage` under `front_vibes/android` and `front_vibes/src` found only the constant (`auth.service.ts` line 22) and a test mock of that constant (`useAuth.test.ts` line 88). `CapacitorStorage`: no matches. `rg` for `FIREBASE_TOKEN_PREFS_KEY` under `front_vibes/src` found the definition, the import (`useAuth.ts` line 7), the set, the two removes, and the same test mock. No read of the stored value. The reason for the write is **not documented** in those trees |
 | Backend sync after sign-in | `POST /api/auth/sync` | `auth.service.ts` line 143 `syncUserWithBackend` |
 | Session state | `laravelUser` reactive ref in `auth.service.ts` | Composable `useAuth.ts` |
 | Logout | `signOut()` + `Preferences.remove` | `auth.service.ts` line 297 |
@@ -74,7 +74,7 @@ This is an earlier endpoint that also verifies a Firebase ID token and syncs the
 
 ### 2.3 Token storage in `front_vibes` and what the new app does differently
 
-`front_vibes` stores the Firebase ID token in `@capacitor/preferences` (unencrypted) as a side effect of `onAuthStateChanged`, but **never reads it back** — the token is always obtained from the Firebase SDK at call time. The write exists to allow the native background audio service to read the token outside the WebView; that use case disappears with the native rebuild.
+`front_vibes` writes the Firebase ID token to `@capacitor/preferences` under `firebase_id_token` (`FIREBASE_TOKEN_PREFS_KEY`, `auth.service.ts` line 22). `persistToken` (`useAuth.ts` lines 52–58) is called by the login functions `loginWithGoogle` (line 118), `loginWithEmail` (line 139) and `signUpWithEmail` (line 162). The key is removed when `persistToken` receives a null token (`useAuth.ts` line 54) and in `logout` (`auth.service.ts` line 297). Searches for `firebase_id_token` / `CapacitorStorage` under `front_vibes/android` and `front_vibes/src`, and for `FIREBASE_TOKEN_PREFS_KEY` under `front_vibes/src`, found no reader of the stored value (`CapacitorStorage` had no matches). The reason for the write is **not documented** in those trees.
 
 With the Firebase SDK owning the session in `androidApp`, the app no longer needs to store the token at all. §16.7 of the migration plan requires "never store tokens in common storage"; the new architecture meets this requirement **by not storing the token** rather than by adding encrypted storage. A `SecureStorage expect/actual` abstraction is therefore not needed in Phase 2 and will be considered only when a concrete consumer requires it (ADR-038 Decision 4: no anticipatory infrastructure).
 
@@ -95,7 +95,7 @@ This reduces the scope attributed to ADR-043 in the migration plan §13: the "ar
 - The interface is small and stable; it does not leak Firebase types into `commonMain`.
 
 **Cons:**
-- Each app module must implement the interface (two implementations at cutover: Android in Phase 5/6, iOS in Phase 10). A test-only implementation is also needed for K16.
+- Each app module must implement the interface (two implementations at cutover: Android in Phase 5/6, iOS in Phase 10). Staging proof in K16 is an opt-in host test, not a production implementation (plan §17).
 - The interface contract must be precise about threading and error semantics (see Decision 2).
 
 ### Option B — `expect/actual` in `shared` with the Firebase SDK
@@ -126,18 +126,21 @@ A community-maintained library that wraps Firebase SDKs and exposes a unified KM
 ```kotlin
 interface AuthTokenProvider {
     /**
-     * Returns a valid Firebase ID token for the currently authenticated user,
-     * or a [DomainError.Unauthorized] if no session exists.
+     * Returns a valid Firebase ID token for the currently authenticated user.
+     *
+     * The return value is the sealed result of ADR-041 Decision 5
+     * (`Result<T, DomainError>`). Member names, and the clash with `kotlin.Result`,
+     * are decided in K14. This ADR does not fix that shape.
      *
      * [forceRefresh] instructs the platform SDK to bypass its local cache and
-     * request a fresh token from Firebase. The HTTP layer calls this only after
-     * receiving a 401 on an authenticated request.
+     * request a fresh token from Firebase. The HTTP layer calls this with
+     * forceRefresh only after receiving a 401.
      */
-    suspend fun idToken(forceRefresh: Boolean = false): Result<String, DomainError>
+    suspend fun idToken(forceRefresh: Boolean = false)
 }
 ```
 
-**Name rationale:** `AuthTokenProvider` is descriptive and domain-neutral; `idToken` is the Firebase-documented name for the credential this interface returns. No `java.*`, `android.*` or `androidx.*` type appears in the signature.
+**Name rationale:** `AuthTokenProvider` is descriptive and domain-neutral; `idToken` is the Firebase-documented name for the credential this interface returns. No `java.*`, `android.*` or `androidx.*` type appears in the signature. The return is the sealed result of ADR-041 Decision 5 (`Result<T, DomainError>`); member names and the clash with `kotlin.Result` are decided in K14.
 
 **What this interface does not do:**
 - It does not expose a `Flow` of auth state — that belongs to a future `SessionStateHolder` (ADR-041 pattern) in Phase 5.
@@ -148,8 +151,8 @@ interface AuthTokenProvider {
 
 `idToken` is `suspend`; it may perform network I/O when `forceRefresh = true`. Callers must be on a coroutine context that permits suspension. The implementation must:
 
-- Return `Result.Success(token)` when a valid (or freshly obtained) token is available.
-- Return `Result.Error(DomainError.Unauthorized)` when no user is signed in, or when token refresh fails after a network attempt.
+- Carry the token string in the success case of that sealed result when a valid (or freshly obtained) token is available.
+- Carry `DomainError.Unauthorized` in the failure case when no user is signed in, or when token refresh fails after a network attempt. Member names of the sealed result are not fixed here (K14).
 - Never throw an unchecked exception across the boundary (ADR-041 Decision 5).
 - Emit on whatever dispatcher is natural for the platform SDK; the Ktor auth plugin (K14) will call it from a background dispatcher.
 
@@ -159,17 +162,21 @@ On a 401 response from an authenticated endpoint:
 
 1. Call `idToken(forceRefresh = true)` **once**.
 2. If successful, retry the original request **once** with the new token.
-3. If the retry also returns 401, or if `idToken` returns `DomainError.Unauthorized`, propagate `DomainError.Unauthorized` to the caller. No further retries.
+3. If the retry also returns 401, or if `idToken` fails with `DomainError.Unauthorized`, propagate `DomainError.Unauthorized` to the caller. No further retries.
 
 Concurrent requests that all receive a 401 simultaneously must produce a **single** token-refresh call (single-flight / coalescing), not N parallel refreshes. The implementation of coalescing belongs to K14; this ADR fixes the rule.
 
 No retry logic applies to any other HTTP status code.
 
+Because the client does not depend on the message text, `User not found.` (user not yet synced; `FirebaseAuthenticate.php` line 36) and an expired token are handled the same way by the HTTP layer: one refresh, one retry, then `DomainError.Unauthorized`. Reacting to "user not synced" by calling sync is the responsibility of the layer above the HTTP client, and is outside the scope of K14.
+
+The same 401 rule applies to `POST /api/auth/sync`. Evidence: `routes/api.php` lines 34–37 place that route in the `throttle:auth` group and not in the `firebase.auth` group (line 39). `FirebaseUserSyncController` still returns HTTP 401 when the bearer token is missing (line 26, `"Missing Firebase ID token."`) or invalid (line 34, `"Invalid Firebase ID token."`). The client cannot branch on that text, so those 401 responses follow the same one-refresh, one-retry rule. This route does not emit `User not found.`; that body is produced only by `FirebaseAuthenticate` on the middleware group.
+
 ### Decision 4 — Fake implementation for `commonTest`
 
 A `FakeAuthTokenProvider` is provided in `commonTest` source. It is configurable: callers can set a fixed token string, force it to return `DomainError.Unauthorized`, or simulate a refresh that changes the token. This fake is the only mechanism for testing authenticated request paths without a real Firebase project in unit tests.
 
-A separate, real-credential implementation against the Firebase Auth REST API is produced in K16 for integration testing against staging. That implementation is test-only and never ships in the production app.
+K16 (plan §17) is an opt-in `androidHostTest` against staging, not a production type: three flows (valid token → `syncUser` → `listVibes` → `listSounds`; first token invalid → 401 → refresh → success; a real 401 maps to `Unauthorized` when refresh also fails), credentials only from environment variables, the token never written into the report, and one sync per run because `POST /api/auth/sync` is limited to 10 requests per minute per IP (`AppServiceProvider.php` lines 37–39). That test does not ship in the production app.
 
 ### Decision 5 — `google-services.json` and credentials stay out of `shared`
 
@@ -199,20 +206,20 @@ Phase 2 does **not** implement:
 - `shared` remains free of Firebase types; `CommonMainBoundaryTest` continues to enforce the boundary.
 - Authenticated request paths are fully testable in `commonTest` without network access.
 - The interface is small and has one implementation per platform — a manageable maintenance surface.
-- The 401-handling rule is fixed before the first HTTP call is written, which is the cheapest moment to fix it.
+- The 401-handling rule is fixed before the first HTTP call is written, which is the cheapest moment to fix it. `User not found.` and an expired token take the same HTTP path; calling sync in response to an unsynced user stays above this layer.
 - Token storage is eliminated as a Phase 2 concern, simplifying the implementation and closing the §16.7 gap without adding new abstractions.
 
 **Negative, accepted**
 
-- Two real implementations of `AuthTokenProvider` will exist at cutover (Android in Phase 5/6, iOS in Phase 10); a third test-only implementation is needed for K16. This is the direct cost of Option A.
-- Integration tests against staging (K16) require a disposable Firebase account or a REST-API-based token and cannot be run in CI without secrets management.
+- Two real implementations of `AuthTokenProvider` will exist at cutover (Android in Phase 5/6, iOS in Phase 10). This is the direct cost of Option A.
+- The staging proof (K16) is opt-in, takes credentials only from environment variables, and cannot run in CI without secrets management. The token is never written into the report. One sync per execution, because of the 10/min limit on `POST /api/auth/sync`.
 - The Ktor plugin that calls `idToken` adds a small latency cost on the first authenticated call if the SDK needs to refresh the cache — accepted, because it happens transparently and infrequently.
 
 **Risks**
 
 - **SDK threading model.** The Firebase Android SDK's `getIdToken` is asynchronous; the implementation must bridge it to a `suspend` function correctly (via `suspendCancellableCoroutine` or `Tasks.await`). Getting this wrong causes coroutine leaks. Addressed in K14.
 - **Concurrent 401 storms.** Without single-flight coalescing, multiple simultaneous requests can each trigger a token refresh. The rule in Decision 3 requires coalescing; K14 owns the mechanism.
-- **No login in Phase 2.** Authenticated requests in Phase 2 can only be tested with a manually provisioned token (K16) or a fake (unit tests). This is a deliberate scope decision, not an oversight.
+- **No login in Phase 2.** Authenticated requests in Phase 2 can only be tested with the opt-in staging host test (K16) or a fake (unit tests). This is a deliberate scope decision, not an oversight.
 
 ---
 
@@ -220,7 +227,7 @@ Phase 2 does **not** implement:
 
 - **[ADR-001](ADR-001-firebase-auth-laravel-sync.md)** — the identity/authorisation split and the Firebase+Laravel contract this ADR implements: Firebase issues the JWT; Laravel verifies it and owns authorisation. This ADR extends ADR-001 to the KMP context without changing the contract.
 - **[ADR-038](ADR-038-kmp-shared-layer.md)** — the boundary authority. Decision 5 of ADR-038 prohibits `android.*`, `androidx.*`, `java.*` and `javax.*` in `commonMain`; this ADR is consistent: no Firebase SDK type appears in the `AuthTokenProvider` interface.
-- **[ADR-041](ADR-041-state-swift-interop.md)** — the state and error contract. `Result<T, DomainError>` is the domain-layer return type (ADR-041 Decision 5); `AuthTokenProvider` uses it.
+- **[ADR-041](ADR-041-state-swift-interop.md)** — the state and error contract. `idToken` returns the sealed result of ADR-041 Decision 5 (`Result<T, DomainError>`). Member names, and the clash with `kotlin.Result`, are decided in K14.
 - **ADR-043** — the migration plan §13 listed "armazenamento seguro do token" as part of ADR-043's scope. Decision 6 of this ADR reduces that scope: token storage is not needed because the Firebase SDK holds the session. ADR-043 remains relevant for other persistence concerns (SQLDelight, DataStore).
 - **[ADR-042](ADR-042-migration-repository.md)** — migration strategy. This ADR is consistent with Phase 2 scope and does not alter the migration sequence.
 
