@@ -374,6 +374,8 @@ Ambos suportam **fade real** — o recurso que a stack atual abandonou por limit
 
 **Recomendação: `expect/actual` sobre os SDKs nativos.** A superfície usada é pequena (login e-mail/senha, Google Sign-In, reset de senha, ID token, FCM token). Não justifica assumir risco de terceiro em algo tão central quanto autenticação.
 
+**Nota (K13, 2026-09-26):** a expressão "`expect/actual` sobre os SDKs nativos" aqui significa "ponte para o SDK nativo", não o mecanismo `expect/actual` do Kotlin. A tabela do §9 prevalece: a estratégia adotada é **interface no `commonMain` com implementação nativa injetada** (Opção A da ADR-044, Proposed). O mecanismo `expect/actual` do Kotlin foi descartado por exigir o plugin `google-services` no módulo `shared` e por tornar o `iosMain` inverificável sem Mac. Ver [ADR-044](ADR-044-firebase-auth-kmp.md).
+
 ### 6.8 Testes
 
 | Camada | Ferramenta |
@@ -648,8 +650,8 @@ Apenas decisões com impacto arquitetural real. Numeração seguindo a sequênci
 | **ADR-040** | Arquitetura do player: plano e scheduler compartilhados, transporte nativo | **Sim** — condiciona a Fase 4 |
 | **ADR-041** | Contrato de estado e interop Kotlin↔Swift: StateFlow, `Result` selado, SKIE | **Sim** |
 | **ADR-042** | Estratégia de migração e destino do repositório (construção paralela em `ixora-app`, feature freeze do `front_vibes`) | **Sim** — altera `repo-responsibilities.md`, `architecture-map.md` e o `CLAUDE.md` da raiz |
-| **ADR-043** | Persistência mobile: SQLDelight, DataStore e armazenamento seguro do token | Não — pode ser decidido na Fase 3 |
-| **ADR-044** | Autenticação Firebase em KMP via `expect/actual` | Não — pode ser decidido na Fase 2 |
+| **ADR-043** | Persistência mobile: SQLDelight e DataStore (escopo reduzido: armazenamento seguro do token de autenticação fechado pela ADR-044 — o SDK Firebase detém a sessão nativamente, sem necessidade de `SecureStorage expect/actual` na Fase 2 ou 3) | Não — pode ser decidido na Fase 3 |
+| **ADR-044** | Autenticação Firebase em KMP via interface no `commonMain` com implementação nativa injetada (`AuthTokenProvider`); contrato de 401 e renovação de token | **Proposed** (K13, 2026-09-26) — [ADR-044](ADR-044-firebase-auth-kmp.md) |
 
 Não recomendo ADR para DI nem para testes: são escolhas reversíveis de baixo acoplamento, que cabem no próprio plano. **Nem para o Design System:** ele não é uma decisão independente da ADR-039 — decidir "UI nativa nas duas plataformas" e "linguagem visual única com implementação separada" é a mesma decisão vista de dois ângulos. Separá-las criaria duas ADRs que precisariam ser lidas juntas para fazer sentido.
 
@@ -679,7 +681,7 @@ Risco 1 é o dominante. Toda a estrutura de fases existe para contê-lo.
 ## 15. Questões a decidir antes de começar
 
 1. ~~O app continua recebendo features durante a migração?~~ **Fechada por D2** — feature freeze durante toda a migração.
-2. **Existe prazo ou é projeto de fundo?** Muda o tamanho das fatias, não a ordem. *(aberta — não bloqueia a Fase 2; PO decide antes do primeiro card da Fase 2)*
+2. **Existe prazo ou é projeto de fundo?** Muda o tamanho das fatias, não a ordem. *(aberta após a Fase 2 ter sido iniciada; continua sem bloquear a execução)*
 3. ~~`minSdk` alvo do app novo?~~ **Fechada em 2026-09-24 pelo PO: `minSdk` 24**, mantendo o piso atual do `front_vibes` (`android/variables.gradle`: `minSdkVersion 24`, `compileSdkVersion 36`, `targetSdkVersion 36`).
 
    O raciocínio, porque a conclusão não é a óbvia. **Não há base instalada a preservar** — o aplicativo nunca foi publicado, o que é a mesma premissa que sustenta o gate de keystore da ADR-042 Decisão 6. Logo, a pergunta não é quantos aparelhos se perde, e sim quanto código de compatibilidade se evita.
@@ -688,7 +690,7 @@ Risco 1 é o dominante. Toda a estrutura de fases existe para contê-lo.
 
    Portanto o único degrau que removeria alguma coisa é **26**, não 28 — e o que ele remove é uma ramificação de uma linha. Subir o piso não destrava nenhuma capacidade, e manter 24 preserva paridade com o `front_vibes`, o que facilita a comparação de comportamento da Fase 6. Se um dia houver motivo para subir, 26 é o degrau que paga; 28 não acrescenta nada sobre 26 para este aplicativo.
 4. ~~Repositório novo confirmado?~~ **Fechada por D1** — `ixora-app`, já criado.
-5. **Telemetria OTel: em que fase entra a instrumentação mínima?** §16.13 já decidiu que a nova arquitetura preserva e se integra ao OTel/Grafana/Loki/Tempo existentes — o *se* está fechado. Resta o *quando*: reimplementar cedo atrasa, e tarde cria ponto cego. *(aberta — decidir até o início da Fase 2; PO decide)*
+5. **Telemetria OTel: em que fase entra a instrumentação mínima?** §16.13 já decidiu que a nova arquitetura preserva e se integra ao OTel/Grafana/Loki/Tempo existentes — o *se* está fechado. Resta o *quando*: reimplementar cedo atrasa, e tarde cria ponto cego. *(aberta — premissa da Fase 2: nenhuma instrumentação OTel entra na Fase 2; o PO pode reverter antes de iniciar a Fase 3)*
 6. ~~Dados existentes no aparelho migram?~~ **Fechada por D3** — sem migração; reconstrução por download e sincronização.
 7. ~~Fade entra no escopo do player novo?~~ **Fechada por D4** — entra, como parte do K05 / ADR-040. Ver §10.4: o trabalho é especificar a semântica, não copiá-la.
 8. ~~Design system: portar os tokens atuais ou redesenhar?~~ **Fechada por §16.14** — portar. **Refeita em 2026-09-25 pela D6: redesenhar (visual novo, Design System v1).** O texto seguinte é o histórico da primeira resposta. A linguagem visual existente (tokens do Figma, tema `system`/`light`/`dark`) é reproduzida como paridade; redesenho é mudança de produto e exige decisão própria do PO, fora de D2. A regra de consolidação de valores literais em tokens existentes está em §16.14.8.
@@ -1098,6 +1100,18 @@ Ordem de execução: K01 → K02–K06 (as cinco ADRs, que podem ser escritas em
 
 K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP de verdade, e a maioria das estimativas deste documento merece revisão depois dela.
 
+**Fase 2 — Networking e autenticação (autorizada pelo PO em 2026-09-25)**
+
+| # | Tarefa | Fase | Saída verificável |
+| --- | --- | --- | --- |
+| K13 | **ADR-044 — Firebase Auth no KMP** — interface `AuthTokenProvider` no `commonMain`, implementação nativa injetada; contrato de 401 e single-flight | 2 | ADR-044 Proposed; nota no §6.7 e linha do §13 atualizadas; backlog K14–K17 registrado neste plano |
+| K14 | **Cliente HTTP Ktor no `shared`** — plugin de autenticação que chama `AuthTokenProvider`, regra de 401 (renova uma vez → retry → `DomainError.Unauthorized`), single-flight de renovação concorrente | 2 | `./gradlew :shared:build` verde; testes com `FakeAuthTokenProvider` e `MockEngine` do Ktor; prova do single-flight |
+| K15 | **Repositórios de leitura** — sincronização de usuário (`POST /api/auth/sync`), listagem de vibes, listagem de sons; DTOs de resposta em `commonMain`; `StateHolder` por tela consumindo cada repositório | 2 | Testes com `MockEngine` para cada repositório; DTOs validados contra fixture real de staging |
+| K16 | **Prova de integração contra o staging** — implementação de teste de `AuthTokenProvider` via Firebase Auth REST API (token real, sem SDK, descartada após o card); chamar `/api/auth/sync` e `GET /api/vibes` contra o staging com token válido | 2 | Saída da chamada real colada no relatório final do K16; credenciais fora do repositório |
+| K17 | **Documentar o resultado da Fase 2** e revisar este plano com o aprendizado | 2 | Plano atualizado; ADR-044 promovida para Accepted pelo PO; quality-harness com baseline de testes da Fase 2 |
+
+Ordem de execução da Fase 2: K13 → K14 → K15 → K16 → K17. **A Fase 3 não começa antes do K17.**
+
 ### 17.1 Resultado da Fase 1 e decisão da Fase 2
 
 **Fase 0 concluída:** todas as cinco ADRs (K02–K06) aceitas em 2026-09-23. Questões 1, 3, 4, 6, 7, 8 e 9 do §15 fechadas. Questões 2 e 5 permanecem abertas e não bloqueiam a Fase 2.
@@ -1114,7 +1128,7 @@ K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP 
 
 Este documento não autoriza implementação; registra apenas que a pré-condição técnica da Fase 2 (Fase 1 concluída) está satisfeita.
 
-**Decisão do PO sobre iniciar a Fase 2:** _pendente — a registrar pelo PO._
+**Decisão do PO sobre iniciar a Fase 2:** o PO **autorizou em 2026-09-25**. Este documento não autoriza implementação além do que o PO decidiu; o backlog da Fase 2 (K13–K17) reflete essa autorização.
 
 ---
 
