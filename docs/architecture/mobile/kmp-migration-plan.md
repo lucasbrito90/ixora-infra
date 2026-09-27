@@ -327,6 +327,8 @@ O plugin AGP usado é `com.android.kotlin.multiplatform.library` (não o par `co
 
 Ponto de atenção medido: o `laravel-http.ts` atual existe em boa parte para contornar CORS e mixed-content do WebView. **Esse problema desaparece com o app nativo** — a camada de rede fica substancialmente mais simples do que a atual.
 
+**Nota (K17, 2026-09-26):** a Fase 2 usou Ktor **3.5.2** com `ContentNegotiation` e `HttpTimeout` (conexão e soquete, 30 s), mas **sem o plugin `Auth` do Ktor**: o Bearer e a renovação em 401 são de implementação própria, por **geração** (single-flight), porque o algoritmo precisava estar sob controle e coberto por testes de concorrência; o plugin `Auth` **não foi avaliado**. Motores: OkHttp (Android) e Darwin (iOS; no Windows só compilação). Ver [ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md) e §17.2.
+
 ### 6.3 Persistência
 
 | Opção | Maturidade KMP | Prós | Contras |
@@ -753,6 +755,8 @@ Nota de implementação: o catálogo de strings pode viver no `shared` (uma font
 
 No plano: estratégia técnica em §6.7 (`expect/actual` sobre os SDKs nativos) e §9 (interface + injeção). Estados de sessão no item 16.19; logout no 16.20; armazenamento seguro no 16.7.
 
+**Nota (K17, Fase 2):** existe `AuthTokenProvider` no `commonMain` ([ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md), Proposed); a implementação com o SDK Firebase fica no `androidApp` (Fases 5/6). O fluxo foi provado contra o staging com um provedor **somente de teste** via REST (K16).
+
 ### 16.3 Tema claro/escuro
 
 - Suporte a Light e Dark Mode.
@@ -790,6 +794,8 @@ Nota: não existe deep link no app atual. "Preparada para" aqui significa que o 
 - **Nunca** armazenar tokens sensíveis em armazenamento comum.
 
 No plano: §6.3 e §9 (`expect/actual`). Este item **corrige** o comportamento atual: hoje o ID token do Firebase é gravado em `@capacitor/preferences`, que não é cifrado. A migração é a oportunidade de fechar essa lacuna, e por isso ela cabe dentro de D2.
+
+**Nota (K17, Fase 2):** na Fase 2 **nenhum token é armazenado**; o requisito "nunca armazenar tokens em armazenamento comum" é cumprido **por não armazenar**, porque o SDK nativo detém a sessão ([ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md)).
 
 ### 16.8 Preferências do usuário
 
@@ -1104,11 +1110,11 @@ K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP 
 
 | # | Tarefa | Fase | Saída verificável |
 | --- | --- | --- | --- |
-| K13 | **ADR-044 — Firebase Auth no KMP** — interface `AuthTokenProvider` no `commonMain`, implementação nativa injetada; contrato de 401 e single-flight | 2 | ADR-044 Proposed; nota no §6.7 e linha do §13 atualizadas; backlog K14–K17 registrado neste plano |
-| K14 | **Cliente HTTP Ktor no `shared`** — plugin de autenticação que chama `AuthTokenProvider`, regra de 401 (renova uma vez → retry → `DomainError.Unauthorized`), single-flight de renovação concorrente. Depende de K13 | 2 | `./gradlew :shared:build` verde; testes com `FakeAuthTokenProvider` e `MockEngine` do Ktor; prova do single-flight |
-| K15 | **Repositórios de leitura** — sincronização de usuário (`POST /api/auth/sync`), listagem de vibes e listagem de sons; DTOs de resposta em `commonMain`. Sem `StateHolder`. Depende de K14 | 2 | Fixture do sync somente sintética; fixtures reais somente para `GET /api/vibes` |
-| K16 | **Prova de integração contra o staging** — teste **opt-in** em `androidHostTest` com três fluxos: token válido → `syncUser` → `listVibes` → `listSounds`; primeiro token inválido → 401 → renovação → sucesso; 401 real mapeia para `Unauthorized` quando a renovação também falha. Credenciais só por variável de ambiente. Um sync por execução (limite de 10/min em `POST /api/auth/sync`). Depende de K14 e K15 | 2 | Token nunca no relatório |
-| K17 | **Documentar o resultado da Fase 2** e revisar este plano com o aprendizado | 2 | Plano atualizado; ADR-044 promovida para Accepted pelo PO; quality-harness com baseline de testes da Fase 2 |
+| K13 | **ADR-044 — Firebase Auth no KMP** — interface `AuthTokenProvider` no `commonMain`, implementação nativa injetada; contrato de 401 e single-flight | 2 | ✅ **Concluído em 2026-09-26.** Merge PR [#70](https://github.com/lucasbrito90/ixora-infra/pull/70) (`ixora-infra` @ `5fb258a`); [ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md) **Proposed**; **aceitação pendente do PO**; nota §6.7 e linha §13; backlog K14–K17 neste plano |
+| K14 | **Cliente HTTP Ktor no `shared`** — plugin de autenticação que chama `AuthTokenProvider`, regra de 401 (renova uma vez → retry → `DomainError.Unauthorized`), single-flight de renovação concorrente. Depende de K13 | 2 | ✅ **Concluído em 2026-09-26.** Merge PR [#8](https://github.com/lucasbrito90/ixora-app/pull/8) (`ixora-app` @ `b3d0b6b`); `./gradlew :shared:build` verde; `HttpClientTest` (23) + `DefaultEngineOkHttpTest` (1) com `FakeAuthTokenProvider` e `MockEngine`; 6 testes determinísticos de single-flight (geração); 2 provas de mutação manuais (corpo do PR #8) |
+| K15 | **Repositórios de leitura** — sincronização de usuário (`POST /api/auth/sync`), listagem de vibes e listagem de sons; DTOs de resposta em `commonMain`. Sem `StateHolder`. Depende de K14 | 2 | ✅ **Concluído em 2026-09-26.** Merge PR [#9](https://github.com/lucasbrito90/ixora-app/pull/9) (`ixora-app` @ `85c91a1`); `HttpAuthRepositoryTest` (4), `HttpVibeRepositoryTest` (11); fixture de sync sintética; fixtures reais para `GET /api/vibes` e sons |
+| K16 | **Prova de integração contra o staging** — teste **opt-in** em `androidHostTest` com três fluxos: token válido → `syncUser` → `listVibes` → `listSounds`; primeiro token inválido → 401 → renovação → sucesso; 401 real mapeia para `Unauthorized` quando a renovação também falha. Credenciais só por variável de ambiente. Um sync por execução (limite de 10/min em `POST /api/auth/sync`). Depende de K14 e K15 | 2 | ✅ **Concluído em 2026-09-26.** Merge PR [#10](https://github.com/lucasbrito90/ixora-app/pull/10) (`ixora-app` @ `6cb88fb`); `StagingIntegrationTest` (3 fluxos; **3 skipped** sem env); credenciais só por variável — nunca no relatório |
+| K17 | **Documentar o resultado da Fase 2** e revisar este plano com o aprendizado | 2 | **Em revisão (PR desta branch); concluído com o merge.** §17.2; `quality-harness.md` baseline K16 (**93** casos / **3** skipped @ `6cb88fb`); ADR-044 permanece Proposed até o PO |
 
 Ordem de execução da Fase 2: K13 → K14 → K15 → K16 → K17. **A Fase 3 não começa antes do K17.**
 
@@ -1129,6 +1135,25 @@ Ordem de execução da Fase 2: K13 → K14 → K15 → K16 → K17. **A Fase 3 n
 Este documento não autoriza implementação; registra apenas que a pré-condição técnica da Fase 2 (Fase 1 concluída) está satisfeita.
 
 **Decisão do PO sobre iniciar a Fase 2:** o PO **autorizou em 2026-09-25**. Este documento não autoriza implementação além do que o PO decidiu; o backlog da Fase 2 (K13–K17) reflete essa autorização.
+
+### 17.2 Resultado da Fase 2 e decisão da Fase 3
+
+**Resultado (26/09/2026).** K13–K16 concluídos: rede e autenticação provadas contra o staging. Critério da Fase 2 do §11.2 atendido: listar vibes reais do staging a partir do Kotlin, com token válido, e renovar após 401.
+
+**Aprendizados que corrigem premissas do plano:**
+
+1. O §6.2 previa o plugin `Auth` do Ktor; foi feita **implementação própria por geração**, porque a primeira versão (comparação com o "último token renovado") repetia com token velho quando o SDK rotacionava o cache. A revisão do K14 encontrou e corrigiu isso, com **6** testes determinísticos de single-flight em `HttpClientTest` e **2** provas de mutação manuais registradas no PR #8 (algoritmo por geração em `TokenRefreshState`).
+2. O `front_vibes` grava o token em `@capacitor/preferences` e **nenhum leitor foi encontrado**; o motivo da gravação não está documentado. O app novo **não armazena** token (ADR-044); o escopo da ADR-043 diminuiu.
+3. Os dois 401 de token inválido têm texto diferente (`POST /api/auth/sync` × demais rotas); o cliente depende **só do status**. `User not found.` e token expirado recebem o mesmo tratamento na camada HTTP; reagir a "usuário não sincronizado" é da camada de cima.
+4. Bearer só para a origem da `ApiConfig.baseUrl`; `requestTimeoutMillis` foi removido (o `front_vibes` só tem conexão e leitura de 30 s).
+5. Dependências: Ktor 3.5.2 mantido (3.6.0 existe no Maven Central; não trocado); `kotlinx-coroutines` resolvido em 1.11.0. O metadata continua cobrindo só Windows; o Darwin só é verificado por compilação (link e teste iOS seguem `SKIPPED` no Windows).
+6. Contrato dos modelos: os campos opcionais do TS são sempre emitidos pelo `VibeResource`; o modelo `Vibe` segue o Resource (chaves obrigatórias) com defaults nos opcionais. A fixture do sync é sintética (a real traz e-mail e UID).
+7. `hasValidExecutionFileUrl`/`isExecutionLayerPlayable` seguem sem port (herdado do K12). Agora existe `io.ktor.http.Url` em `commonMain`, mas a **equivalência com o parser WHATWG não foi verificada**: decidir na Fase 3/4 com testes de paridade.
+8. Processo: o trabalho do Cursor precisa terminar **commitado e enviado** (o K14 ficou sem commit); prompts pequenos com o código crítico ditado funcionaram em modelos mais baratos.
+
+**Questões do §15:** as questões 2 (prazo) e 5 (telemetria) **seguem abertas**; nenhuma resposta veio da prática; a premissa "sem OTel na Fase 2" foi mantida (nenhuma instrumentação entrou).
+
+**Decisões pendentes do PO:** (a) aceitar a ADR-044 (Proposed → Accepted); (b) iniciar a Fase 3. **Decisão do PO sobre a ADR-044:** _pendente._ **Decisão do PO sobre iniciar a Fase 3:** _pendente._
 
 ---
 
