@@ -9,7 +9,7 @@
 
 ## Goal
 
-Enable an **authenticated mobile user** to **import an active preset vibe** — a **curated admin template** ([`../spec.md`](../spec.md)) — into a **new user-owned vibe** in **one synchronous transaction**: copy preset **metadata**, copy **visual HTTPS URL strings** from the preset’s optional **cover bundle**, create **`vibe_sounds`** rows from **`preset_vibe_sounds`**, and return **`VibeResource`** **201** — **without** creating catalog sounds or cover bundles, **without** linking the user vibe back to the preset, and **without** live sync when the preset changes later.
+Enable an **authenticated mobile user** to **import an active preset vibe** — a **curated admin template** ([`../spec.md`](../spec.md)) — into a **new user-owned vibe** in **one synchronous transaction**: copy preset **metadata**, copy **visual HTTPS URL strings** from the preset’s optional **cover bundle**, create **`vibe_sounds`** rows from **`preset_vibe_sounds`**, copy **active** vibe **category** links from the preset (when the catalog feature is shipped — [`../../vibe-categories/spec.md`](../../vibe-categories/spec.md)), and return **`VibeResource`** **201** — **without** creating catalog sounds or cover bundles, **without** linking the user vibe back to the preset, and **without** live sync when the preset changes later.
 
 **Success criteria:**
 
@@ -30,11 +30,11 @@ Enable an **authenticated mobile user** to **import an active preset vibe** — 
 
 - **Import endpoint only:** **`POST /api/preset-vibes/{preset_vibe}/import`**
 - **Browse context:** **`GET /api/preset-vibes`**, **`GET /api/preset-vibes/{id}`** (preset catalog — parent spec)
-- **Server transaction:** **`Vibe::create`** + **`vibe->sounds()->attach(...)`** per **`preset_vibe_sounds`**
+- **Server transaction:** **`Vibe::create`** + **`vibe->sounds()->attach(...)`** per **`preset_vibe_sounds`** + copy **active** preset **category** pivots to the new vibe (CAT-02)
 - **URL copy:** `thumbnail_url`, `artwork_url`, `player_background_url` from linked bundle
 - **Mobile:** **`PresetVibeDetailPage`** → **Import to My Vibes** → **`fetchVibes()`** → **`/vibes`**
 - **Response:** **`VibeResource`** **201** with **`loadCount('sounds')`** + **`load(['sounds'])`**
-- **Tests:** **`PresetVibeImportApiTest`**
+- **Tests:** **`PresetVibeImportApiTest`** (extend in CAT-02: import copies **active** categories only; preset category edits after import do **not** mutate imported vibes)
 
 ### Out of scope
 
@@ -72,7 +72,7 @@ Enable an **authenticated mobile user** to **import an active preset vibe** — 
 3. Detail shows read-only metadata, layer preview, hero from nested **`cover_bundle`** (when present).
 4. User taps **Import to My Vibes**.
 5. Mobile **`POST /api/preset-vibes/{id}/import`** with body **`{}`** and Firebase Bearer token.
-6. Laravel runs **one DB transaction**: create **`vibes`** row + attach all **`vibe_sounds`** from preset layers.
+6. Laravel runs **one DB transaction**: create **`vibes`** row + attach all **`vibe_sounds`** from preset layers + copy **active** category links from preset to vibe (no live FK to preset — [ADR-003](../../decisions/ADR-003-preset-import-independent-vibes.md), [ADR-005](../../decisions/ADR-005-no-realtime-preset-sync.md)).
 7. Response **201** + **`VibeResource`** with **`sounds_count`** and embedded **`sounds`**.
 8. Mobile **`fetchVibes()`**, success toast, **`router.push('/vibes')`**.
 9. User may **play** imported vibe immediately (if layers exist) or **manage layers** like any user vibe.
@@ -152,6 +152,7 @@ See [`../../vibes/create-vibe/spec.md`](../../vibes/create-vibe/spec.md).
 | FR-17 | Preset with **zero layers** still creates vibe (**`sounds_count: 0`**). |
 | FR-18 | Imported vibe uses **`buildVibeExecutionPlan`** like any user vibe — [`playback-runtime`](../../vibes/playback-runtime/spec.md). |
 | FR-19 | **No** dedicated Form Request — no client-controlled import fields today. |
+| FR-20 | **(CAT-02)** Copy **active** preset **category** pivots onto the new vibe inside the same **`DB::transaction`** — **no `preset_vibe_id`**; admin preset category changes afterward **do not** update past imports ([ADR-003](../../decisions/ADR-003-preset-import-independent-vibes.md), [ADR-005](../../decisions/ADR-005-no-realtime-preset-sync.md)). |
 
 ---
 
@@ -255,6 +256,7 @@ Per [`api-resource-patterns.md`](../../standards/api-resource-patterns.md):
 | **`player_background_url`** | Stored value, else **`?? thumbnail_url`** in resource |
 | **`artwork_url`** | Stored value, else **`?? thumbnail_url`** in resource |
 | **`user_id`** | **Not exposed** in **`VibeResource`** |
+| **`categories`** | **(CAT-02)** Embedded when relation loaded post-commit; **active** entries only; copied from preset at import — **read-only** for end users ([`../../vibe-categories/spec.md`](../../vibe-categories/spec.md)) |
 
 **Nested `sounds`:** Each item is **`VibeSoundResource`** — catalog fields + pivot fields; **`file_url`** from **`sounds`** table (not duplicated).
 
@@ -291,7 +293,8 @@ Catalog read contract: [`../spec.md`](../spec.md).
    - Build URL map — all **null**, or from **`$presetVibe->coverBundle`** when present.
    - **`Vibe::create([user_id, name, description, ...urls, is_active: true])`**.
    - For each **`presetVibeSounds`** row: derive **`playMode`**, **`attach(sound_id, pivot…)`**.
-4. **`$vibe->load(['sounds'])`**, **`$vibe->loadCount('sounds')`**.
+   - **(CAT-02)** For each **active** category linked to the preset: attach **`vibe_category_id`** on the user vibe pivot (copy only — not a live binding).
+4. **`$vibe->load(['sounds'])`** (and **`categories`** when shipped), **`$vibe->loadCount('sounds')`**.
 5. Return **`(new VibeResource($vibe))->response()->setStatusCode(201)`**.
 
 ### Metadata copy
@@ -344,6 +347,7 @@ Import **persists URLs server-side** (unlike manual create’s Form Request gap)
 | --- | --- |
 | Import preset twice | **Two** vibes for same user |
 | Admin edits preset layers | **Past imports unchanged** |
+| Admin edits preset **categories** (CAT-02) | **Past imports unchanged** — copy-on-import only |
 | Admin deactivates preset | **Past imports unchanged**; new imports **404** |
 | User edits imported vibe | Normal update/manage-sounds — **no preset coupling** |
 
@@ -457,7 +461,7 @@ Align with [`../../architecture/storage/storage-strategy.md`](../../architecture
 | **User edits imported vibe** | Independent of preset — no sync |
 | **Admin changes preset after import** | **No effect** on existing user vibes |
 
-**Partial insert prevention:** **`DB::transaction`** wraps **`Vibe::create`** and **all** **`attach`** calls — atomic all-or-nothing.
+**Partial insert prevention:** **`DB::transaction`** wraps **`Vibe::create`**, **all** sound **`attach`** calls, and **(CAT-02)** category pivot copies — atomic all-or-nothing.
 
 ---
 
@@ -497,6 +501,7 @@ Align with [`../../architecture/storage/storage-strategy.md`](../../architecture
 | --- | --- |
 | **This spec** | `docs/specs/preset-vibes/import/spec.md` |
 | Preset catalog (parent) | [`../spec.md`](../spec.md) |
+| Vibe categories (D7) | [`../../vibe-categories/spec.md`](../../vibe-categories/spec.md) |
 | Create vibe (manual) | [`../../vibes/create-vibe/spec.md`](../../vibes/create-vibe/spec.md) |
 | Manage vibe sounds | [`../../vibes/manage-vibe-sounds/spec.md`](../../vibes/manage-vibe-sounds/spec.md) |
 | Vibe sounds (redirect) | [`../../vibes/vibe-sounds/spec.md`](../../vibes/vibe-sounds/spec.md) |

@@ -387,7 +387,7 @@ Per [`api-resource-patterns.md`](../../standards/api-resource-patterns.md):
 
 | Resource | Key rules |
 | --- | --- |
-| **`PresetVibeResource`** | Flat metadata + **`cover_bundle_id`**; nested **`cover_bundle`** via **`when(relationLoaded)`**; **`sounds`** = **`PresetVibeSoundResource::collection(whenLoaded('presetVibeSounds'))`** |
+| **`PresetVibeResource`** | Flat metadata + **`cover_bundle_id`**; legacy **`category`** string (max 100); **`categories`** array when category relation eager-loaded (active catalog entries only — see [Categories (D7)](#categories-d7)); nested **`cover_bundle`** via **`when(relationLoaded)`**; **`sounds`** = **`PresetVibeSoundResource::collection(whenLoaded('presetVibeSounds'))`** |
 | **`PresetVibeSoundResource`** | Pivot fields + nested **`SoundResource`** when **`sound`** loaded; aliases **`start_delay_seconds`** → stored **`start_offset_seconds`**; **`duration_seconds`** → **`play_duration_seconds`** |
 | **`CoverBundleResource`** | Raw URL fields — **no** cross-field fallbacks (unlike **`VibeResource`**) |
 | **`VibeResource`** | Import response only — fallbacks on visual fields; optional embedded **`sounds`** |
@@ -401,8 +401,22 @@ Per [`api-resource-patterns.md`](../../standards/api-resource-patterns.md):
 | **`presetVibeSounds`** loaded | **`sounds: [...]`** |
 | **`presetVibeSounds`** not loaded | **`sounds` key omitted** |
 | **`sound`** on each layer loaded | **`sound: { … SoundResource }`** |
+| Category relation loaded | **`categories: [{ id, slug, names, sort_order }, …]`** (active only, ordered by **`sort_order`**) |
+| Category relation not loaded | **`categories` key omitted** |
 
 **`sounds_count`:** **Not** on **`PresetVibeResource`**. **`VibeResource`** after import includes **`sounds_count`** via **`loadCount('sounds')`**.
+
+---
+
+## Categories (D7)
+
+**Planned (CAT-02+):** A preset may belong to **multiple** entries from the admin **`vibe_categories`** catalog. **`PresetVibeResource`** will expose a read-only **`categories`** array (embedded when the relation is eager-loaded). The legacy free-text **`category`** column on **`preset_vibes`** **remains in API responses** during coexistence until clients stop using it.
+
+- Admin assigns categories to presets (replace-all sync — see [`../vibe-categories/spec.md`](../vibe-categories/spec.md)).
+- **Import** copies **active** preset category links onto the new user vibe (**one-time copy**; no live sync — [ADR-003](../../decisions/ADR-003-preset-import-independent-vibes.md), [ADR-005](../../decisions/ADR-005-no-realtime-preset-sync.md)).
+- **`front_vibes`** stays frozen and may ignore **`categories`**; frozen clients continue to read legacy **`category`** where implemented today.
+
+Full contract: [`../vibe-categories/spec.md`](../vibe-categories/spec.md).
 
 ---
 
