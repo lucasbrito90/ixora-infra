@@ -224,7 +224,7 @@ POST /api/vibes
 | `artwork_url` | No | HTTPS CDN string when cover applied |
 | `player_background_url` | No | HTTPS CDN string when cover applied |
 
-**Not accepted:** multipart files, `user_id`, `sound_id`, `cover_bundle_id`, embedded layers array.
+**Not accepted:** multipart files, `user_id`, `sound_id`, `cover_bundle_id`, embedded layers array, **`categories`** / **`category_ids`** (read-only; set only via preset import — [`../../vibe-categories/spec.md`](../../vibe-categories/spec.md)).
 
 **Success: 201 Created**
 
@@ -239,6 +239,7 @@ POST /api/vibes
     "player_background_url": null,
     "artwork_url": null,
     "is_active": true,
+    "categories": [],
     "sounds_count": 0,
     "created_at": "2026-05-23T14:00:00.000000Z",
     "updated_at": "2026-05-23T14:00:00.000000Z"
@@ -255,6 +256,7 @@ When visual URLs **are persisted** (after validation fix or preset import), **`V
 | `player_background_url` | **`player_background_url ?? thumbnail_url`** |
 | `artwork_url` | **`artwork_url ?? thumbnail_url`** |
 | `sounds_count` | **`(int) ($this->sounds_count ?? 0)`** — **0** on create |
+| `categories` | **(CAT-02)** **`[]`** on manual create — read-only; populated only when copied from preset import ([`../../vibe-categories/spec.md`](../../vibe-categories/spec.md)); users **cannot** assign via create/update |
 | `sounds` | Only when **`sounds`** relationship loaded (preset import **201**; not manual create) |
 
 **Error responses**
