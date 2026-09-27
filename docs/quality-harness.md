@@ -213,7 +213,7 @@ npx cap sync android
 
 **Path:** [`ixora-app/`](../../ixora-app) — repositório `ixora-app` no workspace Ixora (quinto repositório, criado em K07).
 
-**Status:** Fase 1 concluída (K07–K11, 2026-09-24/25). Apenas módulo `shared` (KMP). Nenhum `androidApp/` nem `iosApp/` ainda.
+**Status:** Fase 1 concluída (K07–K11, 2026-09-24/25); Fase 2 até K16 (HTTP, repositórios, prova opt-in de staging). Apenas módulo `shared` (KMP). Nenhum `androidApp/` nem `iosApp/` ainda.
 
 ### Prerequisites
 
@@ -235,7 +235,7 @@ cd ixora-app
 | Check | Comando | Pass | Verificado |
 | --- | --- | --- | --- |
 | **Build completo** | `./gradlew :shared:build` | Exit `0` | ✅ Build SUCCESS (K07, 2026-09-24) |
-| **Testes (androidHostTest — JVM)** | `./gradlew :shared:testAndroidHostTest` | Exit `0` | ✅ **33** testes (K11, 2026-09-25) |
+| **Testes (androidHostTest — JVM)** | `./gradlew :shared:testAndroidHostTest` | Exit `0` | ✅ **93** casos / **3** skipped / **0** falhas (K16, 2026-09-26, `ixora-app` @ `6cb88fb`) |
 | **Compilação iOS (cross, sem link)** | `./gradlew :shared:compileKotlinIosArm64` | Exit `0` | ✅ executa no Windows com Kotlin 2.3.20 |
 | **Compilação iOS Simulator** | `./gradlew :shared:compileKotlinIosSimulatorArm64` | Exit `0` | ✅ executa no Windows |
 | **Verificação de dependências** | Automática no build | — | ✅ `gradle/verification-metadata.xml` mantido |
@@ -249,18 +249,78 @@ cd ixora-app
 
 Deve retornar `BUILD SUCCESSFUL`. `:shared:build` já roda `testAndroidHostTest` (incluindo os testes de `commonTest` no host Android) e `compileKotlinIosArm64`, `compileKotlinIosSimulatorArm64`, `compileTestKotlinIosArm64`.
 
-### Distribuição dos 33 testes (baseline K11)
+### Distribuição dos testes (baseline K16)
 
-| Suíte | Local | Testes | Conteúdo |
-| --- | --- | --- | --- |
-| `CommonMainBoundaryTest` | `androidHostTest`, `boundary/` | 20 | guard de caminho, sentinelas de detecção/não-detecção (arquivo, diretório, `.kts`) |
-| `VibeSoundSerializationTest` | `commonTest` | 5 | contrato JSON com fixture real do staging e sintética |
-| `VibeExecutionLayerTest` | `commonTest` | 1 | semântica dos nulos |
-| `ExecutionPlanBehaviorTest` | `commonTest` | 2 | imutabilidade da entrada, estabilidade da ordenação |
-| `ExecutionPlanGoldenMasterTest` | `commonTest` | 2 | 17 `case_id` + 14 valores de `formatDuration` contra o TS real |
-| `ExecutionPlanCombinatorialParityTest` | `commonTest` | 2 | 384 combinações de 1 som + 30 planos de 6 sons |
-| `FormatDurationExhaustiveParityTest` | `commonTest` | 1 | 3713 entradas (0..3700 + 12 bordas) |
-| **Total** | | **33** | 0 falhas |
+Medido em **2026-09-26** com `ixora-app` em `develop` @ **`6cb88fb`**, sem variáveis de staging: `.\gradlew.bat :shared:testAndroidHostTest --rerun-tasks` (exit `0`); `:shared:build --rerun-tasks` incluiu `compileKotlinIosArm64` e `compileTestKotlinIosSimulatorArm64` (não `NO-SOURCE`).
+
+**Histórico:** baseline K11 = **33** testes (somente player engine + `CommonMainBoundaryTest`; 2026-09-25).
+
+**Contagem a partir dos XML JUnit** (`shared/build/test-results/testAndroidHostTest/*.xml` — atributos `tests`, `skipped`, `failures` de cada `<testsuite>`):
+
+```powershell
+$dir = "shared/build/test-results/testAndroidHostTest"
+Get-ChildItem $dir -Filter "*.xml" | ForEach-Object {
+  [xml]$x = Get-Content $_.FullName
+  $ts = $x.testsuite
+  [PSCustomObject]@{
+    Class = ($_.BaseName -replace '^TEST-','')
+    Tests = [int]$ts.tests
+    Skipped = [int]$ts.skipped
+    Failures = [int]$ts.failures
+  }
+} | Sort-Object Class | Format-Table -AutoSize
+# Totais: (Tests -Sum), (Skipped -Sum), (Failures -Sum)
+```
+
+| Área | Classes (`androidHostTest` / `commonTest` no host) | Testes | Skipped | Conteúdo |
+| --- | --- | --- | --- | --- |
+| Player engine (K09–K11) | `VibeSoundSerializationTest`, `VibeExecutionLayerTest`, `ExecutionPlanBehaviorTest`, `ExecutionPlanGoldenMasterTest`, `ExecutionPlanCombinatorialParityTest`, `FormatDurationExhaustiveParityTest` | 13 | 0 | paridade `buildVibeExecutionPlan` / `formatDuration` / fixtures de som |
+| Cliente HTTP (K14) | `HttpClientTest`, `DefaultEngineOkHttpTest` | 24 | 0 | Ktor mock, erros, refresh ADR-044, engine OkHttp |
+| Repositórios (K15) | `HttpAuthRepositoryTest`, `HttpVibeRepositoryTest` | 15 | 0 | sync, listagem, sons por vibe |
+| Serialização / modelos | `SyncedUserSerializationTest`, `VibeSerializationTest`, `DataEnvelopeSerializationTest` | 12 | 0 | `SyncedUser`, `Vibe`, envelope `data` |
+| Fixtures reais | `StagingVibesFixtureTest` | 1 | 0 | JSON de vibes do staging |
+| Guard de fronteira (K08) | `CommonMainBoundaryTest` | 20 | 0 | imports proibidos em `commonMain` |
+| Infraestrutura de integração (K16) | `StagingIntegrationEnvTest`, `TokenMutatingProviderTest` | 5 | 0 | gate de env, mutação de token para testes |
+| Integração staging opt-in (K16) | `StagingIntegrationTest` | 3 | 3 | skipped sem as 4 variáveis de ambiente (ver abaixo) |
+| **Total** | **18** classes | **93** | **3** | **0** falhas |
+
+### Teste opt-in de integração com staging (K16)
+
+Prova **somente leitura** contra `https://staging-api.ixora-app.app/api` (host `androidHostTest`). **Não** entra no gate padrão de PR; **não** rodar em CI sem injeção controlada de segredos.
+
+**O que prova** (`StagingIntegrationTest` — três fluxos):
+
+1. Token Firebase válido → `POST /auth/sync` (uma vez) → `GET /vibes` → `GET /vibes/{id}/sounds`.
+2. Primeira requisição com JWT corrompido → 401 do staging → um refresh forçado → `GET /vibes` ok (regra ADR-044 em servidor real).
+3. Todas as requisições com JWT corrompido → após refresh + retry, `listVibes()` retorna `DomainError.Unauthorized` (401 real, não falha local de token).
+
+**Variáveis de ambiente** (apenas nomes; valores locais em `front_vibes/.env` — nunca commitar):
+
+| Variável | Uso |
+| --- | --- |
+| `IXORA_STAGING_INTEGRATION` | Deve ser `1`; caso contrário os **3** testes são **skipped** (JUnit `Assume`) |
+| `VITE_FIREBASE_API_KEY` | Firebase Web API key |
+| `E2E_USER_EMAIL` | Conta QA |
+| `E2E_USER_PASSWORD` | Senha da conta QA |
+
+**Execução local (PowerShell, a partir de `ixora-app/`):** definir as quatro variáveis **só no processo deste comando** (não ecoar valores). Usar `--no-daemon` para não reutilizar daemon com env antigo. Usar `cleanTestAndroidHostTest` porque variáveis de ambiente **não** são inputs de cache do Gradle — sem clean, skip/pass anterior pode vir do cache.
+
+```powershell
+$envFile = "..\front_vibes\.env"
+foreach ($k in 'VITE_FIREBASE_API_KEY','E2E_USER_EMAIL','E2E_USER_PASSWORD') {
+  $line = Select-String -Path $envFile -Pattern "^$k=" | Select-Object -First 1
+  if ($line) { Set-Item -Path "Env:$k" -Value ($line.Line.Substring($k.Length + 1)) }
+}
+$env:IXORA_STAGING_INTEGRATION = '1'
+.\gradlew.bat --no-daemon :shared:cleanTestAndroidHostTest :shared:testAndroidHostTest --tests "*StagingIntegrationTest*"
+Remove-Item Env:VITE_FIREBASE_API_KEY,Env:E2E_USER_EMAIL,Env:E2E_USER_PASSWORD,Env:IXORA_STAGING_INTEGRATION -ErrorAction SilentlyContinue
+```
+
+**Limites (API staging, `back_vibes` `AppServiceProvider`):** `POST /api/auth/sync` — limiter `auth`, **10** requisições/minuto por IP; a suíte chama sync **no máximo uma vez por execução JVM** (fluxo 1). Rotas autenticadas — limiter `api`, **60** requisições/minuto por usuário (fallback IP se não autenticado). HTTP 429 em sync: parar e aguardar — não repetir em loop.
+
+Sem as quatro variáveis, o mesmo `--tests "*StagingIntegrationTest*"` reporta **3 skipped**, 0 falhas.
+
+Detalhes e links para fontes: seção **Staging integration test (opt-in, K16)** do `README.md` do `ixora-app`.
 
 ### iOS tests (não executáveis no Windows)
 
@@ -274,7 +334,7 @@ O target `iosTest/` compila (`compileTestKotlinIosArm64` funciona), mas os teste
 ./gradlew --write-verification-metadata sha256 :shared:build
 ```
 
-O metadata atual cobre apenas Windows; o único artefato dependente de SO é `kotlin-native-prebuilt-2.3.20-windows-x86_64.zip`. Para outro SO (Linux CI, Mac): rodar o comando nesse SO e **mesclar** as entradas, nunca sobrescrever. Ao adicionar qualquer dependência nova, regenere o metadata depois que ela entra.
+O metadata atual cobre apenas Windows (`Select-String` em `gradle/verification-metadata.xml`: artefato nativo `kotlin-native-prebuilt-2.3.20-windows-x86_64.zip`; sem entradas Linux/Mac equivalentes). As dependências K14 (Ktor **3.5.2**, `ktor-client-mock`, engines OkHttp e Darwin), com **kotlinx-coroutines** resolvido em **1.11.0** (`:shared:dependencies --configuration commonMainResolvableDependenciesMetadata`), estão registradas no metadata. Para outro SO (Linux CI, Mac): rodar o comando nesse SO e **mesclar** as entradas, nunca sobrescrever. Ao adicionar qualquer dependência nova, regenere o metadata depois que ela entra.
 
 ### Guards e paridade
 

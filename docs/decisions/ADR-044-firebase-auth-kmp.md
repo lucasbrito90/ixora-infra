@@ -250,3 +250,13 @@ Code inspected 2026-09-26 in `back_vibes`:
 - `app/Providers/AppServiceProvider.php` lines 37–50: `auth` limiter 10/min per IP; `api` limiter 60/min per user (or IP).
 
 Internal: [`kmp-migration-plan.md`](../architecture/mobile/kmp-migration-plan.md) §6.7 (Firebase strategy), §9 (integration table), §11.2 (Phase 2 scope), §13 (ADR list), §16.7 (secure storage requirement), §16.19–16.21 (session state, logout, security), §17.1 (Phase 2 authorisation). [ADR-001](ADR-001-firebase-auth-laravel-sync.md), [ADR-038](ADR-038-kmp-shared-layer.md), [ADR-041](ADR-041-state-swift-interop.md), [ADR-042](ADR-042-migration-repository.md). `CLAUDE.md` (workspace root): identity vs. authorisation split rule.
+
+## Post-implementation note (2026-09-26, K14–K16)
+
+This note records what the implementation of Decisions 1–3 settled. It does not change any decision and does not change the status (still Proposed, pending PO approval).
+
+- **Result type and port.** The sealed result is `IxoraResult<T, DomainError>` (`Ok` / `Err`) in `app.ixora.shared.domain.common`, named to avoid the collision with `kotlin.Result` that K14 was asked to settle. The port is `AuthTokenProvider.idToken(forceRefresh)` in `app.ixora.shared.domain.auth`.
+- **Decision 3 implementation.** The 401 rule is implemented by a custom generation-based single flight (`TokenRefreshState`), not by Ktor's bearer `Auth` plugin, which was not evaluated. A request records the generation it observed before asking the provider for a token; on 401, if the generation has advanced it asks the provider for the current token and retries once, otherwise it joins (or starts) the single in-flight forced refresh. The decision is taken inside one lock acquisition, and the refresh runs in a scope that outlives the request that started it. An earlier version compared tokens and, when the SDK rotated its cached token, retried with an old token without refreshing; the K14 review found and fixed it.
+- **Host restriction.** The Bearer token is sent only to the origin of `ApiConfig.baseUrl`.
+- **Evidence.** K16 exercised the rule against the staging API with a test-only provider built on the Firebase REST API: a valid token, a first invalid token followed by a real 401 and a forced refresh, and a real `Unauthorized` when the refresh also fails.
+- **Still open.** The Android implementation of `AuthTokenProvider` over the Firebase SDK does not exist yet (Phase 5/6), so the threading risk listed under Consequences is not yet exercised.
