@@ -2,9 +2,9 @@
 
 ## Status
 
-**Proposed** (2026-09-26) — governs how Firebase Authentication is integrated in the `ixora-app` Kotlin Multiplatform rebuild: which concerns live in `shared/commonMain`, which stay in the native app modules, and the contract between them.
+**Accepted** (2026-09-27) — governs how Firebase Authentication is integrated in the `ixora-app` Kotlin Multiplatform rebuild: which concerns live in `shared/commonMain`, which stay in the native app modules, and the contract between them.
 
-PO authorised Phase 2 on 2026-09-25. This ADR is written as part of K13 (Phase 2 backlog definition) and is **pending PO approval**; no implementation should start before approval.
+PO authorised Phase 2 on 2026-09-25. This ADR was written as part of K13 (Phase 2 backlog definition) as **Proposed** on 2026-09-26, implemented and proven against the staging API in K14–K16 (see the post-implementation note at the end), and **accepted by the PO on 2026-09-27**. Acceptance covers the architecture (Decisions 1–6). The Android implementation of `AuthTokenProvider` over the Firebase SDK does not exist yet (Phase 5/6), so the threading risk listed under Consequences is accepted as an implementation risk, to be exercised then.
 
 ## Date
 
@@ -253,7 +253,7 @@ Internal: [`kmp-migration-plan.md`](../architecture/mobile/kmp-migration-plan.md
 
 ## Post-implementation note (2026-09-26, K14–K16)
 
-This note records what the implementation of Decisions 1–3 settled. It does not change any decision and does not change the status (still Proposed, pending PO approval).
+This note records what the implementation of Decisions 1–3 settled. It does not change any decision. (It was written while the status was still Proposed; the ADR was accepted by the PO on 2026-09-27.)
 
 - **Result type and port.** The sealed result is `IxoraResult<T, DomainError>` (`Ok` / `Err`) in `app.ixora.shared.domain.common`, named to avoid the collision with `kotlin.Result` that K14 was asked to settle. The port is `AuthTokenProvider.idToken(forceRefresh)` in `app.ixora.shared.domain.auth`.
 - **Decision 3 implementation.** The 401 rule is implemented by a custom generation-based single flight (`TokenRefreshState`), not by Ktor's bearer `Auth` plugin, which was not evaluated. A request records the generation it observed before asking the provider for a token; on 401, if the generation has advanced it asks the provider for the current token and retries once, otherwise it joins (or starts) the single in-flight forced refresh. The decision is taken inside one lock acquisition, and the refresh runs in a scope that outlives the request that started it. An earlier version compared tokens and, when the SDK rotated its cached token, retried with an old token without refreshing; the K14 review found and fixed it.
