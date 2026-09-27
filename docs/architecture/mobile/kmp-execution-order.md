@@ -47,7 +47,7 @@
 | 16 | **Fase 6: telas por área** | UI-04 a UI-11 | Claude Code | **Sim** | Fase 5 |
 | 17 | Categorias e chips do Home | CAT-04 | Claude Code (UI) e Cursor (dados) | Sim (Home) | CAT-02 no staging, DS-07 e Fase 3 |
 
-**Status em 2026-09-26:** K13, K14, K15 e K16 concluídos e mergeados em `develop` e `staging` (PRs #70 do `ixora-infra` e #8, #9, #10 do `ixora-app`); K17 em revisão. ADR-044 continua **Proposed** (decisão do PO). Os cards DS, CAT e UI seguem no Backlog.
+**Status em 2026-09-26:** K13, K14, K15 e K16 concluídos e mergeados em `develop` e `staging` (PRs #70 do `ixora-infra` e #8, #9, #10 do `ixora-app`); K17 em revisão. ADR-044 **aceita pelo PO em 2026-09-27**. Os cards DS, CAT e UI seguem no Backlog.
 
 **Sem tela nem código, aguardando o PO:** DS-01 (aprovação dos desenhos; a posição do badge "Inativa" segue em aberto), DS-02 (componentes; aprovado), DS-04 (guia de movimento; implementação no DS-05).
 

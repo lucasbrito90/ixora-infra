@@ -376,7 +376,7 @@ Ambos suportam **fade real** — o recurso que a stack atual abandonou por limit
 
 **Recomendação: `expect/actual` sobre os SDKs nativos.** A superfície usada é pequena (login e-mail/senha, Google Sign-In, reset de senha, ID token, FCM token). Não justifica assumir risco de terceiro em algo tão central quanto autenticação.
 
-**Nota (K13, 2026-09-26):** a expressão "`expect/actual` sobre os SDKs nativos" aqui significa "ponte para o SDK nativo", não o mecanismo `expect/actual` do Kotlin. A tabela do §9 prevalece: a estratégia adotada é **interface no `commonMain` com implementação nativa injetada** (Opção A da ADR-044, Proposed). O mecanismo `expect/actual` do Kotlin foi descartado por exigir o plugin `google-services` no módulo `shared` e por tornar o `iosMain` inverificável sem Mac. Ver [ADR-044](ADR-044-firebase-auth-kmp.md).
+**Nota (K13, 2026-09-26):** a expressão "`expect/actual` sobre os SDKs nativos" aqui significa "ponte para o SDK nativo", não o mecanismo `expect/actual` do Kotlin. A tabela do §9 prevalece: a estratégia adotada é **interface no `commonMain` com implementação nativa injetada** (Opção A da ADR-044, Accepted em 2026-09-27). O mecanismo `expect/actual` do Kotlin foi descartado por exigir o plugin `google-services` no módulo `shared` e por tornar o `iosMain` inverificável sem Mac. Ver [ADR-044](ADR-044-firebase-auth-kmp.md).
 
 ### 6.8 Testes
 
@@ -653,7 +653,7 @@ Apenas decisões com impacto arquitetural real. Numeração seguindo a sequênci
 | **ADR-041** | Contrato de estado e interop Kotlin↔Swift: StateFlow, `Result` selado, SKIE | **Sim** |
 | **ADR-042** | Estratégia de migração e destino do repositório (construção paralela em `ixora-app`, feature freeze do `front_vibes`) | **Sim** — altera `repo-responsibilities.md`, `architecture-map.md` e o `CLAUDE.md` da raiz |
 | **ADR-043** | Persistência mobile: SQLDelight e DataStore (escopo reduzido: armazenamento seguro do token de autenticação fechado pela ADR-044 — o SDK Firebase detém a sessão nativamente, sem necessidade de `SecureStorage expect/actual` na Fase 2 ou 3) | Não — pode ser decidido na Fase 3 |
-| **ADR-044** | Autenticação Firebase em KMP via interface no `commonMain` com implementação nativa injetada (`AuthTokenProvider`); contrato de 401 e renovação de token | **Proposed** (K13, 2026-09-26) — [ADR-044](ADR-044-firebase-auth-kmp.md) |
+| **ADR-044** | Autenticação Firebase em KMP via interface no `commonMain` com implementação nativa injetada (`AuthTokenProvider`); contrato de 401 e renovação de token | **Accepted** (proposta em 2026-09-26; aceita pelo PO em 2026-09-27) — [ADR-044](ADR-044-firebase-auth-kmp.md) |
 
 Não recomendo ADR para DI nem para testes: são escolhas reversíveis de baixo acoplamento, que cabem no próprio plano. **Nem para o Design System:** ele não é uma decisão independente da ADR-039 — decidir "UI nativa nas duas plataformas" e "linguagem visual única com implementação separada" é a mesma decisão vista de dois ângulos. Separá-las criaria duas ADRs que precisariam ser lidas juntas para fazer sentido.
 
@@ -755,7 +755,7 @@ Nota de implementação: o catálogo de strings pode viver no `shared` (uma font
 
 No plano: estratégia técnica em §6.7 (`expect/actual` sobre os SDKs nativos) e §9 (interface + injeção). Estados de sessão no item 16.19; logout no 16.20; armazenamento seguro no 16.7.
 
-**Nota (K17, Fase 2):** existe `AuthTokenProvider` no `commonMain` ([ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md), Proposed); a implementação com o SDK Firebase fica no `androidApp` (Fases 5/6). O fluxo foi provado contra o staging com um provedor **somente de teste** via REST (K16).
+**Nota (K17, Fase 2):** existe `AuthTokenProvider` no `commonMain` ([ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md), Accepted); a implementação com o SDK Firebase fica no `androidApp` (Fases 5/6). O fluxo foi provado contra o staging com um provedor **somente de teste** via REST (K16).
 
 ### 16.3 Tema claro/escuro
 
@@ -1110,11 +1110,11 @@ K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP 
 
 | # | Tarefa | Fase | Saída verificável |
 | --- | --- | --- | --- |
-| K13 | **ADR-044 — Firebase Auth no KMP** — interface `AuthTokenProvider` no `commonMain`, implementação nativa injetada; contrato de 401 e single-flight | 2 | ✅ **Concluído em 2026-09-26.** Merge PR [#70](https://github.com/lucasbrito90/ixora-infra/pull/70) (`ixora-infra` @ `5fb258a`); [ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md) **Proposed**; **aceitação pendente do PO**; nota §6.7 e linha §13; backlog K14–K17 neste plano |
+| K13 | **ADR-044 — Firebase Auth no KMP** — interface `AuthTokenProvider` no `commonMain`, implementação nativa injetada; contrato de 401 e single-flight | 2 | ✅ **Concluído em 2026-09-26.** Merge PR [#70](https://github.com/lucasbrito90/ixora-infra/pull/70) (`ixora-infra` @ `5fb258a`); [ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md) **Proposed** na entrega e **aceita pelo PO em 2026-09-27**; nota §6.7 e linha §13; backlog K14–K17 neste plano |
 | K14 | **Cliente HTTP Ktor no `shared`** — plugin de autenticação que chama `AuthTokenProvider`, regra de 401 (renova uma vez → retry → `DomainError.Unauthorized`), single-flight de renovação concorrente. Depende de K13 | 2 | ✅ **Concluído em 2026-09-26.** Merge PR [#8](https://github.com/lucasbrito90/ixora-app/pull/8) (`ixora-app` @ `b3d0b6b`); `./gradlew :shared:build` verde; `HttpClientTest` (23) + `DefaultEngineOkHttpTest` (1) com `FakeAuthTokenProvider` e `MockEngine`; 6 testes determinísticos de single-flight (geração); 3 provas de mutação manuais com a saída da falha registrada na revisão do K14 (sem single-flight; sem checagem de geração; comparação `>=`) |
 | K15 | **Repositórios de leitura** — sincronização de usuário (`POST /api/auth/sync`), listagem de vibes e listagem de sons; DTOs de resposta em `commonMain`. Sem `StateHolder`. Depende de K14 | 2 | ✅ **Concluído em 2026-09-26.** Merge PR [#9](https://github.com/lucasbrito90/ixora-app/pull/9) (`ixora-app` @ `85c91a1`); `HttpAuthRepositoryTest` (4), `HttpVibeRepositoryTest` (11); fixture de sync sintética; fixtures reais para `GET /api/vibes` e sons |
 | K16 | **Prova de integração contra o staging** — teste **opt-in** em `androidHostTest` com três fluxos: token válido → `syncUser` → `listVibes` → `listSounds`; primeiro token inválido → 401 → renovação → sucesso; 401 real mapeia para `Unauthorized` quando a renovação também falha. Credenciais só por variável de ambiente. Um sync por execução (limite de 10/min em `POST /api/auth/sync`). Depende de K14 e K15 | 2 | ✅ **Concluído em 2026-09-26.** Merge PR [#10](https://github.com/lucasbrito90/ixora-app/pull/10) (`ixora-app` @ `6cb88fb`); `StagingIntegrationTest` (3 fluxos; **3 skipped** sem env); credenciais só por variável — nunca no relatório |
-| K17 | **Documentar o resultado da Fase 2** e revisar este plano com o aprendizado | 2 | **Em revisão (PR desta branch); concluído com o merge.** §17.2; `quality-harness.md` baseline K16 (**93** casos / **3** skipped @ `6cb88fb`); ADR-044 permanece Proposed até o PO |
+| K17 | **Documentar o resultado da Fase 2** e revisar este plano com o aprendizado | 2 | **Em revisão (PR desta branch); concluído com o merge.** §17.2; `quality-harness.md` baseline K16 (**93** casos / **3** skipped @ `6cb88fb`); ADR-044 aceita pelo PO em 2026-09-27 |
 
 Ordem de execução da Fase 2: K13 → K14 → K15 → K16 → K17. **A Fase 3 não começa antes do K17.**
 
@@ -1155,7 +1155,7 @@ Este documento não autoriza implementação; registra apenas que a pré-condiç
 
 **Recomendação para a Fase 3 (domínio e dados):** iniciar. As pré-condições técnicas estão satisfeitas: rede e autenticação provadas contra o staging (K16), `shared` compilando para Android e iOS (klib) e guards ativos. Ordem sugerida: (1) **ADR-043** (persistência: SQLDelight e DataStore; sem armazenamento de token, ver [ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md)) antes de qualquer código de dados; (2) portar a lógica pura por módulo, usando os testes Vitest existentes como oráculo (`utils/`, `canonical-*`) e golden master onde não houver teste; (3) só depois repositórios com cache. **Condições e decisões que precisam de resposta antes ou durante:** (a) decidir a paridade do parser de URL (`hasValidExecutionFileUrl`/`isExecutionLayerPlayable`) com testes; (b) a dívida do metadata de verificação (só Windows) enquanto não houver CI Linux ou Mac; (c) dados semeados no staging QA para fixtures da Fase 3 (hoje há 1 vibe com 3 sons); (d) a questão 2 do §15 (prazo) segue aberta e muda o tamanho das fatias, não a ordem. **A decisão é do PO.**
 
-**Decisões pendentes do PO:** (a) aceitar a ADR-044 (Proposed → Accepted); (b) iniciar a Fase 3. **Decisão do PO sobre a ADR-044:** _pendente._ **Decisão do PO sobre iniciar a Fase 3:** _pendente._
+**Decisões do PO:** (a) aceitar a ADR-044; (b) iniciar a Fase 3. **Decisão do PO sobre a ADR-044:** **aceita em 2026-09-27** (Proposed → Accepted); o risco de threading da implementação Android sobre o SDK do Firebase (Fase 5/6) segue registrado na própria ADR. **Decisão do PO sobre iniciar a Fase 3:** _pendente._
 
 ---
 
