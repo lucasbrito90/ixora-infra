@@ -211,6 +211,7 @@ GET /api/vibes/{id}
 | `player_background_url` | **`player_background_url ?? thumbnail_url`** |
 | `artwork_url` | **`artwork_url ?? thumbnail_url`** |
 | `sounds_count` | From **`loadCount('sounds')`** on show |
+| `categories` | **(CAT-02)** Read-only array when relation loaded — from preset import or **`[]`**; end users **cannot** edit ([`../../vibe-categories/spec.md`](../../vibe-categories/spec.md)) |
 | `sounds` | Omitted unless relationship loaded |
 
 Form hydration uses **`thumbnail_url`**, **`artwork_url`**, **`player_background_url`** from response — which may already include **read-time fallbacks** from **`VibeResource`**.
@@ -237,7 +238,7 @@ PATCH /api/vibes/{id}
 | `artwork_url` | Yes | **No** (gap) |
 | `player_background_url` | Yes | **No** (gap) |
 
-**Not accepted:** `user_id`, `sound_id`, `sounds[]`, `cover_bundle_id`, multipart files.
+**Not accepted:** `user_id`, `sound_id`, `sounds[]`, `cover_bundle_id`, **`categories`** / **`category_ids`**, multipart files.
 
 **Success: 200 OK**
 
