@@ -1153,6 +1153,8 @@ Este documento não autoriza implementação; registra apenas que a pré-condiç
 
 **Questões do §15:** as questões 2 (prazo) e 5 (telemetria) **seguem abertas**; nenhuma resposta veio da prática; a premissa "sem OTel na Fase 2" foi mantida (nenhuma instrumentação entrou).
 
+**Recomendação para a Fase 3 (domínio e dados):** iniciar. As pré-condições técnicas estão satisfeitas: rede e autenticação provadas contra o staging (K16), `shared` compilando para Android e iOS (klib) e guards ativos. Ordem sugerida: (1) **ADR-043** (persistência: SQLDelight e DataStore; sem armazenamento de token, ver [ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md)) antes de qualquer código de dados; (2) portar a lógica pura por módulo, usando os testes Vitest existentes como oráculo (`utils/`, `canonical-*`) e golden master onde não houver teste; (3) só depois repositórios com cache. **Condições e decisões que precisam de resposta antes ou durante:** (a) decidir a paridade do parser de URL (`hasValidExecutionFileUrl`/`isExecutionLayerPlayable`) com testes; (b) a dívida do metadata de verificação (só Windows) enquanto não houver CI Linux ou Mac; (c) dados semeados no staging QA para fixtures da Fase 3 (hoje há 1 vibe com 3 sons); (d) a questão 2 do §15 (prazo) segue aberta e muda o tamanho das fatias, não a ordem. **A decisão é do PO.**
+
 **Decisões pendentes do PO:** (a) aceitar a ADR-044 (Proposed → Accepted); (b) iniciar a Fase 3. **Decisão do PO sobre a ADR-044:** _pendente._ **Decisão do PO sobre iniciar a Fase 3:** _pendente._
 
 ---
