@@ -20,7 +20,7 @@ This is **PO decision D7** in [`kmp-migration-plan.md`](../../architecture/mobil
 
 **Success criteria:**
 
-- Change is **additive** and **backward compatible**: existing JSON fields (including legacy `preset_vibes.category`) remain; new `categories` arrays are optional for clients.
+- Change is **additive** and **backward compatible** for the new `categories` field on `VibeResource` / `PresetVibeResource`. **Amendment (PO decision, 2026-09-27):** the legacy `preset_vibes.category` scalar is dropped in **CAT-02** itself (not kept during a coexistence window) — see D-9.
 - Clients that **ignore unknown keys** (e.g. frozen `front_vibes`, K15 `ixora-app` with `ignoreUnknownKeys`) **keep working** when the API adds `categories`.
 - Category membership on user vibes is **only** set at **preset import** (copy) or left empty on manual create — never via user vibe CRUD.
 - After import, **changing preset categories does not change** previously imported vibes.
@@ -36,7 +36,7 @@ This is **PO decision D7** in [`kmp-migration-plan.md`](../../architecture/mobil
 - **Admin assignment** of categories to presets (CAT-03 UI; CAT-02 API).
 - **Copy active category links** on **`POST /api/preset-vibes/{id}/import`** inside the current DB transaction.
 - **`categories`** on **`VibeResource`** and **`PresetVibeResource`** (active categories only, ordered by `sort_order`, eager-loaded to avoid N+1).
-- **Data migration (CAT-02):** backfill from legacy **`preset_vibes.category`** string into catalog + pivots; **keep** legacy column and API field during coexistence.
+- **Data migration (CAT-02):** backfill from legacy **`preset_vibes.category`** string into catalog + pivots, **then drop** the legacy column and its API field in the same deployment (D-9; PO decision 2026-09-27).
 
 ### Out of scope
 
@@ -45,7 +45,6 @@ This is **PO decision D7** in [`kmp-migration-plan.md`](../../architecture/mobil
 - **Server-side filtering** of vibes or presets by category (no query params on list endpoints).
 - **Per-user custom categories** or community tagging.
 - **Automatic translation** of category labels (admin supplies localized names in JSON; clients pick locale).
-- **Removing** legacy **`preset_vibes.category`** column (future card after `front_vibes` and `ixora-admin` stop relying on it).
 - **Any change** to `front_vibes` (frozen per D7).
 
 ---
@@ -62,7 +61,7 @@ This is **PO decision D7** in [`kmp-migration-plan.md`](../../architecture/mobil
 | **D-6 Import copy** | Inside existing **`DB::transaction`** in **`PresetVibeController::import`** ([lines 110–154](../../../../back_vibes/app/Http/Controllers/Api/PresetVibeController.php)), after creating the vibe and attaching sounds, **attach pivot rows** for each **active** category linked to the preset. **No `preset_vibe_id`** (or other live FK) on the user vibe. Manual **`VibeController::store`** creates vibes with **zero** category links. | ADR-003/005: import is one-time copy; tests today assert independent rows and no preset FK ([`PresetVibeImportApiTest.php`](../../../../back_vibes/tests/Feature/PresetVibeImportApiTest.php)). |
 | **D-7 User cannot assign** | **`StoreVibeRequest`** / **`UpdateVibeRequest`** do **not** validate **`categories`** or **`category_ids`**; controllers use **`$request->validated()`** only ([`VibeController::store`](../../../../back_vibes/app/Http/Controllers/Api/VibeController.php):38–40). **`Vibe`** **`#[Fillable]`** lists no category fields ([`Vibe.php`](../../../../back_vibes/app/Models/Vibe.php):12). Extra JSON keys are dropped by **`validated()`**. CAT-02 may add **`prohibited`** rules for clarity. | Defense in depth: even if a client sends category IDs, they never reach mass assignment. |
 | **D-8 Archive, don’t delete in use** | Category referenced by any preset or user vibe pivot **cannot** be hard-deleted; admin sets **`is_active = false`**. Inactive categories are **omitted** from **`categories`** in resources and from default catalog lists; **pivot rows remain** (historical/imported vibes keep internal links but clients only see active entries in the embedded array). **`DELETE`** when pivots exist returns **409** with the same **JSON message pattern** as cover bundle delete ([`CoverBundleController::destroy`](../../../../back_vibes/app/Http/Controllers/Api/CoverBundleController.php):88–95). **`DELETE`** with no pivots removes the row. | Aligns with “resource in use” behaviour already shipped for cover bundles (409 + human-readable **`message`**). |
-| **D-9 Legacy column** | Keep **`preset_vibes.category`** (nullable string, max 100, free text) — created in [`2026_05_19_120000_create_preset_vibes_table.php`](../../../../back_vibes/database/migrations/2026_05_19_120000_create_preset_vibes_table.php):18 and still exposed as **`category`** in [`PresetVibeResource`](../../../../back_vibes/app/Http/Resources/PresetVibeResource.php):32. CAT-02 migration **backfills** distinct trimmed non-empty values into **`vibe_categories`** + **`preset_vibe_vibe_categories`** (slug via slugify + numeric suffix on collision; **`names.en`** = original string; **`sort_order`** by alphabetical order of distinct values). **Dropping the column is out of scope** for CAT-02. | `front_vibes` / `ixora-admin` still send/read legacy **`category`** today ([`PresetVibeForm.vue`](../../../../ixora-admin/components/PresetVibeForm.vue):52,568; [`preset-vibe.service.ts`](../../../../ixora-admin/services/api/preset-vibe.service.ts):164–175). |
+| **D-9 Legacy column: backfill, then drop, in CAT-02** | **Amended 2026-09-27 (PO decision — removes it now instead of a future card).** CAT-02 ships **two migrations in the same deployment**: (1) backfill — for each distinct trimmed non-empty **`preset_vibes.category`** value (nullable string, max 100, defined in [`2026_05_19_120000_create_preset_vibes_table.php`](../../../../back_vibes/database/migrations/2026_05_19_120000_create_preset_vibes_table.php):18), create a **`vibe_categories`** row (slug via slugify + numeric suffix on collision; **`names.en`** = original string; **`sort_order`** by alphabetical order of distinct values) and attach it to every preset that had that value; (2) **drop** — remove the **`category`** column from **`preset_vibes`**. Because Laravel runs migrations in filename-timestamp order, the timestamp of the drop migration must be **later** than the timestamp of the backfill migration, so no data is lost. Also remove: the **`category`** field from [`PresetVibeResource`](../../../../back_vibes/app/Http/Resources/PresetVibeResource.php):32; the **`category`** validation rule from `StorePresetVibeRequest`/`UpdatePresetVibeRequest`; and the **`category`** assignment in [`PresetVibeController::store`/`update`](../../../../back_vibes/app/Http/Controllers/Api/PresetVibeController.php):58,75. | PO decided on 2026-09-27 not to keep a coexistence window: **`ixora-admin`** (CAT-03) is the only remaining consumer of the free-text field, and moves to the catalog multi-select right after CAT-02. **Known, accepted gap:** between CAT-02 shipping and CAT-03 shipping, the free-text **`category`** input in [`PresetVibeForm.vue`](../../../../ixora-admin/components/PresetVibeForm.vue):52,568 keeps rendering in the UI but no longer persists or displays a value (the field is gone server-side) — CAT-03 must follow immediately to replace it with the catalog multi-select. `front_vibes` never read this field on presets it displays to end users, so it is unaffected. |
 | **D-10 Client-side filter** | **No** server query parameter to filter vibes by category. Mobile loads **`GET /api/vibes`** (and optionally **`GET /api/vibe-categories`**) and filters locally (works offline). Which Home chips to show (all active catalog categories vs only categories present on the user’s vibes) is **UX for CAT-04**; this spec only requires both datasets to be available. | Matches device-side playback/filter patterns; server stores config only for schedules, not vibe list filtering. |
 
 ---
@@ -198,7 +197,6 @@ Base URL prefix: **`/api`**. All routes below require **`firebase.auth`** + **`t
 {
   "id": 12,
   "name": "Storm Kit",
-  "category": "Weather",
   "categories": [
     { "id": 3, "slug": "weather", "names": { "en": "Weather" }, "sort_order": 20 }
   ],
@@ -206,7 +204,7 @@ Base URL prefix: **`/api`**. All routes below require **`firebase.auth`** + **`t
 }
 ```
 
-Legacy **`category`** string remains during coexistence (D-9).
+Legacy **`category`** string is **removed** in CAT-02 (D-9) — it does not appear in this response at all, from the first CAT-02 deployment onward.
 
 ### Example — `VibeResource` (after CAT-02)
 
@@ -226,7 +224,7 @@ Legacy **`category`** string remains during coexistence (D-9).
 | Resource | Before (today) | After (CAT-02) |
 | --- | --- | --- |
 | **`VibeResource`** | No category fields ([`VibeResource.php`](../../../../back_vibes/app/Http/Resources/VibeResource.php):17–35) | Adds optional **`categories`** array (empty `[]` when none) |
-| **`PresetVibeResource`** | **`category`** string + no **`categories`** ([`PresetVibeResource.php`](../../../../back_vibes/app/Http/Resources/PresetVibeResource.php):32–33) | Adds **`categories`** array; keeps **`category`** |
+| **`PresetVibeResource`** | **`category`** string + no **`categories`** ([`PresetVibeResource.php`](../../../../back_vibes/app/Http/Resources/PresetVibeResource.php):32–33) | Adds **`categories`** array; **removes** legacy **`category`** string (D-9) |
 
 ---
 
@@ -243,7 +241,7 @@ Executed inside the existing transaction in **`PresetVibeController::import`** (
 7. **Commit.**
 8. **Post-commit:** **`load(['sounds'])`**, **`loadCount('sounds')`**, return **`VibeResource` 201** (extend eager load to include **`categories`** for response consistency).
 
-**Not copied:** inactive category links; legacy **`preset_vibes.category`** string (only structured catalog links). **No update path** when admin later changes preset categories.
+**Not copied:** inactive category links. **No update path** when admin later changes preset categories. (The legacy **`preset_vibes.category`** string does not exist anymore by the time this runs — D-9.)
 
 ---
 
@@ -253,7 +251,7 @@ Executed inside the existing transaction in **`PresetVibeController::import`** (
 | --- | --- |
 | **`front_vibes` (frozen)** | Does not read **`categories`**; continues to use preset **`category`** string where implemented. Unknown JSON keys ignored by typical parsing. |
 | **`ixora-app` (K15+)** | **`Json { ignoreUnknownKeys = true }`** on API client ([`IxoraApiClient.kt`](../../../../ixora-app/shared/src/commonMain/kotlin/app/ixora/shared/data/remote/IxoraApiClient.kt):90). CAT-04 adds optional **`categories`** to domain models; until then, extra field is ignored. Existing vibe list fixtures remain valid without **`categories`**. |
-| **`ixora-admin`** | CAT-03: CRUD catalog + multi-select on preset form replaces free-text **`category`** for new workflow; legacy field still returned until column removal. |
+| **`ixora-admin`** | **`category`** scalar is gone as of CAT-02 (D-9): the existing free-text input in **`PresetVibeForm.vue`** stops persisting/displaying immediately. **CAT-03 must ship right after CAT-02** to replace it with the catalog CRUD + multi-select. This is an accepted, temporary gap (admin-only, `ixora-stays-in-development`), not a rollback trigger. |
 
 ---
 
@@ -282,7 +280,7 @@ Executed inside the existing transaction in **`PresetVibeController::import`** (
 | **Delete unused category** | Success; row removed. |
 | **Equal `sort_order` values** | Stable tie-break by **`id`** in API ordering. |
 | **Concurrent admin edits** | Last **`PUT …/categories`** wins (same as sound sync replace-all semantics). |
-| **Legacy `category` string without catalog link** | Backfill in CAT-02; until backfill runs, **`categories`** may be empty while **`category`** string still present. |
+| **Legacy `category` string without catalog link, before the backfill migration runs** | Only possible mid-deployment, between the backfill and drop migrations of the same release; both run in the same deploy so this window is not user-observable in a normal release. |
 
 ---
 
@@ -300,8 +298,8 @@ Objective checks for **`back_vibes`**:
 8. **N+1:** **`GET /api/vibes`** and **`GET /api/preset-vibes`** with categories — assert bounded query count (same class of test as other list endpoints with eager loads).
 9. **Manual vibe create** → **`categories`** empty in JSON and no pivot rows.
 10. **User cannot assign:** **`POST/PATCH /api/vibes`** with **`category_ids`** → no pivot changes (and **422** if **`prohibited`** added).
-11. **Legacy field:** **`preset_vibes.category`** still returned on **`PresetVibeResource`** after backfill.
-12. **Backfill migration test:** distinct values, duplicates, empty/whitespace skipped, slug collision suffix, presets linked correctly.
+11. **Legacy field removed:** **`preset_vibes.category`** column no longer exists after the CAT-02 migrations (assert via `Schema::hasColumn`); **`PresetVibeResource`** and `Store`/`UpdatePresetVibeRequest` no longer reference **`category`**.
+12. **Backfill-then-drop migration test:** distinct values, duplicates, empty/whitespace skipped, slug collision suffix, presets linked correctly, **and** the column is gone after both migrations run in order.
 13. **Delete category in use** → **409** message pattern consistent with cover bundle test expectations.
 
 Extend **`PresetVibeImportApiTest`** (or sibling feature tests) rather than replacing existing import coverage ([`PresetVibeImportApiTest.php`](../../../../back_vibes/tests/Feature/PresetVibeImportApiTest.php)).
@@ -328,7 +326,7 @@ Order: **CAT-01 → CAT-02 → CAT-03** and **CAT-04** (CAT-04 can parallel CAT-
 | **A-1** | Localized **`names`** JSON (en required) vs single display name column. |
 | **A-2** | Soft guideline ~**8 active** categories for Home chip layout (Design System); admin UI shows a **warning** in CAT-03 — not a hard server limit. |
 | **A-3** | Home chips: all active catalog categories vs only categories present on the user’s vibe list (CAT-04 UX). |
-| **A-4** | Timeline to **drop `preset_vibes.category`** after frozen `front_vibes` and admin no longer need it. |
+| ~~**A-4**~~ | ~~Timeline to drop `preset_vibes.category`.~~ **Resolved 2026-09-27 — PO decided to drop it immediately, inside CAT-02** (see D-9 amendment). No longer an open assumption. |
 
 ---
 
