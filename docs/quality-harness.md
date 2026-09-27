@@ -294,7 +294,7 @@ Prova **somente leitura** contra `https://staging-api.ixora-app.app/api` (host `
 2. Primeira requisição com JWT corrompido → 401 do staging → um refresh forçado → `GET /vibes` ok (regra ADR-044 em servidor real).
 3. Todas as requisições com JWT corrompido → após refresh + retry, `listVibes()` retorna `DomainError.Unauthorized` (401 real, não falha local de token).
 
-**Variáveis de ambiente** (apenas nomes; valores locais em [`front_vibes/.env`](../../front_vibes/.env) — nunca commitar):
+**Variáveis de ambiente** (apenas nomes; valores locais em `front_vibes/.env` — nunca commitar):
 
 | Variável | Uso |
 | --- | --- |
