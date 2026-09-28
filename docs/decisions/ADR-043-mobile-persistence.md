@@ -2,9 +2,9 @@
 
 ## Status
 
-**Proposed** (2026-09-28) — governs how the `ixora-app` Kotlin Multiplatform rebuild persists local data on the device: the schedule mirror, the two offline manifests, and non-sensitive user preferences. Token and credential storage are **not** in scope — that concern was closed by [ADR-044](ADR-044-firebase-auth-kmp.md).
+**Accepted** (2026-09-28) — governs how the `ixora-app` Kotlin Multiplatform rebuild persists local data on the device: the schedule mirror, the two offline manifests, and non-sensitive user preferences. Token and credential storage are **not** in scope — that concern was closed by [ADR-044](ADR-044-firebase-auth-kmp.md).
 
-PO authorised Phase 3 on 2026-09-27. This ADR is written as part of K18 (Phase 3 backlog definition) and is **pending PO approval**; no implementation should start before approval (that implementation is card K22).
+PO authorised Phase 3 on 2026-09-27. This ADR was written as part of K18 (Phase 3 backlog definition) as **Proposed** on 2026-09-28, and **accepted by the PO the same day**. Acceptance covers the architecture (Decisions 1–6); the exact SQLDelight column/type mapping and the DataStore key definitions are implementation detail for card K22, not reopened here.
 
 ## Date
 
