@@ -14,9 +14,7 @@ Machine-readable contracts shared by more than one repository. Unlike `docs/`, w
 
 | Contract | Canonical | Vendored copies |
 | --- | --- | --- |
-| `smart-home/capability.v1.schema.json` | this repo | `back_vibes/contracts/smart-home/capability.v1.schema.json`, `front_vibes/contracts/smart-home/capability.v1.schema.json` |
-
-**Planned consumer (no code yet):** [`ixora-app`](../docs/decisions/ADR-042-migration-repository.md), the Kotlin Multiplatform rebuild of the mobile layer. It will vendor a byte-identical copy once there is code consuming it, with its own coherence test, exactly as `back_vibes` and `front_vibes` do. It is **not** listed in the table above because the repository is currently empty.
+| `smart-home/capability.v1.schema.json` | this repo | `back_vibes/contracts/smart-home/capability.v1.schema.json`, `front_vibes/contracts/smart-home/capability.v1.schema.json`, `ixora-app/contracts/smart-home/capability.v1.schema.json` |
 
 **Planned consumer (no vendored schema copy):** the Google Home Android plugin (Kotlin, CSDM-04). It implements the contract in code — canonical brightness conversion lives in `front_vibes/android/app/src/main/java/app/ixora/googlehome/CanonicalBrightness.kt`; Matter 0–254 never crosses into TypeScript. The plugin does not duplicate the JSON file; coherence is enforced by Kotlin unit tests (`CanonicalBrightnessTest.kt`, `CanonicalScaleBoundaryTest.kt`) and by the mobile app’s vendored schema + Vitest coherence test on the TypeScript side.
 
@@ -28,5 +26,6 @@ Machine-readable contracts shared by more than one repository. Unlike `docs/`, w
 4. Run each consumer's suite. Coherence tests fail when a vendored copy and that repo's canonical types disagree, and compare against this canonical copy whenever `ixora-infra` is checked out alongside:
    - **back_vibes:** `tests/Unit/SmartHome/Canonical/CapabilityContractCoherenceTest.php`
    - **front_vibes:** `src/utils/__tests__/capability-contract-coherence.test.ts` (reads `contracts/smart-home/capability.v1.schema.json` and `src/utils/canonical-contract.ts`)
+   - **ixora-app:** `shared/src/androidHostTest/kotlin/app/ixora/shared/boundary/CapabilityContractCoherenceTest.kt` (reads `contracts/smart-home/capability.v1.schema.json` and `CanonicalContract` in `commonMain`; gate: `./gradlew :shared:testAndroidHostTest`)
 
 **Drift between repositories is caught manually, not automatically.** No cross-repo CI exists, and inventing one was out of scope for CSDM-01. The coherence test closes the gap that matters most — schema versus code *inside* a repo — and skips the cross-repo comparison rather than pretending it ran. Worth revisiting if a fourth consumer appears.
