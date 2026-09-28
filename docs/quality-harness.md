@@ -213,7 +213,7 @@ npx cap sync android
 
 **Path:** [`ixora-app/`](../../ixora-app) — repositório `ixora-app` no workspace Ixora (quinto repositório, criado em K07).
 
-**Status:** Fase 1 concluída (K07–K11, 2026-09-24/25); Fase 2 até K16 (HTTP, repositórios, prova opt-in de staging). Apenas módulo `shared` (KMP). Nenhum `androidApp/` nem `iosApp/` ainda.
+**Status:** Fase 1 concluída (K07–K11, 2026-09-24/25); Fase 2 concluída (K13–K16, 2026-09-26); **Fase 3 concluída (K18–K23, 2026-09-28)** — domínio CSDM, scheduling, repositórios smart home, persistência ADR-043, apresentação/Google Home. Apenas módulo `shared` (KMP). Nenhum `androidApp/` nem `iosApp/` ainda.
 
 ### Prerequisites
 
@@ -230,12 +230,12 @@ cd ixora-app
 # first time: criar local.properties com sdk.dir=C:\Users\...\AppData\Local\Android\Sdk
 ```
 
-### Commands (verificados — Fase 1)
+### Commands (verificados)
 
 | Check | Comando | Pass | Verificado |
 | --- | --- | --- | --- |
-| **Build completo** | `./gradlew :shared:build` | Exit `0` | ✅ Build SUCCESS (K07, 2026-09-24) |
-| **Testes (androidHostTest — JVM)** | `./gradlew :shared:testAndroidHostTest` | Exit `0` | ✅ **93** casos / **3** skipped / **0** falhas (K16, 2026-09-26, `ixora-app` @ `6cb88fb`) |
+| **Build completo** | `./gradlew :shared:build` | Exit `0` | ✅ Build SUCCESS (K07, 2026-09-24; K24 revalidado 2026-09-28) |
+| **Testes (androidHostTest — JVM)** | `./gradlew :shared:testAndroidHostTest` | Exit `0` | ✅ **360** casos / **3** skipped / **0** falhas (K24, 2026-09-28, `ixora-app` @ `4792bfe`) |
 | **Compilação iOS (cross, sem link)** | `./gradlew :shared:compileKotlinIosArm64` | Exit `0` | ✅ executa no Windows com Kotlin 2.3.20 |
 | **Compilação iOS Simulator** | `./gradlew :shared:compileKotlinIosSimulatorArm64` | Exit `0` | ✅ executa no Windows |
 | **Verificação de dependências** | Automática no build | — | ✅ `gradle/verification-metadata.xml` mantido |
@@ -283,6 +283,46 @@ Get-ChildItem $dir -Filter "*.xml" | ForEach-Object {
 | Infraestrutura de integração (K16) | `StagingIntegrationEnvTest`, `TokenMutatingProviderTest` | 5 | 0 | gate de env, mutação de token para testes |
 | Integração staging opt-in (K16) | `StagingIntegrationTest` | 3 | 3 | skipped sem as 4 variáveis de ambiente (ver abaixo) |
 | **Total** | **18** classes | **93** | **3** | **0** falhas |
+
+### Distribuição dos testes (baseline K24)
+
+Medido em **2026-09-28** com `ixora-app` em `develop` @ **`4792bfe`**, sem variáveis de staging: `.\gradlew.bat :shared:testAndroidHostTest --rerun-tasks` (exit `0`); totais conferidos nos XML JUnit abaixo.
+
+**Histórico:** baseline K11 = **33** testes (somente player engine + `CommonMainBoundaryTest`; 2026-09-25); baseline K16 = **93** testes (2026-09-26); baseline K17 = **93** testes (fechamento da Fase 2, mesmo commit `6cb88fb`).
+
+**Contagem a partir dos XML JUnit** (`shared/build/test-results/testAndroidHostTest/*.xml` — atributos `tests`, `skipped`, `failures` de cada `<testsuite>`):
+
+```powershell
+$dir = "shared/build/test-results/testAndroidHostTest"
+Get-ChildItem $dir -Filter "*.xml" | ForEach-Object {
+  [xml]$x = Get-Content $_.FullName
+  $ts = $x.testsuite
+  [PSCustomObject]@{
+    Class = ($_.BaseName -replace '^TEST-','')
+    Tests = [int]$ts.tests
+    Skipped = [int]$ts.skipped
+    Failures = [int]$ts.failures
+  }
+} | Sort-Object Class | Format-Table -AutoSize
+# Totais: (Tests -Sum), (Skipped -Sum), (Failures -Sum)
+```
+
+| Área | Classes (`androidHostTest` / `commonTest` no host) | Testes | Skipped | Conteúdo |
+| --- | --- | --- | --- | --- |
+| Player engine (K09–K11) | `VibeSoundSerializationTest`, `VibeExecutionLayerTest`, `ExecutionPlanBehaviorTest`, `ExecutionPlanGoldenMasterTest`, `ExecutionPlanCombinatorialParityTest`, `FormatDurationExhaustiveParityTest` | 13 | 0 | paridade `buildVibeExecutionPlan` / `formatDuration` / fixtures de som |
+| Cliente HTTP (K14) | `HttpClientTest`, `DefaultEngineOkHttpTest` | 24 | 0 | Ktor mock, erros, refresh ADR-044, engine OkHttp |
+| Repositórios base (K15) | `HttpAuthRepositoryTest`, `HttpVibeRepositoryTest` | 15 | 0 | sync, listagem, sons por vibe |
+| Serialização / modelos | `SyncedUserSerializationTest`, `VibeSerializationTest`, `DataEnvelopeSerializationTest` | 12 | 0 | `SyncedUser`, `Vibe`, envelope `data` |
+| Fixtures reais | `StagingVibesFixtureTest` | 1 | 0 | JSON de vibes do staging |
+| Guard de fronteira (K08) | `CommonMainBoundaryTest` | 21 | 0 | imports proibidos em `commonMain` (incl. allowlist DataStore ADR-043) |
+| Infraestrutura de integração (K16) | `StagingIntegrationEnvTest`, `TokenMutatingProviderTest` | 5 | 0 | gate de env, mutação de token para testes |
+| Integração staging opt-in (K16) | `StagingIntegrationTest` | 3 | 3 | skipped sem as 4 variáveis de ambiente (ver abaixo) |
+| CSDM canônico e guards (K19) | `CapabilityContractCoherenceTest`, `CsdmBoundaryTest`, `ActionTypeLabelTest`, `ActionTypeOptionsTest`, `AvailableActionTypeOptionsTest`, `BuildParametersTest`, `ConstraintAndCapabilityTest`, `DefaultValueForTest`, `IsMvpActionTypeTest`, `IsValidActionDraftTest`, `ParseCapabilitiesTest`, `ProviderNeutralityTest`, `SupportedActionTypesTest`, `ValidateActionDraftTest`, `ValidateCanonicalValueTest` | 70 | 0 | schema vendorizado ↔ `CanonicalContract`, guards CSDM, domínio canônico |
+| Recorrência e rotulagem (K20) | `ActiveSchedulesCountTest`, `ActiveSchedulesSummaryTest`, `AutomationBadgeMappingTest`, `FormatInstantInZoneTest`, `FormatWeekdayListTest`, `HasActiveScheduleTest`, `HasDeviceActionsTest`, `IsWeeklyConfigValidTest`, `RecurrenceSummaryTest`, `RecurrenceTypeLabelTest`, `ResolveScheduleVibeNameTest`, `ScheduleAutomationBadgeLabelTest`, `ScheduleAutomationBadgeTest`, `ScheduleAutomationStatusLabelTest`, `UtcISOToZonedWallTimeTest`, `VibeAutomationBadgeLabelTest`, `VibeAutomationBadgeTest`, `ZonedWallTimeToUtcISOTest` | 54 | 0 | `schedule-datetime`, `schedule-format`, `automation-badges`, `automation-summary` |
+| Repositórios smart home / schedule (K21) | `VibeSmartHomeDispatchClientTest`, `HttpDeviceRepositoryTest`, `HttpSceneRepositoryTest`, `HttpSceneDeviceActionRepositoryTest`, `HttpSceneDispatchRepositoryTest`, `HttpSceneActionExecutionReportRepositoryTest`, `HttpScheduleRepositoryTest`, `HttpScheduleExecutionRepositoryTest`, `GetProviderTypesTest`, `GetProviderConnectionsTest`, `GetProviderConnectionTest`, `CreateProviderConnectionTest`, `UpdateProviderConnectionTest`, `DeleteProviderConnectionTest`, `SyncProviderConnectionTest`, `SyncReportedDevicesTest`, `PayloadToStringRedactionTest` | 66 | 0 | clientes REST restantes (scene, device, provider-connection, schedule, dispatch) |
+| Persistência SQLDelight / DataStore (K22) | `SqlDelightScheduleMirrorRepositoryTest`, `SqlDelightOfflineVibeManifestRepositoryTest`, `SqlDelightOfflineAudioManifestRepositoryTest`, `DataStoreIxoraPreferencesRepositoryTest`, `IxoraDatabaseSchemaInitializerTest` | 26 | 0 | espelho de agendamentos, dois manifestos offline, preferências ADR-043, inicializador único de schema |
+| Apresentação e Google Home (K23) | `SoundArtworkPresentationParityTest`, `OfflinePlaybackStatusTest`, `GoogleHomeExecutionServiceTest`, `DelayNeedsAppOpenTest` | 50 | 0 | artwork/som (parcial), saúde offline, orquestração Google Home (sem SDK) |
+| **Total** | **77** classes | **360** | **3** | **0** falhas |
 
 ### Teste opt-in de integração com staging (K16)
 
