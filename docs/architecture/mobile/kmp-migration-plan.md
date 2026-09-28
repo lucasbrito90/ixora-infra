@@ -652,7 +652,7 @@ Apenas decisões com impacto arquitetural real. Numeração seguindo a sequênci
 | **ADR-040** | Arquitetura do player: plano e scheduler compartilhados, transporte nativo | **Sim** — condiciona a Fase 4 |
 | **ADR-041** | Contrato de estado e interop Kotlin↔Swift: StateFlow, `Result` selado, SKIE | **Sim** |
 | **ADR-042** | Estratégia de migração e destino do repositório (construção paralela em `ixora-app`, feature freeze do `front_vibes`) | **Sim** — altera `repo-responsibilities.md`, `architecture-map.md` e o `CLAUDE.md` da raiz |
-| **ADR-043** | Persistência mobile: SQLDelight e DataStore (escopo reduzido: armazenamento seguro do token de autenticação fechado pela ADR-044 — o SDK Firebase detém a sessão nativamente, sem necessidade de `SecureStorage expect/actual` na Fase 2 ou 3) | Não — pode ser decidido na Fase 3 |
+| **ADR-043** | Persistência mobile: SQLDelight (espelho de agendamentos e os dois manifestos offline) e DataStore (preferências não sensíveis); armazenamento seguro do token fechado pela ADR-044 — o SDK Firebase detém a sessão nativamente, sem necessidade de `SecureStorage expect/actual` | **Proposed** (K18, 2026-09-28) — [ADR-043](ADR-043-mobile-persistence.md) |
 | **ADR-044** | Autenticação Firebase em KMP via interface no `commonMain` com implementação nativa injetada (`AuthTokenProvider`); contrato de 401 e renovação de token | **Accepted** (proposta em 2026-09-26; aceita pelo PO em 2026-09-27) — [ADR-044](ADR-044-firebase-auth-kmp.md) |
 
 Não recomendo ADR para DI nem para testes: são escolhas reversíveis de baixo acoplamento, que cabem no próprio plano. **Nem para o Design System:** ele não é uma decisão independente da ADR-039 — decidir "UI nativa nas duas plataformas" e "linguagem visual única com implementação separada" é a mesma decisão vista de dois ângulos. Separá-las criaria duas ADRs que precisariam ser lidas juntas para fazer sentido.
@@ -1117,6 +1117,20 @@ K12 não é burocracia: a Fase 1 é a primeira vez que o projeto encosta em KMP 
 | K17 | **Documentar o resultado da Fase 2** e revisar este plano com o aprendizado | 2 | **Em revisão (PR desta branch); concluído com o merge.** §17.2; `quality-harness.md` baseline K16 (**93** casos / **3** skipped @ `6cb88fb`); ADR-044 aceita pelo PO em 2026-09-27 |
 
 Ordem de execução da Fase 2: K13 → K14 → K15 → K16 → K17. **A Fase 3 não começa antes do K17.**
+
+**Fase 3 — Domínio e dados (autorizada pelo PO em 2026-09-27)**
+
+| # | Tarefa | Fase | Saída verificável |
+| --- | --- | --- | --- |
+| K18 | **ADR-043 — Persistência mobile** — SQLDelight (espelho de agendamentos, dois manifestos offline) e DataStore (preferências não sensíveis); armazenamento de token permanece fechado pela ADR-044. Depende de K17 | 3 | [ADR-043](../../decisions/ADR-043-mobile-persistence.md) **Proposed**; linha §13 atualizada; backlog K19–K24 no board |
+| K19 | **Schema CSDM vendorizado + domínio canônico no `commonMain`** — cópia byte-idêntica de `capability.v1.schema.json`, port de `canonical-capabilities`/`canonical-contract`/`device-action`/`device-status`, teste de coerência, guards de fronteira reproduzidos em Kotlin. Depende de K18 | 3 | — |
+| K20 | **Regras de recorrência e rotulagem** — port de `schedule-datetime`, `schedule-format`, `automation-badges`, `automation-summary` (golden master contra o TS real). Depende de K19 | 3 | — |
+| K21 | **Repositórios de leitura: cenas, dispositivos, conexões e agendamentos** — estende o padrão do K15 aos clientes de API restantes (scene, device, provider-connection, schedule e afins). Depende de K19, K14 | 3 | — |
+| K22 | **SQLDelight: espelho de agendamentos e os dois manifestos offline; DataStore de preferências** — implementa a ADR-043. Depende de K18, K20 | 3 | — |
+| K23 | **Regras de apresentação restantes e orquestração do Google Home** — port de `soundPresentation`, `artwork`, `preset-artwork`, `sound-file-url`, `cover-bundle-apply`, `vibe-form-preview`, `offline-playback-status`, `google-home-execution` (interface, sem SDK). Depende de K19, K20 | 3 | — |
+| K24 | **Documentar o resultado da Fase 3** e revisar este plano com o aprendizado | 3 | — |
+
+Ordem: K18 → K19 → K20 → (K21 e K23 em paralelo) → K22 → K24. **A Fase 4 não começa antes do K24.**
 
 ### 17.1 Resultado da Fase 1 e decisão da Fase 2
 
