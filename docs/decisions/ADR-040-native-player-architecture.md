@@ -287,3 +287,23 @@ Accepted by the PO on 2026-09-24. Acceptance covered, specifically:
 Code read 2026-09-24 in `front_vibes` @ `1cf858e`, cited inline above: `src/services/audio-player.service.ts` (1.887 lines — `:15-18` fade ignored, `:68-80` interval semantics, `:334` and `:48-49` gap remainder, `:805-808` hard stop, `:1185` and `:1265` overlap guard), `src/services/audio-engine/native-audio.engine.ts:70` (`fade: false`), `src/services/audio-engine/types.ts:22-23` (anticipated `fadeIn`/`fadeOut` API, under the `:20` header), `src/services/player-engine.service.ts:140` and `:168-169`, `src/services/vibe-sound.service.ts:6` (`PlayMode`), `src/services/backgroundAudio.service.ts` (239 lines, `:34`, `:75-85`, `:127`), `src/services/audio-focus.service.ts` (59 lines, `:35`), `src/views/VibePlayerPage.vue:240-245`, `src/views/VibeSoundsPage.vue:279-280`, `src/components/debug/PlayerDebugPanel.vue:141-147`. Backend fields verified in `back_vibes`: `VibeSoundResource`, `AttachVibeSoundRequest`, `UpdateVibeSoundRequest`, `VibeSound` model.
 
 Internal: [ADR-007](ADR-007-execution-plan-runtime-contract.md), [ADR-008](ADR-008-nativeaudio-limitations-over-unstable-dsp.md), [ADR-038](ADR-038-kmp-shared-layer.md), [ADR-039](ADR-039-native-ui.md), [ADR-041](ADR-041-state-swift-interop.md), [ADR-042](ADR-042-migration-repository.md), [`kmp-migration-plan.md`](../architecture/mobile/kmp-migration-plan.md) (§10 player architecture, §10.4 fade finding), [`playback-runtime.md`](../architecture/audio/playback-runtime.md), [`audio-engine-fade-limitations.md`](../architecture/audio/audio-engine-fade-limitations.md).
+
+---
+
+## Post-acceptance addendum (2026-09-28) — Audio focus state in Decision 3
+
+Phase 4 (K25) identified that Decision 3's enumeration of preserved semantics was incomplete: the six behaviours listed do not cover the audio focus state transitions that are also loaded from session state and affect resumption logic. No decision is reopened. Status remains Accepted.
+
+### K25 finding — Audio focus state belongs in Decision 3's session state
+
+**Verified (K25, 2026-09-28).** Reading `front_vibes/src/services/audio-focus.service.ts` (59 lines, complete) and `front_vibes/src/services/audio-player.service.ts` lines 225–304 (the global `playbackState` listener) confirmed three audio focus behaviours that are part of the "session state" already named in Decision 2 but not enumerated in Decision 3:
+
+1. **Transient focus loss** (`audioFocusLossTransient`): calls the same pause path as manual/remote pause (`_onRemotePause`), but only marks the "paused by focus" flag when the session was actively playing before the loss — not when already paused by another reason. This is the guard at `audio-player.service.ts:260-263`.
+
+2. **Permanent focus loss** (`audioFocusLoss`): calls a complete stop (`_onRemoteStop`), not a pause — a distinct state transition. This is at `:289-291`.
+
+3. **Focus gain** (`audioFocusGain`): only auto-resumes playback when the prior pause was caused by transient focus loss; if the user had paused manually before the interruption, focus gain does not resume. The flag `_pausedByAudioFocus` is the state that decides this, cleared at `:268` and `:281`, checked at `:276`. This is the guard at `:276-283`.
+
+These three behaviours are part of the "session state" argument to `PlaybackScheduler` (Decision 2) and must be covered by test cases before the transport is built, exactly as the six behaviours in Decision 3 are. They are not new decisions — they complete the enumeration of Decision 3 without altering it.
+
+**Decision 3 is unchanged.** The six preserved semantics remain as stated. This addendum registers that the audio focus state — the reason a session is paused (manual, transient focus loss, or none) — is part of the session state contract and must be tested alongside the six existing behaviours. The three focus-related test cases are recorded in the Phase 4 backlog (K25), to be implemented and verified in the `PlaybackScheduler` test suite.
