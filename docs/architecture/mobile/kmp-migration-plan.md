@@ -597,6 +597,18 @@ Risco: **o mais alto do plano.** É a reescrita da parte mais sutil do app, agor
 Critério: uma vibe multi-camada toca com paridade comportamental comprovada contra o `front_vibes` congelado (loop, once, interval, pausa no intervalo, foco de áudio, background), verificada no mesmo aparelho; fade aplicado conforme a especificação da ADR-040.
 Não iniciar antes: Fase 3 completa — o scheduler depende do plano e dos modelos.
 
+**Backlog da Fase 4:**
+
+| Card | Descrição | Saída |
+| --- | --- | --- |
+| K25 | Addendum ADR-040 (foco de áudio) + PlaybackScheduler determinístico | Addendum ✅ (achado do foco de áudio registrado). `PlaybackScheduler`/`AudioTransport`: ainda **—**, primeira tentativa não passou na revisão (ver comentário do card K25) |
+| K26 | Esqueleto do módulo androidApp | — |
+| K27 | Transporte Media3 (base, concorrência, foco de áudio) | — |
+| K28 | Rampas de fade sobre o Media3 | — |
+| K29 | Sobrevivência em background prolongado (Doze) | — |
+| K30 | Paridade comportamental no aparelho físico | — |
+| K31 | Documentar resultado da Fase 4 e revisar o plano | — |
+
 **Fase 5 — Shell instalável**
 Objetivo: o `ixora-app` vira um APK instalável e demonstrável: login, lista de vibes e reprodução. UI mínima, sem polimento.
 Dependências: Fase 4.
