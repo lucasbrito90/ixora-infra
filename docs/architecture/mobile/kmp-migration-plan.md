@@ -94,12 +94,16 @@ Acoplamento medido por import: `@ionic` em 40 arquivos, `vue` em 49, `@capacitor
 | --- | --- | --- |
 | `player-engine.service.ts` (`buildVibeExecutionPlan`) | 188 | Transformação pura `VibeSound[] → VibeExecutionLayer[]`. É o contrato do ADR-008 e a peça de maior valor compartilhado do app inteiro. |
 | Clientes de API (`vibe`, `sound`, `scene`, `schedule`, `device`, `provider-connection`, `preset-vibe`, `cover-bundle`, `vibe-sound`, `scene-device-action`, `scene-dispatch`, `schedule-execution`, `smart-home-dispatch`, `scene-action-execution-report`) | ≈2.000 | Wrappers REST sobre a API Laravel. Contrato idêntico nas duas plataformas. |
-| `canonical-capabilities` + `canonical-contract` + `device-action` + `device-status` | 618 | Domínio CSDM. Já é provider-neutro por construção e protegido por guards de fronteira. |
+| `canonical-capabilities` + `canonical-contract` + `device-action` | 521 | Domínio CSDM. Já é provider-neutro por construção e protegido por guards de fronteira.[^csdm-device-status] |
 | `automation-badges`, `automation-summary`, `schedule-datetime`, `schedule-format` | 543 | Regras de recorrência e rotulagem. Alto valor em teste compartilhado. |
 | `offline-playback-status` | 167 | Decisão de disponibilidade offline — pura. |
-| `soundPresentation`, `artwork`, `preset-artwork`, `sound-file-url`, `cover-bundle-apply`, `vibe-form-preview` | ≈310 | Regras de apresentação sem dependência de framework. |
+| `soundPresentation`, `artwork`, `preset-artwork`, `sound-file-url`, `cover-bundle-apply`, `vibe-form-preview` | ≈310 | Regras de apresentação sem dependência de framework.[^presentation-partial] |
 | `google-home-execution.service.ts` | 289 | Orquestração pura; a chamada ao SDK fica atrás de uma interface (ver §9). |
 | Espelho SQLite de schedules (lógica) | ≈200 | A lógica de sincronização é compartilhada; o driver SQL é por plataforma. |
+
+[^csdm-device-status]: `device-status.ts` foi retirado do escopo SHARED na Fase 3 (K19): apresentação acoplada a Ionicons, não domínio CSDM — ver §17.3, achado 1. Contagem medida em `front_vibes/src/utils/` @ `develop`: `canonical-capabilities.ts` (314) + `canonical-contract.ts` (40) + `device-action.ts` (167) = **521** linhas (`(Get-Content …).Count` por arquivo).
+
+[^presentation-partial]: O port real (K23) é **parcial**: estilos CSS, classes CSS e o ícone de som (`getSoundIcon` / Ionicons) ficaram fora da Fase 3 — ver §17.3, achado 3. A contagem de linhas desta linha continua referindo-se aos arquivos-fonte TS listados; o que migrou para Kotlin não cobre 100% de cada arquivo.
 
 **PLATFORM-SPECIFIC — implementação nativa por plataforma**
 
@@ -340,7 +344,9 @@ Ponto de atenção medido: o `laravel-http.ts` atual existe em boa parte para co
 
 - **Preferências não sensíveis:** `androidx.datastore` (multiplataforma) — coroutines/Flow nativos.
 - **Token e credenciais:** nunca em DataStore. `EncryptedSharedPreferences` no Android, Keychain no iOS, atrás de interface. O app atual já persiste o token em `@capacitor/preferences`; **a migração é a oportunidade de corrigir isso para armazenamento seguro de verdade.**
-- **Áudio offline:** arquivos em disco, com manifesto em SQLDelight em vez de preferências. Ver §15, questão 6.
+- **Áudio offline:** arquivos em disco; os **dois manifestos offline** (bytes de áudio e snapshot vibe/som) persistem em **SQLDelight**, não em preferências planas — decisão fechada na [ADR-043](../../decisions/ADR-043-mobile-persistence.md) (Decisions 2–3). A referência antiga *"Ver §15, questão 6"* estava desatualizada: a questão 6 de hoje trata migração de dados entre apps (fechada por D3), não formato de manifesto.
+
+**Nota (K24, Fase 3):** a implementação (K22) materializa **dois** `.sq` SQLDelight distintos — manifesto de áudio offline e manifesto vibe/som — mais o espelho de agendamentos, alinhado à ADR-043; ver §17.3.
 
 ### 6.4 Injeção de dependência
 
@@ -797,12 +803,16 @@ No plano: §6.3 e §9 (`expect/actual`). Este item **corrige** o comportamento a
 
 **Nota (K17, Fase 2):** na Fase 2 **nenhum token é armazenado**; o requisito "nunca armazenar tokens em armazenamento comum" é cumprido **por não armazenar**, porque o SDK nativo detém a sessão ([ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md)).
 
+**Nota (K24, Fase 3):** a implementação (K22) confirma o desenho: **nenhum token** em DataStore; persistência local = espelho SQLDelight de agendamentos + **dois** manifestos SQLDelight offline + DataStore só para preferências não sensíveis (quatro chaves: `ixora_theme_mode_v1`, `ixora_push_token_id_v1`, `ixora_push_token_value_preview_v1`, `ixora_scheduled_notification_ids_v1` — ver `DataStoreIxoraPreferencesRepository.kt`).
+
 ### 16.8 Preferências do usuário
 
 - Persistir preferências como **idioma, tema, configurações do player** e outras não sensíveis.
 - O mecanismo segue a arquitetura definida no projeto.
 
 No plano: §6.3 (DataStore para não sensíveis). A fronteira com o item 16.7 é rígida: preferência vai em DataStore, credencial vai em armazenamento seguro.
+
+**Nota (K24, Fase 3):** o repositório DataStore (K22-B) persiste **apenas** tema, par id/preview do push token e ids de notificação agendada — as mesmas quatro chaves listadas no item 16.7; nada de sessão Firebase.
 
 ### 16.9 Permissões
 
@@ -1123,12 +1133,12 @@ Ordem de execução da Fase 2: K13 → K14 → K15 → K16 → K17. **A Fase 3 n
 | # | Tarefa | Fase | Saída verificável |
 | --- | --- | --- | --- |
 | K18 | **ADR-043 — Persistência mobile** — SQLDelight (espelho de agendamentos, dois manifestos offline) e DataStore (preferências não sensíveis); armazenamento de token permanece fechado pela ADR-044. Depende de K17 | 3 | ✅ **Concluído em 2026-09-28.** [ADR-043](../../decisions/ADR-043-mobile-persistence.md) **Accepted** pelo PO no mesmo dia; linha §13 atualizada; backlog K19–K24 no board; achado registrado: `§6.3` tem uma referência cruzada desatualizada ("Ver §15, questão 6") — a numeração do §15 mudou depois que ela foi escrita |
-| K19 | **Schema CSDM vendorizado + domínio canônico no `commonMain`** — cópia byte-idêntica de `capability.v1.schema.json`, port de `canonical-capabilities`/`canonical-contract`/`device-action`/`device-status`, teste de coerência, guards de fronteira reproduzidos em Kotlin. Depende de K18 | 3 | — |
-| K20 | **Regras de recorrência e rotulagem** — port de `schedule-datetime`, `schedule-format`, `automation-badges`, `automation-summary` (golden master contra o TS real). Depende de K19 | 3 | — |
-| K21 | **Repositórios de leitura: cenas, dispositivos, conexões e agendamentos** — estende o padrão do K15 aos clientes de API restantes (scene, device, provider-connection, schedule e afins). Depende de K19, K14 | 3 | — |
-| K22 | **SQLDelight: espelho de agendamentos e os dois manifestos offline; DataStore de preferências** — implementa a ADR-043. Depende de K18, K20 | 3 | — |
-| K23 | **Regras de apresentação restantes e orquestração do Google Home** — port de `soundPresentation`, `artwork`, `preset-artwork`, `sound-file-url`, `cover-bundle-apply`, `vibe-form-preview`, `offline-playback-status`, `google-home-execution` (interface, sem SDK). Depende de K19, K20 | 3 | — |
-| K24 | **Documentar o resultado da Fase 3** e revisar este plano com o aprendizado | 3 | — |
+| K19 | **Schema CSDM vendorizado + domínio canônico no `commonMain`** — cópia byte-idêntica de `capability.v1.schema.json`, port de `canonical-capabilities`/`canonical-contract`/`device-action`/`device-status`, teste de coerência, guards de fronteira reproduzidos em Kotlin. Depende de K18 | 3 | ✅ **Concluído em 2026-09-28.** Merge PR [#11](https://github.com/lucasbrito90/ixora-app/pull/11) (`ixora-app` @ `0846a72`; fix pós-merge `0fc6368`); schema vendorizado + domínio CSDM + `CapabilityContractCoherenceTest` + `CsdmBoundaryTest`; `device-status` fora do SHARED (§17.3 achado 1) |
+| K20 | **Regras de recorrência e rotulagem** — port de `schedule-datetime`, `schedule-format`, `automation-badges`, `automation-summary` (golden master contra o TS real). Depende de K19 | 3 | ✅ **Concluído em 2026-09-28.** Merge PR [#12](https://github.com/lucasbrito90/ixora-app/pull/12) (`ixora-app` @ `033d71e`); paridade de recorrência, datetime e rotulagem de automação em `commonTest` |
+| K21 | **Repositórios de leitura: cenas, dispositivos, conexões e agendamentos** — estende o padrão do K15 aos clientes de API restantes (scene, device, provider-connection, schedule e afins). Depende de K19, K14 | 3 | ✅ **Concluído em 2026-09-28.** PRs [#13](https://github.com/lucasbrito90/ixora-app/pull/13) (`7512d82`), [#14](https://github.com/lucasbrito90/ixora-app/pull/14) (`b134152`), [#15](https://github.com/lucasbrito90/ixora-app/pull/15) (`6a2d787`), [#16](https://github.com/lucasbrito90/ixora-app/pull/16) (`f753d29`), [#17](https://github.com/lucasbrito90/ixora-app/pull/17) (`7ca2c2b`); clientes HTTP + repositórios de scene/device/provider-connection/schedule |
+| K22 | **SQLDelight: espelho de agendamentos e os dois manifestos offline; DataStore de preferências** — implementa a ADR-043. Depende de K18, K20 | 3 | ✅ **Concluído em 2026-09-28.** PRs [#18](https://github.com/lucasbrito90/ixora-app/pull/18) (`0a8e4c2`), [#19](https://github.com/lucasbrito90/ixora-app/pull/19) (`269b216`), [#20](https://github.com/lucasbrito90/ixora-app/pull/20) (`6b944c7`), [#21](https://github.com/lucasbrito90/ixora-app/pull/21) (`02d8b96`); fix [#22](https://github.com/lucasbrito90/ixora-app/pull/22) (`d9849f2`, `IxoraDatabaseSchemaInitializer`) |
+| K23 | **Regras de apresentação restantes e orquestração do Google Home** — port de `soundPresentation`, `artwork`, `preset-artwork`, `sound-file-url`, `cover-bundle-apply`, `vibe-form-preview`, `offline-playback-status`, `google-home-execution` (interface, sem SDK). Depende de K19, K20 | 3 | ✅ **Concluído em 2026-09-28.** PRs [#23](https://github.com/lucasbrito90/ixora-app/pull/23) (`019bd5c`, fix `1bf2f70`), [#24](https://github.com/lucasbrito90/ixora-app/pull/24) (`8468594`), [#25](https://github.com/lucasbrito90/ixora-app/pull/25) (`4792bfe`); apresentação parcial + offline playback + `GoogleHomeExecutionService` |
+| K24 | **Documentar o resultado da Fase 3** e revisar este plano com o aprendizado | 3 | **Em revisão (PR desta branch); concluído com o merge.** §17.3; `quality-harness.md` baseline K24 (**360** casos / **3** skipped @ `4792bfe`); `contracts/README.md` com `ixora-app` como consumidor vendorizado |
 
 Ordem: K18 → K19 → K20 → (K21 e K23 em paralelo) → K22 → K24. **A Fase 4 não começa antes do K24.**
 
@@ -1170,6 +1180,24 @@ Este documento não autoriza implementação; registra apenas que a pré-condiç
 **Recomendação para a Fase 3 (domínio e dados):** iniciar. As pré-condições técnicas estão satisfeitas: rede e autenticação provadas contra o staging (K16), `shared` compilando para Android e iOS (klib) e guards ativos. Ordem sugerida: (1) **ADR-043** (persistência: SQLDelight e DataStore; sem armazenamento de token, ver [ADR-044](../../decisions/ADR-044-firebase-auth-kmp.md)) antes de qualquer código de dados; (2) portar a lógica pura por módulo, usando os testes Vitest existentes como oráculo (`utils/`, `canonical-*`) e golden master onde não houver teste; (3) só depois repositórios com cache. **Condições e decisões que precisam de resposta antes ou durante:** (a) decidir a paridade do parser de URL (`hasValidExecutionFileUrl`/`isExecutionLayerPlayable`) com testes; (b) a dívida do metadata de verificação (só Windows) enquanto não houver CI Linux ou Mac; (c) dados semeados no staging QA para fixtures da Fase 3 (hoje há 1 vibe com 3 sons); (d) a questão 2 do §15 (prazo) segue aberta e muda o tamanho das fatias, não a ordem. **A decisão é do PO.**
 
 **Decisões do PO:** (a) aceitar a ADR-044; (b) iniciar a Fase 3. **Decisão do PO sobre a ADR-044:** **aceita em 2026-09-27** (Proposed → Accepted); o risco de threading da implementação Android sobre o SDK do Firebase (Fase 5/6) segue registrado na própria ADR. **Decisão do PO sobre iniciar a Fase 3:** _pendente._
+
+### 17.3 Resultado da Fase 3 e decisão da Fase 4
+
+**Resultado (28/09/2026).** K18–K23 concluídos: schema CSDM vendorizado e domínio canônico, regras de recorrência e rotulagem, repositórios de leitura/escrita de smart home e agendamentos, persistência mobile (SQLDelight + DataStore) e as regras de apresentação/orquestração Google Home restantes. `shared` em 360 testes / 0 falhas (`ixora-app` @ `4792bfe`, ante 93 no fechamento da Fase 2).
+
+**Aprendizados que corrigem premissas do plano:**
+
+1. **`device-status.ts` (618→removido da tabela SHARED)** é apresentação acoplada a Ionicons, não domínio CSDM — retirado do K19, fica para UI da Fase 6.
+2. **`automation-badges.ts`:** só `status→tone` é portável; `label`/`icon` dependem do Design System (Lucide) e de `strings.md`, resolvidos na Fase 6.
+3. **`soundPresentation.ts`/`artwork.ts`:** só parcialmente "sem dependência de framework" — estilos CSS, classes CSS e `getSoundIcon` (Ionicons) ficam fora, para a Fase 6 com os componentes reais do Design System.
+4. **Bug real corrigido antes do merge do K23:** 4 funções de prioridade de URL em `ArtworkPresentation.kt` cortavam a string com `trim()` em vez de preservar o valor original, como o oráculo exige.
+5. **`GoogleHomeExecutor.executeAction` tipa o brilho como `Int`;** o TS aceita `number` (potencialmente fracionário). Decisão fica para a Fase 7 (plugin real), sem caso concreto hoje.
+6. **`kotlinx-datetime` 0.7.1 deprecia `monthNumber`/`dayOfMonth` (K20);** warning de compilação, sem efeito em build/teste; PR de manutenção futuro.
+7. **`IxoraDatabaseSchemaInitializer` (K22):** os 3 repositórios SQLDelight compartilhando um driver quebravam por `Schema.create()` duplicado — corrigido com um inicializador único por driver, com teste de regressão.
+
+**Recomendação para a Fase 4 (player nativo Android — ADR-040, Media3 + fade):** as pré-condições técnicas estão satisfeitas — domínio e dados da Fase 3 provados, **360** testes verdes no gate `androidHostTest`, guard de fronteira ativo e compilação iOS dos targets declarados. A Fase 4 permanece a de **maior risco** do plano: a semântica de fade não tem origem confiável para copiar 1:1 (o runtime Capacitor foi cortado pela ADR-008; a especificação vive na ADR-040 / §10.4 — ver riscos do card-mãe KMP no Trello). Recomenda-se iniciar somente após decisão explícita do PO, mantendo fatias pequenas e testes de comportamento antes de UI.
+
+**Decisão do PO sobre iniciar a Fase 4:** _pendente._
 
 ---
 
