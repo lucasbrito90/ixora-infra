@@ -307,3 +307,15 @@ Phase 4 (K25) identified that Decision 3's enumeration of preserved semantics wa
 These three behaviours are part of the "session state" argument to `PlaybackScheduler` (Decision 2) and must be covered by test cases before the transport is built, exactly as the six behaviours in Decision 3 are. They are not new decisions — they complete the enumeration of Decision 3 without altering it.
 
 **Decision 3 is unchanged.** The six preserved semantics remain as stated. This addendum registers that the audio focus state — the reason a session is paused (manual, transient focus loss, or none) — is part of the session state contract and must be tested alongside the six existing behaviours. The three focus-related test cases are recorded in the Phase 4 backlog (K25), to be implemented and verified in the `PlaybackScheduler` test suite.
+
+### K25 decision — §8.5's clamp applies to any playback, not only to an interval tick
+
+**Decided by the PO on 2026-09-29**, while implementing the scheduler.
+
+§8.5 specifies the proportional clamp for an `interval` tick: when `fadeInSeconds + fadeOutSeconds` exceeds the tick's playable length, both are scaled to fit, preserving their ratio. The same case exists for a duration-bounded `once` or `loop` layer — the fields permit a 30-second fade on a 10-second layer exactly as they permit it on an 8-second tick — and §8 did not say what happens there.
+
+Read literally, §8.2's anchors alone would have the fade-out supersede a fade-in still running: the volume would rise partway, never reach the configured level, and fall to silence at the layer's end. That is defensible against the letter of §8.2, which promises the anchors and not that a fade-in completes. It was rejected for two reasons: the same configuration would sound different depending on the play mode, which reads as a defect rather than a rule; and a truncated attack is *more* noticeable than a compressed symmetric arc, which works against §8.1's reason for choosing a logarithmic curve in the first place.
+
+**The clamp is therefore a property of a playback, not of a play mode.** Any playback whose length is known and shorter than its two fades has them scaled proportionally to fit. Nothing else changes: no field, control or capability is added, the ramp is still declared rather than driven (Decision 5), and §8.5's own reasoning — scaling beats truncating because it keeps both fades audible — is what carries over.
+
+**Still out of reach, by data rather than by decision:** a fade-out anchored to an asset's *natural* end (§8.4, a `once` layer with no `durationSeconds`). The execution plan carries a layer's active window, never the asset's length, so the scheduler cannot anchor it; the transport knows it, and K27 is where that case can be closed.
