@@ -601,7 +601,7 @@ Não iniciar antes: Fase 3 completa — o scheduler depende do plano e dos model
 
 | Card | Descrição | Saída |
 | --- | --- | --- |
-| K25 | Addendum ADR-040 (foco de áudio) + PlaybackScheduler determinístico | Addendum ✅ (achado do foco de áudio registrado). `PlaybackScheduler`/`AudioTransport`: ainda **—**, primeira tentativa não passou na revisão (ver comentário do card K25) |
+| K25 | Addendum ADR-040 (foco de áudio) + PlaybackScheduler determinístico | ✅ **Concluído em 2026-09-29.** Addendum da ADR-040 (estados de foco de áudio + decisão do PO sobre o clamp do §8.5 valer para qualquer reprodução); merge PR [#27](https://github.com/lucasbrito90/ixora-app/pull/27) (`ixora-app` @ `474f3eb`): `PlaybackScheduler` puro (`tick` + `onEvent`), porta `AudioTransport` completa com rampa, 22 testes de tabela; `shared` em **382** testes / 0 falhas. Uma primeira tentativa via Abacus.AI foi descartada na revisão (ver comentário do card K25) |
 | K26 | Esqueleto do módulo androidApp | — |
 | K27 | Transporte Media3 (base, concorrência, foco de áudio) | — |
 | K28 | Rampas de fade sobre o Media3 | — |
