@@ -5,6 +5,8 @@
 
 > **Source of truth.** When app-repo copies diverge, **`ixora-infra/docs/` wins**. Update this index when adding or renaming documents.
 
+> **For AI-assisted tasks:** Start with [`INDEX.md`](INDEX.md) (short navigation index) instead of reading this full file. This README is the complete reference; `INDEX.md` is the routing shortcut.
+
 ---
 
 ## Quick links
