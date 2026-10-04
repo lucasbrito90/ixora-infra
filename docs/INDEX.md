@@ -41,10 +41,19 @@ Full reference: [`README.md`](README.md) (715 lines — detailed, load only when
 
 ## Source of truth
 
-1. **Source code and tests** — current implementation
-2. **ADRs** (`decisions/ADR-*.md`) — accepted architectural decisions; supersede all prior proposals
-3. **Current domain docs** — specs (`specs/`), standards (`standards/`), architecture (`architecture/`)
-4. **Supporting docs** — plans, tasks, operational checklists
-5. **Historical / archived** — read for context only; never cite as current architecture
+| Source | Authority |
+| --- | --- |
+| **ADRs** (`decisions/ADR-*.md`) | **Accepted architectural decisions** — what the architecture is, intentionally and bindingly. Supersede all prior proposals. |
+| **Source code and tests** | Current implementation — what exists today in the codebase. |
+| **Current domain docs** | Operational specs and standards (`specs/`, `standards/`, `architecture/`). |
+| **Supporting docs** | Plans, tasks, checklists — context, not authority. |
+| **Historical / archived** | Read for context only; never cite as current architecture or decision. |
+
+**ADR vs implementation conflict:** When an accepted ADR and the current implementation disagree, do not automatically conclude that the code wins. Instead:
+- State that a divergence exists
+- Report what the ADR mandates (the architectural decision)
+- Report what the implementation does today
+- Do not resolve the conflict by inference
+- Flag that either the implementation or the documentation needs correction
 
 **No-inference rule:** If required information cannot be established from the above sources, identify what is known, identify what is missing, report the gap, and ask for clarification. Never invent undocumented API contracts, provider behavior, authentication flows, or implementation rules.
