@@ -1,6 +1,6 @@
 # Design Artifacts — Tabela de Roteamento
 
-O canvas original de 412 telas foi dividido em **8 artifacts independentes por área**. Cada artifact contém seu próprio conjunto de telas e uma cópia independente do Design System Ixora (tokens claro/escuro, componentes, `bundle.css`).
+O canvas original de 412 telas foi dividido em **8 artifacts independentes por área**. Cada artifact contém seu próprio conjunto de telas e uma cópia independente do Design System Ixora (tokens claro/escuro, componentes, `bundle.css`), e está organizado internamente em **duas páginas: Claro e Escuro**.
 
 **Design System é conceitualmente único.** Os 8 artifacts são cópias independentes do mesmo DS — não há 8 versões divergentes. A fonte canônica é `ixora-app/design-system/` (cópia vendorizada, com sha256 rastreado em `VERSION.md`).
 
@@ -8,20 +8,36 @@ O canvas original de 412 telas foi dividido em **8 artifacts independentes por �
 
 ---
 
+## Hierarquia de navegação
+
+```
+Domínio
+   ↓
+Artifact (área)
+   ↓
+Página: Claro / Escuro
+   ↓
+Tela / board
+```
+
+Ao abrir um artifact, a página **Claro** é exibida por padrão. A página **Escuro** é acessada pelo seletor de páginas do canvas. **Não carregue Claro e Escuro simultaneamente quando apenas uma delas for necessária para a tarefa.**
+
+---
+
 ## Artifacts atuais (current)
 
-| Área | Telas | URL |
-|---|---|---|
-| Smart Home — Conexões & Dispositivos | 132 | https://claude.ai/artifact/AqNLjnRW3tK3aK4mjZRdmD |
-| Smart Home — Cenas & Ações | 48 | https://claude.ai/artifact/5axdL4bv4MRd56LrFfFSrF |
-| Agenda | 30 | https://claude.ai/artifact/3Vq8J1BLdzQ4BNnQyd6rW8 |
-| Autenticação | 22 | https://claude.ai/artifact/Bb7UkuUw3Y15tyKCKYgQ5f |
-| Vibes | 74 | https://claude.ai/artifact/47FNZvzXZG4RcjG5fdu5Yk |
-| Biblioteca Sonora | 54 | https://claude.ai/artifact/8UseU1XqTCH1ubQjc8719A |
-| Presets | 20 | https://claude.ai/artifact/JEYdL6skyjPJEUT3osNX42 |
-| Core — Home, Player, Settings, My Vibes | 32 | https://claude.ai/artifact/3wSQCVqbgs84JFqr4BsQVf |
+| Área | Claro | Escuro | Total | URL |
+|---|---|---|---|---|
+| Smart Home — Conexões & Dispositivos | 66 | 66 | **132** | https://claude.ai/artifact/AqNLjnRW3tK3aK4mjZRdmD |
+| Smart Home — Cenas & Ações | 24 | 24 | **48** | https://claude.ai/artifact/5axdL4bv4MRd56LrFfFSrF |
+| Agenda | 15 | 15 | **30** | https://claude.ai/artifact/3Vq8J1BLdzQ4BNnQyd6rW8 |
+| Autenticação | 11 | 11 | **22** | https://claude.ai/artifact/Bb7UkuUw3Y15tyKCKYgQ5f |
+| Vibes | 37 | 37 | **74** | https://claude.ai/artifact/47FNZvzXZG4RcjG5fdu5Yk |
+| Biblioteca Sonora | 27 | 27 | **54** | https://claude.ai/artifact/8UseU1XqTCH1ubQjc8719A |
+| Presets | 10 | 10 | **20** | https://claude.ai/artifact/JEYdL6skyjPJEUT3osNX42 |
+| Core — Home, Player, Settings, My Vibes | 16 | 16 | **32** | https://claude.ai/artifact/3wSQCVqbgs84JFqr4BsQVf |
 
-**Total:** 132 + 48 + 30 + 22 + 74 + 54 + 20 + 32 = **412 telas** (nenhuma perdida).
+**Total:** 206 telas Claro + 206 telas Escuro = **412 telas** em 16 páginas (8 artifacts × 2 páginas).
 
 ---
 
@@ -35,13 +51,20 @@ https://claude.ai/artifact/4a7Jm6CmNjWXU1STEUhH61
 
 ## Como navegar dentro de um artifact
 
-Cada artifact tem:
-- `project/canvas.json` — índice das telas da área (nomes de arquivo, estados, tema)
-- `project/<nome>.dc.html` — tela individual (claro, escuro, estados)
+Cada artifact tem duas páginas internas (**Claro** e **Escuro**), selecionáveis pelo seletor de páginas do canvas. Dentro de cada página:
 
-**Confira sempre o `canvas.json` do artifact antes de citar um caminho.** Exemplos:
-- "Home, claro" → artifact Core → `project/Main.dc.html`
-- "Gerenciar Conexões" → artifact Smart Home — Conexões & Dispositivos
+- `project/canvas.json` — índice das telas da área (nomes de arquivo, estados, página)
+- `project/<nome>.dc.html` — tela individual
+
+**Exemplo de localização completa:**
+
+```
+Smart Home → Conexões & Dispositivos → Claro → smart-conexao-connected
+Vibes → Vibes → Escuro → player-...
+Core → Core — Home, Player, Settings, My Vibes → Claro → Main.dc.html  (= "Home, claro")
+```
+
+**Confira sempre o `canvas.json` do artifact antes de citar um caminho.**
 
 ---
 
