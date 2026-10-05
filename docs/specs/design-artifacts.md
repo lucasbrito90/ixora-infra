@@ -1,0 +1,85 @@
+# Design Artifacts — Tabela de Roteamento
+
+O canvas original de 412 telas foi dividido em **8 artifacts independentes por área**. Cada artifact contém seu próprio conjunto de telas e uma cópia independente do Design System Ixora (tokens claro/escuro, componentes, `bundle.css`), e está organizado internamente em **duas páginas: Claro e Escuro**.
+
+**Design System é conceitualmente único.** Os 8 artifacts são cópias independentes do mesmo DS — não há 8 versões divergentes. A fonte canônica é `ixora-app/design-system/` (cópia vendorizada, com sha256 rastreado em `VERSION.md`).
+
+> **Atenção:** não use o `ds/ixora/tokens.json` embutido em nenhum dos artifacts de tela — é uma cópia mais antiga (sem `duration` e `easing`). Use sempre `ixora-app/design-system/tokens.json`.
+
+---
+
+## Hierarquia de navegação
+
+```
+Domínio
+   ↓
+Artifact (área)
+   ↓
+Página: Claro / Escuro
+   ↓
+Tela / board
+```
+
+Ao abrir um artifact, a página **Claro** é exibida por padrão. A página **Escuro** é acessada pelo seletor de páginas do canvas. **Não carregue Claro e Escuro simultaneamente quando apenas uma delas for necessária para a tarefa.**
+
+---
+
+## Artifacts atuais (current)
+
+| Área | Claro | Escuro | Total | URL |
+|---|---|---|---|---|
+| Smart Home — Conexões & Dispositivos | 66 | 66 | **132** | https://claude.ai/artifact/AqNLjnRW3tK3aK4mjZRdmD |
+| Smart Home — Cenas & Ações | 24 | 24 | **48** | https://claude.ai/artifact/5axdL4bv4MRd56LrFfFSrF |
+| Agenda | 15 | 15 | **30** | https://claude.ai/artifact/3Vq8J1BLdzQ4BNnQyd6rW8 |
+| Autenticação | 11 | 11 | **22** | https://claude.ai/artifact/Bb7UkuUw3Y15tyKCKYgQ5f |
+| Vibes | 37 | 37 | **74** | https://claude.ai/artifact/47FNZvzXZG4RcjG5fdu5Yk |
+| Biblioteca Sonora | 27 | 27 | **54** | https://claude.ai/artifact/8UseU1XqTCH1ubQjc8719A |
+| Presets | 10 | 10 | **20** | https://claude.ai/artifact/JEYdL6skyjPJEUT3osNX42 |
+| Core — Home, Player, Settings, My Vibes | 16 | 16 | **32** | https://claude.ai/artifact/3wSQCVqbgs84JFqr4BsQVf |
+
+**Total:** 206 telas Claro + 206 telas Escuro = **412 telas** em 16 páginas (8 artifacts × 2 páginas).
+
+---
+
+## Canvas combinado (legacy reference)
+
+O canvas original de 412 telas permanece disponível como referência histórica/combinada. **Não é a forma preferencial** para localizar telas de uma área específica — carregue somente o artifact da área que está implementando.
+
+https://claude.ai/artifact/4a7Jm6CmNjWXU1STEUhH61
+
+---
+
+## Como navegar dentro de um artifact
+
+Cada artifact tem duas páginas internas (**Claro** e **Escuro**), selecionáveis pelo seletor de páginas do canvas. Dentro de cada página:
+
+- `project/canvas.json` — índice das telas da área (nomes de arquivo, estados, página)
+- `project/<nome>.dc.html` — tela individual
+
+**Exemplo de localização completa:**
+
+```
+Smart Home → Conexões & Dispositivos → Claro → smart-conexao-connected
+Vibes → Vibes → Escuro → player-...
+Core → Core — Home, Player, Settings, My Vibes → Claro → Main.dc.html  (= "Home, claro")
+```
+
+**Confira sempre o `canvas.json` do artifact antes de citar um caminho.**
+
+---
+
+## Mapeamento por card de implementação (ixora-app)
+
+| Card | Área | Artifact |
+|---|---|---|
+| UI-01 — Autenticação | Entrada, Entrar, Criar conta, Redefinir senha | **Autenticação** |
+| UI-02 — Home | Home e abas | **Core — Home, Player, Settings, My Vibes** |
+| UI-03 — Player | Player, menu do player | **Core — Home, Player, Settings, My Vibes** |
+| UI-04 — My Vibes | My Vibes, menu, exclusão | **Core — Home, Player, Settings, My Vibes** |
+| UI-05 — Vibes | Criar/editar vibe, seletor de capa | **Vibes** |
+| UI-06 — Sons | Sons da vibe, ajustes de som | **Vibes** ou **Biblioteca Sonora** (verificar `canvas.json`) |
+| UI-07 — Devices & Conexões | Dispositivos, conexões, providers, descoberta | **Smart Home — Conexões & Dispositivos** |
+| UI-08 — Cenas | Cenas, formulário, ações da cena | **Smart Home — Cenas & Ações** |
+| UI-09 — Agenda | Agendamentos, formulário de agenda | **Agenda** |
+| UI-10 — Presets | Presets, detalhe, importar | **Presets** |
+| UI-11 — Settings | Configurações | **Core — Home, Player, Settings, My Vibes** |
