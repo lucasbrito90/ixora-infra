@@ -8,6 +8,7 @@
 | --- | --- |
 | [`mvp/spec.md`](mvp/spec.md) | Foundation spec — provider connections, devices, vibe actions, async HA execution |
 | [`canonical-device-model.md`](canonical-device-model.md) | CSDM — platform-wide device abstraction |
+| [`cat-01-capability-governance.md`](cat-01-capability-governance.md) | CAT-01 governance reference — ratified/provisional/deferred capabilities, DeviceType vs capability distinction. Required reading for DEV-01 and any capability amendment. |
 | [`multi-provider/current-state.md`](multi-provider/current-state.md) | Multi-provider current implementation state |
 | [`multi-provider/adr-conformance.md`](multi-provider/adr-conformance.md) | Conformance review of multi-provider ADRs |
 
