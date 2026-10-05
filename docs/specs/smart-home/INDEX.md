@@ -31,12 +31,14 @@ All in `ixora-infra/docs/decisions/`.
 
 ## Design
 
-| Artifact | Telas | URL |
-| --- | --- | --- |
-| Smart Home — Conexões & Dispositivos | 132 | https://claude.ai/artifact/AqNLjnRW3tK3aK4mjZRdmD |
-| Smart Home — Cenas & Ações | 48 | https://claude.ai/artifact/5axdL4bv4MRd56LrFfFSrF |
+Cada artifact tem duas páginas internas: **Claro** (padrão) e **Escuro** (seletor de páginas do canvas).
 
-Routing completo (todos os 8 artifacts): [`../../specs/design-artifacts.md`](../../specs/design-artifacts.md).
+| Artifact | Claro | Escuro | Total | URL |
+| --- | --- | --- | --- | --- |
+| Smart Home — Conexões & Dispositivos | 66 | 66 | **132** | https://claude.ai/artifact/AqNLjnRW3tK3aK4mjZRdmD |
+| Smart Home — Cenas & Ações | 24 | 24 | **48** | https://claude.ai/artifact/5axdL4bv4MRd56LrFfFSrF |
+
+Routing completo (todos os 8 artifacts, hierarquia de navegação): [`../../specs/design-artifacts.md`](../../specs/design-artifacts.md).
 
 ## Specs (historical — implementation complete)
 
