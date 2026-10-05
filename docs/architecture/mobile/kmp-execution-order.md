@@ -62,7 +62,7 @@
 
 ## 3. Mapa das telas das Fases 5 e 6
 
-Cada card de tela tem a lista das pranchas (`project/<nome>-claro|escuro.dc.html` no canvas de telas), os componentes e as strings.
+Cada card de tela tem a lista das pranchas (disponíveis nos artifacts por área — ver [`../../../specs/design-artifacts.md`](../../../specs/design-artifacts.md)), os componentes e as strings. O índice de cada artifact é `project/canvas.json`; cada tela é `project/<nome>.dc.html`.
 
 | Card | Fase | Telas | Componentes principais | Bloqueio ou dependência específica |
 | --- | --- | --- | --- | --- |
@@ -100,4 +100,4 @@ Cada card de tela tem a lista das pranchas (`project/<nome>-claro|escuro.dc.html
 - Mover a entrega do tema (`Colors.kt` etc.) da Fase 5 para paralelo à Fase 4.
 - Deixar explícito que o esqueleto do `androidApp` abre a Fase 4, apesar de "não iniciar antes da Fase 3".
 - Incluir Presets na ordem das áreas da Fase 6.
-- Trocar a referência ao canvas de telas por um caminho estável, já que o canvas pode ser dividido.
+- ~~Trocar a referência ao canvas de telas por um caminho estável, já que o canvas pode ser dividido.~~ (resolvido: canvas dividido em 8 artifacts por área; routing em `docs/specs/design-artifacts.md`)

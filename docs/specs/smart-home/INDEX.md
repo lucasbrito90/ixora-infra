@@ -29,6 +29,15 @@ All in `ixora-infra/docs/decisions/`.
 | [`google-home/data-retention.md`](google-home/data-retention.md) | Retention compliance |
 | [`google-home/trait-capability-mapping.md`](google-home/trait-capability-mapping.md) | GH trait → CSDM mapping |
 
+## Design
+
+| Artifact | Telas | URL |
+| --- | --- | --- |
+| Smart Home — Conexões & Dispositivos | 132 | https://claude.ai/artifact/AqNLjnRW3tK3aK4mjZRdmD |
+| Smart Home — Cenas & Ações | 48 | https://claude.ai/artifact/5axdL4bv4MRd56LrFfFSrF |
+
+Routing completo (todos os 8 artifacts): [`../../specs/design-artifacts.md`](../../specs/design-artifacts.md).
+
 ## Specs (historical — implementation complete)
 
 | Document | Status |
