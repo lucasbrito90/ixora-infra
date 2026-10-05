@@ -36,6 +36,7 @@ Full reference: [`README.md`](README.md) (715 lines — detailed, load only when
 | Architecture (cross-cutting) | [`architecture/INDEX.md`](architecture/INDEX.md) |
 | Smart Home | [`specs/smart-home/INDEX.md`](specs/smart-home/INDEX.md) |
 | Observability Foundation | [`specs/observability-foundation/INDEX.md`](specs/observability-foundation/INDEX.md) |
+| Design Artifacts (telas) | [`specs/design-artifacts.md`](specs/design-artifacts.md) |
 
 ---
 
