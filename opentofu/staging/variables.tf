@@ -69,7 +69,7 @@ variable "api_cors_allowed_origins" {
 variable "db_cluster_name" {
   description = "Managed Postgres cluster name."
   type        = string
-  default     = "ixora-staging-postgres"
+  default     = "ixora-staging-postgres-oct-9-backup"
 }
 
 variable "db_node_size" {
@@ -93,7 +93,7 @@ variable "db_node_count" {
 variable "db_firewall_extra_ip_addrs" {
   description = "Additional Postgres firewall ip_addr rules beyond the staging VPC CIDR (e.g. developer/ops public IP for direct psql). Empty strings are ignored."
   type        = list(string)
-  default     = ["108.180.255.58"]
+  default     = ["108.180.255.58", "64.180.87.108"]
 }
 
 # ── Spaces ────────────────────────────────────────────────────────────────────
@@ -284,6 +284,12 @@ variable "api_dockerfile_path" {
   description = "Path to Dockerfile relative to repository root."
   type        = string
   default     = "Dockerfile"
+}
+
+variable "audio_worker_instance_size_slug" {
+  description = "App Platform size for the FFmpeg audio worker (transcoding needs more memory than the basic-xxs push worker)."
+  type        = string
+  default     = "basic-xs"
 }
 
 variable "api_source_dir" {
