@@ -241,6 +241,55 @@ resource "digitalocean_app" "api" {
       }
     }
 
+    # Audio media worker (AUDIO-03C): dedicated App Platform **worker** that transcodes uploaded sound audio with
+    # FFmpeg and publishes versioned distribution assets. Separate from `queue` (push / smart-home) so a long
+    # transcode never delays notifications and the FFmpeg-enabled image stays out of the API and other workers.
+    #
+    # - Same Dockerfile; BUILD_TIME `WITH_FFMPEG=true` is passed as a Docker build arg and installs ffmpeg/ffprobe.
+    # - Laravel database queue on the existing PostgreSQL (`jobs` table), connection `database_audio`
+    #   (retry_after 900s > job timeout 600s), queue `audio` — see back_vibes config/audio.php and config/queue.php.
+    # - `AUDIO_RECOVERY_ON_WORKER_LOOP=true` makes this worker sweep for stuck/lost revisions and pending storage
+    #   deletions between jobs (no extra cron/process). Only this component enables it.
+    # - `--timeout` needs pcntl (installed in the image). `--max-time` recycles the process to bound memory.
+    worker {
+      name               = "audio-worker"
+      instance_count     = 1
+      instance_size_slug = var.audio_worker_instance_size_slug
+
+      github {
+        repo           = var.github_repo_api
+        branch         = var.github_branch
+        deploy_on_push = true
+      }
+
+      dockerfile_path = var.api_dockerfile_path
+      source_dir      = var.api_source_dir
+
+      run_command = "php artisan queue:work database_audio --queue=audio --tries=3 --sleep=3 --timeout=600 --max-time=3600 --memory=384"
+
+      env {
+        key   = "WITH_FFMPEG"
+        value = "true"
+        scope = "BUILD_TIME"
+      }
+
+      env {
+        key   = "AUDIO_RECOVERY_ON_WORKER_LOOP"
+        value = "true"
+        scope = "RUN_TIME"
+      }
+
+      dynamic "env" {
+        for_each = { for idx, e in local.api_worker_runtime_env : idx => e }
+        content {
+          key   = env.value.key
+          value = env.value.value
+          type  = env.value.type
+          scope = "RUN_TIME"
+        }
+      }
+    }
+
     ingress {
       rule {
         component {
